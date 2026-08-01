@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # VPS Sentinel installer. Idempotent: safe to re-run.
 set -euo pipefail
 
@@ -105,6 +105,20 @@ fi
 say "nginx vhost"
 sed "s/vps\\.grouvi\\.online/$DOMAIN/g" deploy/nginx-vps-sentinel.conf \
   > /etc/nginx/sites-available/vps-sentinel
+
+# nginx >= 1.25.1 uses the standalone "http2 on;" directive, older ones the listen flag
+NGX_VER=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+NGX_MAJOR=${NGX_VER%%.*}
+NGX_MINOR=$(echo "$NGX_VER" | cut -d. -f2)
+if [ "$NGX_MAJOR" -lt 1 ] || { [ "$NGX_MAJOR" -eq 1 ] && [ "$NGX_MINOR" -lt 25 ]; }; then
+  sed -i 's/^    http2 on;$//' /etc/nginx/sites-available/vps-sentinel
+  sed -i 's/^    listen 443 ssl;$/    listen 443 ssl http2;/' /etc/nginx/sites-available/vps-sentinel
+  sed -i 's/^    listen \[::\]:443 ssl;$/    listen [::]:443 ssl http2;/' /etc/nginx/sites-available/vps-sentinel
+  ok "nginx $NGX_VER - using legacy http2 syntax"
+else
+  ok "nginx $NGX_VER - using modern http2 directive"
+fi
+
 ln -sf /etc/nginx/sites-available/vps-sentinel /etc/nginx/sites-enabled/vps-sentinel
 nginx -t
 ok "config valid"
@@ -128,6 +142,8 @@ fi
 install -m 644 deploy/vps-sentinel.service /etc/systemd/system/vps-sentinel.service
 systemctl daemon-reload
 systemctl enable --now vps-sentinel
+sleep 2
+systemctl restart vps-sentinel
 sleep 2
 systemctl reload nginx
 
