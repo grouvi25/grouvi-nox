@@ -10,6 +10,7 @@ import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import { attachWebsocket } from './ws.js';
 import { startCollectors } from './metrics/index.js';
+import { startAdminSocket } from './admin-socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
@@ -66,6 +67,7 @@ server.headersTimeout = 20_000;
 server.requestTimeout = 30_000;
 
 attachWebsocket(server);
+startAdminSocket();
 startCollectors();
 
 server.listen(config.port, config.host, () => {

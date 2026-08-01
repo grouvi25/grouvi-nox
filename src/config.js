@@ -7,6 +7,7 @@ export const config = {
   port: num(env.PORT, 3999),
   host: env.HOST || '127.0.0.1',
   stateDir: env.STATE_DIR || '/var/lib/vps-sentinel',
+  adminSocket: env.ADMIN_SOCKET || '/run/vps-sentinel/admin.sock',
 
   // WebAuthn relying party
   rpID: env.RP_ID || 'vps.grouvi.online',
