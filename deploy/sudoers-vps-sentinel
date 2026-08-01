@@ -1,0 +1,7 @@
+# VPS Sentinel needs exactly two read-only commands with elevated rights.
+# Nothing else. No wildcards, no shell, no package manager.
+Defaults:vpssentinel !requiretty
+Defaults:vpssentinel env_keep += "HOME"
+
+vpssentinel ALL=(root) NOPASSWD: /usr/bin/pm2 jlist
+vpssentinel ALL=(root) NOPASSWD: /usr/bin/fail2ban-client status sshd

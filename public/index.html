@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>VPS Sentinel</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2335d6a4'/></svg>">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo">S</div>
+      <div>
+        <h1>VPS Sentinel</h1>
+        <div class="sub" id="hostname">…</div>
+      </div>
+    </div>
+    <div class="host-meta">
+      <div class="meta-item"><span class="k">Система</span><span class="v" id="os">…</span></div>
+      <div class="meta-item"><span class="k">Ядро</span><span class="v" id="kernel">…</span></div>
+      <div class="meta-item"><span class="k">Аптайм</span><span class="v" id="uptime">…</span></div>
+      <div class="conn"><span class="dot" id="dot"></span><span id="connText">подключение…</span></div>
+      <button class="ghost" id="logout">Выйти</button>
+    </div>
+  </header>
+
+  <div id="alerts"></div>
+
+  <section class="kpis">
+    <div class="kpi" id="k-cpu">
+      <div class="label">Процессор</div>
+      <div class="value"><span id="cpuVal">0</span><small>%</small></div>
+      <div class="foot" id="cpuFoot">—</div>
+      <canvas id="sparkCpu"></canvas>
+    </div>
+    <div class="kpi" id="k-mem">
+      <div class="label">Память</div>
+      <div class="value"><span id="memVal">0</span><small>%</small></div>
+      <div class="foot" id="memFoot">—</div>
+      <canvas id="sparkMem"></canvas>
+    </div>
+    <div class="kpi" id="k-disk">
+      <div class="label">Диск /</div>
+      <div class="value"><span id="diskVal">0</span><small>%</small></div>
+      <div class="foot" id="diskFoot">—</div>
+      <div class="bar"><i id="diskBar"></i></div>
+      <div class="foot" id="diskIoFoot" style="margin-top:10px">—</div>
+    </div>
+    <div class="kpi" id="k-load">
+      <div class="label">Load average</div>
+      <div class="value" id="loadVal">0.00</div>
+      <div class="foot" id="loadFoot">—</div>
+      <canvas id="sparkLoad"></canvas>
+    </div>
+    <div class="kpi" id="k-net">
+      <div class="label">Сеть</div>
+      <div class="value" style="font-size:21px" id="netVal">0 / 0</div>
+      <div class="foot" id="netFoot">—</div>
+      <canvas id="sparkNet"></canvas>
+    </div>
+    <div class="kpi" id="k-swap">
+      <div class="label">Своп</div>
+      <div class="value"><span id="swapVal">0</span><small>%</small></div>
+      <div class="foot" id="swapFoot">—</div>
+      <div class="bar"><i id="swapBar"></i></div>
+      <div class="foot" id="procFoot" style="margin-top:10px">—</div>
+    </div>
+  </section>
+
+  <section class="cols c2">
+    <div class="panel">
+      <h2>Нагрузка CPU и памяти <span class="right" id="chartRange">последние минуты</span></h2>
+      <div class="chart-wrap"><canvas id="chartCpu"></canvas></div>
+      <div class="legend">
+        <span><i style="background:#35d6a4"></i>CPU %</span>
+        <span><i style="background:#3fa9ff"></i>Память %</span>
+        <span><i style="background:#a074ff"></i>Своп %</span>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Сеть и диск <span class="right">КБ/с</span></h2>
+      <div class="chart-wrap"><canvas id="chartNet"></canvas></div>
+      <div class="legend">
+        <span><i style="background:#35d6a4"></i>Входящий</span>
+        <span><i style="background:#3fa9ff"></i>Исходящий</span>
+        <span><i style="background:#f5b544"></i>Чтение диска</span>
+        <span><i style="background:#ff5c6c"></i>Запись диска</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="cols c2">
+    <div class="panel">
+      <h2>Ядра процессора <span class="count" id="coreCount">0</span></h2>
+      <div class="body"><div class="cores" id="cores"></div></div>
+    </div>
+    <div class="panel">
+      <h2>Файловые системы</h2>
+      <div class="body flush"><table><thead><tr>
+        <th>Точка монтирования</th><th>Устройство</th><th class="num">Всего</th><th class="num">Свободно</th><th class="num">Занято</th>
+      </tr></thead><tbody id="fsBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="cols c2">
+    <div class="panel">
+      <h2>Docker <span class="count" id="ctnCount">0</span><span class="right" id="ctnSummary"></span></h2>
+      <div class="body flush" id="containers"></div>
+    </div>
+    <div class="panel">
+      <h2>PM2 <span class="count" id="pm2Count">0</span></h2>
+      <div class="body flush"><table><thead><tr>
+        <th>Процесс</th><th>Статус</th><th class="num">CPU</th><th class="num">Память</th><th class="num">Рестарты</th><th class="num">Аптайм</th>
+      </tr></thead><tbody id="pm2Body"></tbody></table></div>
+    </div>
+  </section>
+
+  <section class="cols c3">
+    <div class="panel">
+      <h2>Безопасность</h2>
+      <div class="body" id="security"></div>
+    </div>
+    <div class="panel">
+      <h2>TLS-сертификаты <span class="count" id="certCount">0</span></h2>
+      <div class="body flush"><table><thead><tr>
+        <th>Домен</th><th class="num">Осталось</th>
+      </tr></thead><tbody id="certBody"></tbody></table></div>
+    </div>
+    <div class="panel">
+      <h2>Резервные копии</h2>
+      <div class="body" id="backups"></div>
+    </div>
+  </section>
+
+  <section class="cols c3">
+    <div class="panel">
+      <h2>Системные службы</h2>
+      <div class="body" id="services"></div>
+    </div>
+    <div class="panel">
+      <h2>Место в Docker</h2>
+      <div class="body" id="dockerDisk"></div>
+    </div>
+    <div class="panel">
+      <h2>Последние входы по SSH</h2>
+      <div class="body flush" id="logins"></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span id="footInfo">VPS Sentinel — только чтение, изменения через панель невозможны</span>
+  </footer>
+
+</div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

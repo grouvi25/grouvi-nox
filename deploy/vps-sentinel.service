@@ -1,0 +1,47 @@
+[Unit]
+Description=VPS Sentinel - read-only realtime monitoring dashboard
+Documentation=https://github.com/grouvi25/vps-sentinel
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vpssentinel
+Group=vpssentinel
+SupplementaryGroups=docker adm
+WorkingDirectory=/opt/vps-sentinel
+EnvironmentFile=-/etc/vps-sentinel.env
+ExecStart=/usr/bin/node /opt/vps-sentinel/src/server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vps-sentinel
+
+# --- sandboxing ---------------------------------------------------
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/vps-sentinel
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+UMask=0077
+
+# --- resource caps -------------------------------------------------
+MemoryMax=320M
+TasksMax=192
+LimitNOFILE=4096
+CPUQuota=40%
+
+[Install]
+WantedBy=multi-user.target
