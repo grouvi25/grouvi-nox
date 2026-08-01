@@ -46,20 +46,23 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
 
 .brand{padding:20px 18px 16px;display:flex;align-items:center;gap:12px}
 
-/* Brand mark: pentagon = guarded host, pulse = live monitoring. */
+/* Brand mark — same construction as the tempmail glyph: an outlined point-up
+   pentagon. Where mail puts an envelope flap inside, we put a heartbeat:
+   the shape says "host", the line says "alive and watched". */
 .mark{width:36px;height:36px;flex-shrink:0;display:block;overflow:visible}
-.mark .m-shape{
-  fill:var(--accent);stroke:var(--accent);stroke-width:2.4;
-  stroke-linejoin:round;transition:fill .18s,stroke .18s;
-}
+.mark .m-shape,
 .mark .m-pulse{
-  fill:none;stroke:var(--bg);stroke-width:2.4;
+  fill:none;stroke:var(--accent);
   stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke .18s ease;
 }
-.brand:hover .mark .m-shape{fill:var(--white);stroke:var(--white)}
+.mark .m-shape{stroke-width:2}
+.mark .m-pulse{stroke-width:1.9}
+.brand:hover .mark .m-shape,
+.brand:hover .mark .m-pulse{stroke:var(--white)}
 
-/* the pulse traces itself once on load, then holds */
-.mark .m-pulse{stroke-dasharray:34;stroke-dashoffset:34;animation:trace .9s .15s ease-out forwards}
+/* the heartbeat draws itself once on load, then rests */
+.mark .m-pulse{stroke-dasharray:32;stroke-dashoffset:32;animation:trace .85s .2s ease-out forwards}
 @keyframes trace{to{stroke-dashoffset:0}}
 @media(prefers-reduced-motion:reduce){
   .mark .m-pulse{animation:none;stroke-dashoffset:0}
