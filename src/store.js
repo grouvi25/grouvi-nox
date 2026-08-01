@@ -2,6 +2,14 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { config, statePath } from './config.js';
 
+/**
+ * State is shared between two processes: the long-running web service and the
+ * short-lived CLI (`npm run enroll` / `recovery`). Without coordination the
+ * service would happily overwrite whatever the CLI just wrote, because it holds
+ * its own copy in memory. So every read checks the file mtime and reloads when
+ * somebody else touched it.
+ */
+
 const DEFAULTS = () => ({
   version: 1,
   createdAt: new Date().toISOString(),
@@ -14,34 +22,71 @@ const DEFAULTS = () => ({
 });
 
 let state = null;
+let knownMtimeMs = 0;
+let lastCheckedAt = 0;
+const CHECK_THROTTLE_MS = 250;
 
 function ensureDir() {
   fs.mkdirSync(config.stateDir, { recursive: true, mode: 0o700 });
 }
 
+function currentMtime() {
+  try { return fs.statSync(statePath).mtimeMs; } catch { return 0; }
+}
+
+function readFromDisk() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    knownMtimeMs = currentMtime();
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalise(obj) {
+  const d = DEFAULTS();
+  let dirty = false;
+  for (const k of Object.keys(d)) {
+    if (obj[k] === undefined) { obj[k] = d[k]; dirty = true; }
+  }
+  if (!obj.sessionSecret) {
+    obj.sessionSecret = crypto.randomBytes(48).toString('base64url');
+    dirty = true;
+  }
+  return dirty;
+}
+
 export function load() {
   if (state) return state;
   ensureDir();
-  try {
-    state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
-  } catch {
-    state = DEFAULTS();
-  }
-  let dirty = false;
-  const d = DEFAULTS();
-  for (const k of Object.keys(d)) {
-    if (state[k] === undefined) { state[k] = d[k]; dirty = true; }
-  }
-  if (!state.sessionSecret) {
-    state.sessionSecret = crypto.randomBytes(48).toString('base64url');
-    dirty = true;
-  }
-  if (dirty) save();
+  state = readFromDisk() || DEFAULTS();
+  if (normalise(state)) save();
   return state;
 }
 
+/** Reload if another process wrote the file since we last looked. */
+function ensureFresh() {
+  const now = Date.now();
+  if (now - lastCheckedAt < CHECK_THROTTLE_MS) return;
+  lastCheckedAt = now;
+
+  const mtime = currentMtime();
+  if (mtime === 0 || mtime === knownMtimeMs) return;
+
+  const fresh = readFromDisk();
+  if (!fresh) return;
+
+  // Keep the session secret stable: rotating it would sign out every browser.
+  if (!fresh.sessionSecret && state?.sessionSecret) fresh.sessionSecret = state.sessionSecret;
+  state = fresh;
+  normalise(state);
+}
+
 export function get() {
-  return state || load();
+  if (!state) return load();
+  ensureFresh();
+  return state;
 }
 
 export function save() {
@@ -49,6 +94,8 @@ export function save() {
   const tmp = `${statePath}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(state, null, 2), { mode: 0o600 });
   fs.renameSync(tmp, statePath);
+  knownMtimeMs = currentMtime();
+  lastCheckedAt = Date.now();
 }
 
 export function audit(event, detail, ip) {
