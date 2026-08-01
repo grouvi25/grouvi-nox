@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- VPS Sentinel mark: the pentagon reads as a shield (guarded host),
+       the pulse inside reads as a live heartbeat (realtime monitoring).
+       Same geometric family as the tempmail envelope-pentagon. -->
+  <rect width="32" height="32" rx="7" fill="#111111"/>
+  <path d="M16 3.5 27.89 12.14 23.35 26.11 8.65 26.11 4.11 12.14Z"
+        fill="#F4EDE4" stroke="#F4EDE4" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M9.8 17h3l2-4.8 2.6 9.2 2-4.4h3"
+        fill="none" stroke="#111111" stroke-width="2.4"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

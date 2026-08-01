@@ -28,6 +28,14 @@ body{
 
 svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
+::selection{background:rgba(244,237,228,.22);color:var(--white)}
+
+/* one consistent focus ring, keyboard only */
+:focus{outline:none}
+:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;
+}
+
 /* ============================ shell ============================ */
 .app{display:flex;height:100dvh;overflow:hidden}
 
@@ -37,12 +45,25 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
 }
 
 .brand{padding:20px 18px 16px;display:flex;align-items:center;gap:12px}
-.brand-icon{
-  width:36px;height:36px;flex-shrink:0;border-radius:var(--r);
-  background:var(--accent);color:var(--bg);
-  display:flex;align-items:center;justify-content:center;
+
+/* Brand mark: pentagon = guarded host, pulse = live monitoring. */
+.mark{width:36px;height:36px;flex-shrink:0;display:block;overflow:visible}
+.mark .m-shape{
+  fill:var(--accent);stroke:var(--accent);stroke-width:2.4;
+  stroke-linejoin:round;transition:fill .18s,stroke .18s;
 }
-.brand-icon svg{width:19px;height:19px;stroke-width:1.9}
+.mark .m-pulse{
+  fill:none;stroke:var(--bg);stroke-width:2.4;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.brand:hover .mark .m-shape{fill:var(--white);stroke:var(--white)}
+
+/* the pulse traces itself once on load, then holds */
+.mark .m-pulse{stroke-dasharray:34;stroke-dashoffset:34;animation:trace .9s .15s ease-out forwards}
+@keyframes trace{to{stroke-dashoffset:0}}
+@media(prefers-reduced-motion:reduce){
+  .mark .m-pulse{animation:none;stroke-dashoffset:0}
+}
 .brand-info{min-width:0}
 .brand-info h1{font-size:14px;font-weight:600;color:var(--accent);letter-spacing:-.2px}
 .brand-info .host{
@@ -74,6 +95,7 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
 .nav-item svg{width:15px;height:15px;flex-shrink:0;color:var(--text3);transition:.12s}
 .nav-item:hover{background:rgba(255,255,255,.04);color:var(--text)}
 .nav-item:hover svg{color:var(--text2)}
+.nav-item:active{background:rgba(255,255,255,.08)}
 .nav-item.active{color:var(--accent);background:rgba(244,237,228,.05)}
 .nav-item.active svg{color:var(--accent)}
 .nav-item.active::before{
@@ -94,7 +116,20 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
 }
 
 /* ============================ main ============================= */
-.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.main{
+  flex:1;display:flex;flex-direction:column;min-width:0;
+  background:linear-gradient(135deg,#111111,#161616,#0e0e0e,#141414,#111111);
+  background-size:400% 400%;
+  animation:bgShift 20s ease-in-out infinite;
+}
+@keyframes bgShift{
+  0%{background-position:0% 50%}
+  25%{background-position:100% 25%}
+  50%{background-position:100% 75%}
+  75%{background-position:0% 50%}
+  100%{background-position:0% 50%}
+}
+@media(prefers-reduced-motion:reduce){.main{animation:none}}
 
 .topbar{
   padding:12px 24px;border-bottom:1px solid var(--border);
@@ -160,9 +195,10 @@ section:first-child .sec-head{margin-top:0}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:12px}
 .kpi{
   background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);
-  padding:14px 16px 10px;overflow:hidden;transition:border-color .2s;
+  padding:14px 16px 10px;overflow:hidden;
+  transition:border-color .15s ease,background .15s ease,transform .15s ease;
 }
-.kpi:hover{border-color:var(--border2)}
+.kpi:hover{border-color:var(--border3);background:var(--panel2);transform:translateY(-1px)}
 .kpi .k-label{
   font-size:10px;font-weight:600;color:var(--text3);
   text-transform:uppercase;letter-spacing:1px;
@@ -183,7 +219,11 @@ section:first-child .sec-head{margin-top:0}
 .g2{grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
 .g3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
 
-.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden}
+.panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);
+  overflow:hidden;transition:border-color .15s ease;
+}
+.panel:hover{border-color:var(--border2)}
 .panel>h3{
   font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;
   letter-spacing:1px;padding:12px 16px;border-bottom:1px solid var(--border);
@@ -230,7 +270,9 @@ thead th{
 }
 tbody td{padding:8px 16px;border-bottom:1px solid rgba(34,34,34,.7);font-family:var(--mono);color:var(--text2)}
 tbody tr:last-child td{border-bottom:none}
-tbody tr:hover td{background:rgba(255,255,255,.025)}
+tbody tr{transition:background .12s ease}
+tbody tr:hover td{background:rgba(255,255,255,.04)}
+tbody tr:active td{background:rgba(255,255,255,.07)}
 td.nm{color:var(--text)}
 td.num,th.num{text-align:right}
 
@@ -258,7 +300,8 @@ td.num,th.num{text-align:right}
 }
 .ctn{display:flex;align-items:center;gap:10px;padding:8px 16px;transition:.12s}
 .ctn+.ctn{border-top:1px solid rgba(34,34,34,.55)}
-.ctn:hover{background:rgba(255,255,255,.025)}
+.ctn:hover{background:rgba(255,255,255,.04)}
+.ctn:active{background:rgba(255,255,255,.07)}
 .ctn .sd{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .ctn .sd.ok{background:var(--green)}
 .ctn .sd.warn{background:var(--code)}
@@ -284,8 +327,7 @@ td.num,th.num{text-align:right}
   width:100%;max-width:392px;background:var(--panel);
   border:1px solid var(--border);border-radius:14px;padding:32px 30px;
 }
-.auth-card .brand-icon{width:42px;height:42px;margin-bottom:18px;border-radius:var(--r2)}
-.auth-card .brand-icon svg{width:22px;height:22px}
+.auth-card .mark{width:44px;height:44px;margin-bottom:18px}
 .auth-card h1{font-size:18px;font-weight:600;margin-bottom:8px;color:var(--accent);letter-spacing:-.3px}
 .auth-card p.lead{color:var(--text2);font-size:12.5px;line-height:1.6;margin-bottom:22px}
 .btn-primary{
@@ -294,7 +336,7 @@ td.num,th.num{text-align:right}
   cursor:pointer;transition:.12s;font-family:var(--sans);
 }
 .btn-primary:hover:not(:disabled){background:var(--accent2)}
-.btn-primary:active:not(:disabled){background:#d9d2c9}
+.btn-primary:active:not(:disabled){background:#d9d2c9;transform:translateY(1px)}
 .btn-primary:disabled{opacity:.45;cursor:not-allowed}
 .btn-link{
   display:block;width:100%;margin-top:13px;background:none;border:none;
