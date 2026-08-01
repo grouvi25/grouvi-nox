@@ -201,6 +201,20 @@ section:first-child .sec-head{margin-top:0}
 .chart-wrap canvas{display:block;width:100%;height:142px}
 .legend{display:flex;gap:16px;flex-wrap:wrap;padding:2px 16px 12px;font-size:11px;color:var(--text3);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:2px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.sw-accent{background:var(--accent)}
+.sw-blue{background:var(--blue)}
+.sw-purple{background:#a855f7}
+.sw-green{background:var(--green)}
+.sw-amber{background:var(--code)}
+.sw-red{background:var(--red)}
+
+/* utility classes (CSP forbids inline style attributes) */
+.val-sm{font-size:19px!important}
+.mt-sm{margin-top:9px}
+.mt-md{margin-top:16px}
+.kv-head{padding-top:12px}
+.txt-crit{color:var(--red)}
+.txt-mono{font-family:var(--mono)}
 
 /* ============================ cores ============================ */
 .cores{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:12px}

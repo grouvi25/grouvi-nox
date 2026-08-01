@@ -123,7 +123,7 @@
             <div class="k-val"><span id="diskVal">0</span><small>%</small></div>
             <div class="k-foot" id="diskFoot">—</div>
             <div class="track"><i id="diskBar"></i></div>
-            <div class="k-foot" id="ioFoot" style="margin-top:9px">—</div>
+            <div class="k-foot mt-sm" id="ioFoot">—</div>
           </div>
           <div class="kpi" id="kLoad">
             <div class="k-label">Load average</div>
@@ -133,7 +133,7 @@
           </div>
           <div class="kpi" id="kNet">
             <div class="k-label">Сеть</div>
-            <div class="k-val" id="netVal" style="font-size:19px">—</div>
+            <div class="k-val val-sm" id="netVal">—</div>
             <div class="k-foot" id="netFoot">—</div>
             <canvas id="spNet"></canvas>
           </div>
@@ -142,7 +142,7 @@
             <div class="k-val"><span id="swapVal">0</span><small>%</small></div>
             <div class="k-foot" id="swapFoot">—</div>
             <div class="track"><i id="swapBar"></i></div>
-            <div class="k-foot" id="procFoot" style="margin-top:9px">—</div>
+            <div class="k-foot mt-sm" id="procFoot">—</div>
           </div>
         </div>
       </section>
@@ -154,19 +154,19 @@
             <h3>Процессор и память</h3>
             <div class="chart-wrap"><canvas id="chCpu"></canvas></div>
             <div class="legend">
-              <span><i style="background:#F4EDE4"></i>CPU</span>
-              <span><i style="background:#3b82f6"></i>Память</span>
-              <span><i style="background:#a855f7"></i>Своп</span>
+              <span><i class="sw-accent"></i>CPU</span>
+              <span><i class="sw-blue"></i>Память</span>
+              <span><i class="sw-purple"></i>Своп</span>
             </div>
           </div>
           <div class="panel">
             <h3>Сеть и диск <span class="right">КБ/с</span></h3>
             <div class="chart-wrap"><canvas id="chNet"></canvas></div>
             <div class="legend">
-              <span><i style="background:#22c55e"></i>Входящий</span>
-              <span><i style="background:#3b82f6"></i>Исходящий</span>
-              <span><i style="background:#f59e0b"></i>Чтение</span>
-              <span><i style="background:#ef4444"></i>Запись</span>
+              <span><i class="sw-green"></i>Входящий</span>
+              <span><i class="sw-blue"></i>Исходящий</span>
+              <span><i class="sw-amber"></i>Чтение</span>
+              <span><i class="sw-red"></i>Запись</span>
             </div>
           </div>
         </div>

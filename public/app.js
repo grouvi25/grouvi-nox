@@ -228,12 +228,24 @@ function renderCharts(d) {
 
 function renderCores(d) {
   const cores = d.cpu?.cores || [];
+  const box = $('cores');
   $('coreCount').textContent = cores.length;
-  $('cores').innerHTML = cores.map((v, i) => `
-    <div class="core">
-      <div class="c-top"><span>CPU ${i}</span><b>${v.toFixed(0)}%</b></div>
-      <div class="track"><i class="${lvl(v, 75, 90) === 'ok' ? '' : lvl(v, 75, 90)}" style="width:${clamp(v, 0, 100)}%"></i></div>
-    </div>`).join('');
+
+  // Rebuild only when the core count changes; afterwards just move the bars.
+  if (box.childElementCount !== cores.length) {
+    box.innerHTML = cores.map((v, i) => `
+      <div class="core">
+        <div class="c-top"><span>CPU ${i}</span><b>0%</b></div>
+        <div class="track"><i></i></div>
+      </div>`).join('');
+  }
+  const nodes = box.children;
+  cores.forEach((v, i) => {
+    const node = nodes[i];
+    if (!node) return;
+    node.querySelector('b').textContent = `${v.toFixed(0)}%`;
+    setBar(node.querySelector('.track > i'), v, lvl(v, 75, 90));
+  });
 }
 
 function renderFs(d) {
@@ -313,9 +325,9 @@ function renderSecurity(d) {
     + kv('Неудачных паролей', s.available ? s.failedPassword : '—', 'в текущем окне лога')
     + kv('Несуществующие юзеры', s.available ? s.invalidUser : '—');
   if (s.topAttackers?.length) {
-    html += `<div class="kv" style="padding-top:12px"><span class="k">Топ источников</span><span class="v"></span></div>`;
+    html += '<div class="kv kv-head"><span class="k">Топ источников</span><span class="v"></span></div>';
     html += s.topAttackers.map(a =>
-      kv(`<span style="font-family:var(--mono)">${esc(a.ip)}</span>`, a.count)).join('');
+      kv(`<span class="txt-mono">${esc(a.ip)}</span>`, a.count)).join('');
   }
   $('security').innerHTML = html;
 }
@@ -351,7 +363,7 @@ function renderServices(d) {
   html += kv('Упавших юнитов', failed.length
     ? `<span class="pill crit">${failed.length}</span>`
     : '<span class="pill ok">0</span>');
-  for (const u of failed) html += kv(`<span style="color:var(--red)">${esc(u)}</span>`, '');
+  for (const u of failed) html += kv(`<span class="txt-crit">${esc(u)}</span>`, '');
   if (d.os) {
     html += kv('Ядро', esc(d.os.kernelRunning));
     if (d.os.rebootRequired) {

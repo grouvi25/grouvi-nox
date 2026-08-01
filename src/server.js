@@ -45,12 +45,16 @@ app.get('/', (req, res, next) => {
 app.get('/login', sendPage('login.html'));
 app.get('/enroll', sendPage('enroll.html'));
 
+// Assets must revalidate: a cached stylesheet paired with fresh markup renders
+// as unstyled text, which is worse than an extra 304 round trip.
 app.use(express.static(publicDir, {
   index: false,
   dotfiles: 'deny',
-  maxAge: '10m',
+  etag: true,
+  lastModified: true,
+  maxAge: 0,
   setHeaders(res, filePath) {
-    if (filePath.endsWith('.html')) res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Cache-Control', filePath.endsWith('.html') ? 'no-store' : 'no-cache');
   },
 }));
 
