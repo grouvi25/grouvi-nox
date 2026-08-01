@@ -7,6 +7,7 @@ STATE_DIR=/var/lib/vps-sentinel
 DOMAIN="${DOMAIN:-vps.grouvi.online}"
 SVC_USER=vpssentinel
 SNIP=/etc/nginx/snippets
+BACKUP_DIRS="${BACKUP_DIRS:-/opt/coursebot/backups,/opt/mmo90s/backups,/opt/reip/backups}"
 
 say() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 ok()  { printf '    \033[0;32mok\033[0m %s\n' "$*"; }
@@ -48,6 +49,22 @@ say "Sudo rules (2 read-only commands)"
 install -m 440 -o root -g root deploy/sudoers-vps-sentinel /etc/sudoers.d/vps-sentinel
 visudo -cf /etc/sudoers.d/vps-sentinel >/dev/null
 ok "validated"
+
+# --------------------------------------------------- backup dir access
+say "Read access to backup directories"
+if command -v setfacl >/dev/null 2>&1; then
+  IFS=',' read -ra DIRS <<< "$BACKUP_DIRS"
+  for d in "${DIRS[@]}"; do
+    d=$(echo "$d" | xargs)
+    [ -d "$d" ] || { echo "    -- $d does not exist, skipped"; continue; }
+    parent=$(dirname "$d")
+    setfacl -m "u:$SVC_USER:x"  "$parent" 2>/dev/null || true
+    setfacl -m "u:$SVC_USER:rx" "$d"      2>/dev/null || true
+    if sudo -u "$SVC_USER" test -r "$d"; then ok "$d readable"; else echo "    !! $d still unreadable"; fi
+  done
+else
+  echo '    !! setfacl not installed (apt install acl) - backup panel may be empty'
+fi
 
 # ----------------------------------------------------------- cloudflare
 say "Cloudflare IP ranges"
@@ -111,12 +128,11 @@ NGX_VER=$(nginx -v 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 NGX_MAJOR=${NGX_VER%%.*}
 NGX_MINOR=$(echo "$NGX_VER" | cut -d. -f2)
 if [ "$NGX_MAJOR" -lt 1 ] || { [ "$NGX_MAJOR" -eq 1 ] && [ "$NGX_MINOR" -lt 25 ]; }; then
-  sed -i 's/^    http2 on;$//' /etc/nginx/sites-available/vps-sentinel
+  sed -i '/^    http2 on;$/d' /etc/nginx/sites-available/vps-sentinel
   sed -i 's/^    listen 443 ssl;$/    listen 443 ssl http2;/' /etc/nginx/sites-available/vps-sentinel
-  sed -i 's/^    listen \[::\]:443 ssl;$/    listen [::]:443 ssl http2;/' /etc/nginx/sites-available/vps-sentinel
-  ok "nginx $NGX_VER - using legacy http2 syntax"
+  ok "nginx $NGX_VER - legacy http2 syntax"
 else
-  ok "nginx $NGX_VER - using modern http2 directive"
+  ok "nginx $NGX_VER - modern http2 directive"
 fi
 
 ln -sf /etc/nginx/sites-available/vps-sentinel /etc/nginx/sites-enabled/vps-sentinel
@@ -134,15 +150,14 @@ RP_ID=$DOMAIN
 ORIGIN=https://$DOMAIN
 RP_NAME=VPS Sentinel
 STATE_DIR=$STATE_DIR
-BACKUP_DIRS=/opt/coursebot/backups,/opt/mmo90s/backups,/opt/reip/backups
+BACKUP_DIRS=$BACKUP_DIRS
 EOF
   chmod 640 /etc/vps-sentinel.env
   ok "/etc/vps-sentinel.env created"
 fi
 install -m 644 deploy/vps-sentinel.service /etc/systemd/system/vps-sentinel.service
 systemctl daemon-reload
-systemctl enable --now vps-sentinel
-sleep 2
+systemctl enable vps-sentinel >/dev/null 2>&1 || true
 systemctl restart vps-sentinel
 sleep 2
 systemctl reload nginx

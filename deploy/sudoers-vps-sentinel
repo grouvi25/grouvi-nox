@@ -1,6 +1,13 @@
 # VPS Sentinel needs exactly two read-only commands with elevated rights.
 # Nothing else. No wildcards, no shell, no package manager.
+#
+# PAM session handling and syslog are disabled for this user: the collector
+# polls every few seconds and would otherwise flood /var/log/auth.log,
+# drowning the real SSH security signal.
 Defaults:vpssentinel !requiretty
+Defaults:vpssentinel !syslog
+Defaults:vpssentinel !pam_session
+Defaults:vpssentinel !pam_setcred
 Defaults:vpssentinel env_keep += "HOME"
 
 vpssentinel ALL=(root) NOPASSWD: /usr/bin/pm2 jlist
