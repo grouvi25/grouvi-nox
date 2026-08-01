@@ -4,8 +4,13 @@ Realtime, read-only monitoring dashboard for a single VPS.
 Authentication is **passkey only** (WebAuthn / Windows Hello). There is no password anywhere.
 
 ```
-Browser  ──https──►  Cloudflare  ──https──►  nginx  ──http──►  127.0.0.1:3999
-                                              (origin locked to Cloudflare IPs)
+Browser ──https──► Cloudflare ──https──► nginx ──http──► 127.0.0.1:3999
+                                  (origin locked to CF IPs)   vps-sentinel
+                                                                   │ reads
+                                                        /var/lib/vps-sentinel/
+                                                            privileged.json
+                                                                   ▲ writes
+                                                        vps-sentinel-agent (root)
 ```
 
 ## What it shows
@@ -45,7 +50,9 @@ except credentials and sessions.
   executes anything. A public panel that can run commands is a backdoor with a login form.
 - The service runs as an unprivileged user inside a systemd sandbox
   (`ProtectSystem=strict`, `PrivateTmp`, `RestrictNamespaces`, capped at 320 MB / 40% CPU).
-- Sudo is limited to exactly two read-only commands: `pm2 jlist` and `fail2ban-client status sshd`.
+- **Privilege separation.** `pm2` and `fail2ban` need root, so they are polled by a separate
+  root-owned side-car (`vps-sentinel-agent`) that writes a JSON snapshot. The internet-facing
+  process has **no sudo rule, no setuid path, no way to escalate** - it only reads a file.
 - The origin only accepts connections from Cloudflare IP ranges.
 
 ### Known trade-off

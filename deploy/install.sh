@@ -44,11 +44,12 @@ chown -R root:root "$APP_DIR"
 chmod -R go-w "$APP_DIR"
 ok "node_modules ready"
 
-# -------------------------------------------------------------- sudoers
-say "Sudo rules (2 read-only commands)"
-install -m 440 -o root -g root deploy/sudoers-vps-sentinel /etc/sudoers.d/vps-sentinel
-visudo -cf /etc/sudoers.d/vps-sentinel >/dev/null
-ok "validated"
+# ------------------------------------------------- drop legacy sudoers
+if [ -f /etc/sudoers.d/vps-sentinel ]; then
+  say "Removing legacy sudo rules"
+  rm -f /etc/sudoers.d/vps-sentinel
+  ok "web process now has no escalation path at all"
+fi
 
 # --------------------------------------------------- backup dir access
 say "Read access to backup directories"
@@ -155,15 +156,19 @@ EOF
   chmod 640 /etc/vps-sentinel.env
   ok "/etc/vps-sentinel.env created"
 fi
+install -m 644 deploy/vps-sentinel-agent.service /etc/systemd/system/vps-sentinel-agent.service
 install -m 644 deploy/vps-sentinel.service /etc/systemd/system/vps-sentinel.service
 systemctl daemon-reload
-systemctl enable vps-sentinel >/dev/null 2>&1 || true
-systemctl restart vps-sentinel
+systemctl enable vps-sentinel-agent vps-sentinel >/dev/null 2>&1 || true
+systemctl restart vps-sentinel-agent
 sleep 2
+systemctl restart vps-sentinel
+sleep 3
 systemctl reload nginx
 
 say "Status"
-systemctl is-active vps-sentinel && ok 'vps-sentinel running'
+systemctl is-active vps-sentinel-agent && ok 'privileged collector running'
+systemctl is-active vps-sentinel && ok 'dashboard running'
 curl -fsS --max-time 5 http://127.0.0.1:3999/healthz && echo
 say "Next: create your passkey"
 echo "    cd $APP_DIR && npm run enroll"

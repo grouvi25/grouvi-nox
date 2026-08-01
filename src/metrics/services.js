@@ -74,34 +74,27 @@ export async function dockerDisk() {
   };
 }
 
-/* ------------------------------ pm2 ------------------------------ */
+/* ------------------- privileged side-car snapshot ------------------ *
+ * pm2 and fail2ban need root. Instead of granting the web process any
+ * escalation path, a separate root service writes this file every 15 s.
+ * ------------------------------------------------------------------- */
+const PRIV_FILE = `${config.stateDir}/privileged.json`;
+const PRIV_MAX_AGE_MS = 90_000;
+
+async function privileged() {
+  try {
+    const raw = await fsp.readFile(PRIV_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    if (!data?.at || Date.now() - data.at > PRIV_MAX_AGE_MS) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export async function pm2() {
-  const r = await run('sudo', ['-n', '-H', config.paths.pm2, 'jlist'], { timeout: 10000 });
-  if (!r.ok) return { available: false, items: [] };
-  const jsonStart = r.stdout.indexOf('[');
-  if (jsonStart < 0) return { available: false, items: [] };
-  let list;
-  try { list = JSON.parse(r.stdout.slice(jsonStart)); } catch { return { available: false, items: [] }; }
-  if (!Array.isArray(list)) return { available: false, items: [] };
-
-  const items = list.map((p) => ({
-    name: p.name,
-    pid: p.pid || null,
-    status: p.pm2_env?.status || 'unknown',
-    restarts: p.pm2_env?.restart_time ?? 0,
-    unstableRestarts: p.pm2_env?.unstable_restarts ?? 0,
-    uptimeMs: p.pm2_env?.pm_uptime ? Date.now() - p.pm2_env.pm_uptime : 0,
-    cpu: p.monit?.cpu ?? 0,
-    memory: p.monit?.memory ?? 0,
-    execMode: p.pm2_env?.exec_mode || 'fork',
-  })).sort((a, b) => a.name.localeCompare(b.name));
-
-  return {
-    available: true,
-    items,
-    online: items.filter(i => i.status === 'online').length,
-    down: items.filter(i => i.status !== 'online').length,
-  };
+  const p = await privileged();
+  return p?.pm2 || { available: false, items: [] };
 }
 
 /* ---------------------------- systemd ---------------------------- */
@@ -152,16 +145,8 @@ export async function filesystems() {
 
 /* ---------------------------- fail2ban --------------------------- */
 export async function fail2ban() {
-  const r = await run('sudo', ['-n', config.paths.fail2ban, 'status', 'sshd'], { timeout: 8000 });
-  if (!r.ok) return { available: false };
-  const num = (re) => Number(re.exec(r.stdout)?.[1] ?? 0);
-  return {
-    available: true,
-    currentlyBanned: num(/Currently banned:\s+(\d+)/),
-    totalBanned: num(/Total banned:\s+(\d+)/),
-    currentlyFailed: num(/Currently failed:\s+(\d+)/),
-    totalFailed: num(/Total failed:\s+(\d+)/),
-  };
+  const p = await privileged();
+  return p?.fail2ban || { available: false };
 }
 
 /* --------------------------- ssh log ----------------------------- */

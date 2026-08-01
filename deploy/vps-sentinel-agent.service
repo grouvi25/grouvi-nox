@@ -1,0 +1,36 @@
+[Unit]
+Description=VPS Sentinel privileged collector (pm2 + fail2ban snapshot)
+Documentation=https://github.com/grouvi25/vps-sentinel
+After=network.target
+Before=vps-sentinel.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/vps-sentinel
+EnvironmentFile=-/etc/vps-sentinel.env
+Environment=HOME=/root
+ExecStart=/usr/bin/node /opt/vps-sentinel/bin/privileged-collector.js
+Restart=always
+RestartSec=5
+SyslogIdentifier=vps-sentinel-agent
+
+# Runs as root but touches nothing except its own state file.
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/vps-sentinel
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+MemoryMax=160M
+TasksMax=64
+CPUQuota=15%
+
+[Install]
+WantedBy=multi-user.target
