@@ -1,5 +1,12 @@
 const $ = (id) => document.getElementById(id);
 
+/* palette mirrors style.css */
+const C = {
+  accent: '#F4EDE4', blue: '#3b82f6', green: '#22c55e',
+  red: '#ef4444', amber: '#f59e0b', purple: '#a855f7',
+  grid: 'rgba(255,255,255,.045)', axis: '#666',
+};
+
 /* ----------------------------- utils ----------------------------- */
 const UNITS = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ'];
 function bytes(n, digits = 1) {
@@ -7,7 +14,7 @@ function bytes(n, digits = 1) {
   const i = Math.min(UNITS.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
   return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : digits)} ${UNITS[i]}`;
 }
-function rate(n) { return `${bytes(n, 1)}/с`; }
+const rate = (n) => `${bytes(n, 1)}/с`;
 function dur(sec) {
   if (!Number.isFinite(sec) || sec <= 0) return '—';
   const d = Math.floor(sec / 86400);
@@ -26,10 +33,15 @@ function ago(ms) {
   return `${Math.floor(s / 86400)} дн назад`;
 }
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-function level(v, warn, crit) { return v >= crit ? 'crit' : v >= warn ? 'warn' : 'ok'; }
+const lvl = (v, w, c) => (v >= c ? 'crit' : v >= w ? 'warn' : 'ok');
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function setBar(el, pct, level) {
+  if (!el) return;
+  el.style.width = `${clamp(pct, 0, 100)}%`;
+  el.className = level === 'ok' ? '' : level;
 }
 
 /* ---------------------------- charts ----------------------------- */
@@ -56,44 +68,41 @@ function spark(canvas, series, color, maxOverride) {
   const step = w / (series.length - 1);
   const y = (v) => h - pad - (clamp(v, 0, max) / max) * (h - pad * 2);
 
-  ctx.beginPath();
-  ctx.moveTo(0, y(series[0]));
-  for (let i = 1; i < series.length; i += 1) ctx.lineTo(i * step, y(series[i]));
-
   const line = new Path2D();
   line.moveTo(0, y(series[0]));
   for (let i = 1; i < series.length; i += 1) line.lineTo(i * step, y(series[i]));
 
-  ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.closePath();
+  const area = new Path2D(line);
+  area.lineTo(w, h); area.lineTo(0, h); area.closePath();
   const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, `${color}44`);
+  g.addColorStop(0, `${color}2e`);
   g.addColorStop(1, `${color}00`);
-  ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = g; ctx.fill(area);
 
-  ctx.strokeStyle = color; ctx.lineWidth = 1.6; ctx.lineJoin = 'round';
+  ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
   ctx.stroke(line);
 }
 
 function multiChart(canvas, sets, { max, unit = '' } = {}) {
   if (!canvas) return;
   const { ctx, w, h } = prep(canvas);
-  const padL = 42; const padR = 8; const padT = 10; const padB = 16;
+  const padL = 44; const padR = 8; const padT = 9; const padB = 14;
   const plotW = w - padL - padR;
   const plotH = h - padT - padB;
   const all = sets.flatMap(s => s.data || []);
   const peak = max ?? Math.max(1, ...all);
-  const top = peak <= 1 ? 1 : peak * 1.12;
+  const top = peak <= 1 ? 1 : peak * 1.14;
 
-  ctx.strokeStyle = 'rgba(255,255,255,.05)';
-  ctx.fillStyle = '#5b6478';
+  ctx.strokeStyle = C.grid;
+  ctx.fillStyle = C.axis;
   ctx.font = '10px ui-monospace, monospace';
   ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i += 1) {
-    const yy = padT + (plotH / 4) * i;
+    const yy = Math.round(padT + (plotH / 4) * i) + 0.5;
     ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
     const val = top * (1 - i / 4);
-    const lbl = unit === 'KB' ? bytes(val * 1024, 0) : `${val.toFixed(top > 10 ? 0 : 1)}${unit}`;
-    ctx.fillText(lbl, 4, yy + 3);
+    const label = unit === 'KB' ? bytes(val * 1024, 0) : `${val.toFixed(top > 10 ? 0 : 1)}${unit}`;
+    ctx.fillText(label, 4, yy + 3);
   }
 
   for (const s of sets) {
@@ -112,123 +121,131 @@ function multiChart(canvas, sets, { max, unit = '' } = {}) {
       area.lineTo(padL, padT + plotH);
       area.closePath();
       const g = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-      g.addColorStop(0, `${s.color}33`);
+      g.addColorStop(0, `${s.color}26`);
       g.addColorStop(1, `${s.color}00`);
       ctx.fillStyle = g; ctx.fill(area);
     }
-    ctx.strokeStyle = s.color; ctx.lineWidth = 1.7; ctx.lineJoin = 'round';
+    ctx.strokeStyle = s.color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
     ctx.stroke(p);
   }
 }
 
-/* ---------------------------- render ----------------------------- */
+/* ----------------------------- icons ----------------------------- */
+const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
+const ICON_WARN = '<svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>';
+const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
+
+/* ----------------------------- render ---------------------------- */
 let latest = null;
 
 function renderAlerts(a) {
   const box = $('alerts');
+  const nb = $('nbAlerts');
   if (!a || a.length === 0) {
-    box.innerHTML = '<div class="all-clear">✓ Всё в норме — критичных проблем не обнаружено</div>';
+    box.innerHTML = `<div class="all-clear">${ICON_OK}<span>Всё в норме, проблем не обнаружено</span></div>`;
+    nb.textContent = '0';
+    nb.className = 'n-badge';
     return;
   }
+  const crit = a.filter(x => x.level === 'critical').length;
+  nb.textContent = String(a.length);
+  nb.className = `n-badge ${crit ? 'alert' : 'warn'}`;
   box.innerHTML = a.slice(0, 8).map(x => `
     <div class="alert ${x.level}">
-      <span class="badge">${x.level === 'critical' ? 'критично' : 'внимание'}</span>
+      ${x.level === 'critical' ? ICON_CRIT : ICON_WARN}
       <span>${esc(x.message)}</span>
       ${x.hint ? `<span class="hint">${esc(x.hint)}</span>` : ''}
     </div>`).join('');
 }
 
 function renderKpis(d) {
-  const cpu = d.cpu || {};
-  const mem = d.memory || {};
-  const ld = d.load || {};
-  const net = d.network || {};
-  const io = d.diskIo || {};
+  const cpu = d.cpu || {}; const mem = d.memory || {};
+  const ld = d.load || {}; const net = d.network || {}; const io = d.diskIo || {};
   const h = d.history || {};
 
-  const cpuLvl = level(cpu.usage || 0, 85, 95);
-  $('k-cpu').className = `kpi ${cpuLvl === 'ok' ? '' : cpuLvl}`;
+  const cl = lvl(cpu.usage || 0, 85, 95);
+  $('kCpu').className = `kpi ${cl === 'ok' ? '' : cl}`;
   $('cpuVal').textContent = (cpu.usage || 0).toFixed(1);
   $('cpuFoot').textContent = `${cpu.count || 0} ядра · iowait ${(cpu.iowait || 0).toFixed(1)}% · steal ${(cpu.steal || 0).toFixed(1)}%`;
-  spark($('sparkCpu'), h.cpu, '#35d6a4', 100);
+  spark($('spCpu'), h.cpu, C.accent, 100);
+  $('gCpu').textContent = `${(cpu.usage || 0).toFixed(0)}%`;
+  setBar($('gCpuBar'), cpu.usage || 0, cl);
 
-  const memLvl = level(mem.usedPct || 0, 85, 94);
-  $('k-mem').className = `kpi ${memLvl === 'ok' ? '' : memLvl}`;
+  const ml = lvl(mem.usedPct || 0, 85, 94);
+  $('kMem').className = `kpi ${ml === 'ok' ? '' : ml}`;
   $('memVal').textContent = (mem.usedPct || 0).toFixed(1);
   $('memFoot').textContent = `${bytes(mem.used)} из ${bytes(mem.total)} · доступно ${bytes(mem.available)}`;
-  spark($('sparkMem'), h.mem, '#3fa9ff', 100);
+  spark($('spMem'), h.mem, C.blue, 100);
+  $('gMem').textContent = `${(mem.usedPct || 0).toFixed(0)}%`;
+  setBar($('gMemBar'), mem.usedPct || 0, ml);
 
   const root = (d.filesystems || []).find(f => f.mount === '/') || (d.filesystems || [])[0];
   if (root) {
-    const lvl = level(root.usedPct, 80, 90);
-    $('k-disk').className = `kpi ${lvl === 'ok' ? '' : lvl}`;
+    const dl = lvl(root.usedPct, 80, 90);
+    $('kDisk').className = `kpi ${dl === 'ok' ? '' : dl}`;
     $('diskVal').textContent = root.usedPct.toFixed(1);
     $('diskFoot').textContent = `${bytes(root.used)} из ${bytes(root.size)} · свободно ${bytes(root.avail)}`;
-    const bar = $('diskBar');
-    bar.style.width = `${clamp(root.usedPct, 0, 100)}%`;
-    bar.className = lvl === 'ok' ? '' : lvl;
+    setBar($('diskBar'), root.usedPct, dl);
+    $('gDisk').textContent = `${root.usedPct.toFixed(0)}%`;
+    setBar($('gDiskBar'), root.usedPct, dl);
   }
-  $('diskIoFoot').textContent = `чтение ${rate(io.readRate || 0)} · запись ${rate(io.writeRate || 0)}`;
+  $('ioFoot').textContent = `чтение ${rate(io.readRate || 0)} · запись ${rate(io.writeRate || 0)}`;
 
   const perCore = cpu.count ? (ld.five || 0) / cpu.count : 0;
-  const ldLvl = level(perCore, 1.5, 3);
-  $('k-load').className = `kpi ${ldLvl === 'ok' ? '' : ldLvl}`;
+  const ll = lvl(perCore, 1.5, 3);
+  $('kLoad').className = `kpi ${ll === 'ok' ? '' : ll}`;
   $('loadVal').textContent = (ld.one || 0).toFixed(2);
   $('loadFoot').textContent = `5м ${(ld.five || 0).toFixed(2)} · 15м ${(ld.fifteen || 0).toFixed(2)} · ${ld.processes || 0} процессов`;
-  spark($('sparkLoad'), h.load, '#a074ff');
+  spark($('spLoad'), h.load, C.purple);
 
-  $('netVal').textContent = `${bytes(net.rxRate || 0, 0)} ↓ ${bytes(net.txRate || 0, 0)} ↑`;
+  $('netVal').textContent = `${bytes(net.rxRate || 0, 0)} ↓  ${bytes(net.txRate || 0, 0)} ↑`;
   $('netFoot').textContent = `всего ${bytes(net.rxTotal || 0)} / ${bytes(net.txTotal || 0)} · ошибок ${net.errors || 0}`;
-  spark($('sparkNet'), h.rx, '#3fa9ff');
+  spark($('spNet'), h.rx, C.green);
 
-  const swapLvl = level(mem.swapPct || 0, 40, 75);
-  $('k-swap').className = `kpi ${swapLvl === 'ok' ? '' : swapLvl}`;
+  const sl = lvl(mem.swapPct || 0, 40, 75);
+  $('kSwap').className = `kpi ${sl === 'ok' ? '' : sl}`;
   $('swapVal').textContent = (mem.swapPct || 0).toFixed(1);
   $('swapFoot').textContent = `${bytes(mem.swapUsed || 0)} из ${bytes(mem.swapTotal || 0)}`;
-  const sb = $('swapBar');
-  sb.style.width = `${clamp(mem.swapPct || 0, 0, 100)}%`;
-  sb.className = swapLvl === 'ok' ? '' : swapLvl;
+  setBar($('swapBar'), mem.swapPct || 0, sl);
   $('procFoot').textContent = `выполняется ${cpu.procsRunning || 0} · заблокировано ${cpu.procsBlocked || 0}`;
 }
 
 function renderCharts(d) {
   const h = d.history || {};
-  multiChart($('chartCpu'), [
-    { data: h.cpu, color: '#35d6a4' },
-    { data: h.mem, color: '#3fa9ff' },
-    { data: h.swap, color: '#a074ff', fill: false },
+  multiChart($('chCpu'), [
+    { data: h.cpu, color: C.accent },
+    { data: h.mem, color: C.blue },
+    { data: h.swap, color: C.purple, fill: false },
   ], { max: 100, unit: '%' });
 
-  multiChart($('chartNet'), [
-    { data: h.rx, color: '#35d6a4' },
-    { data: h.tx, color: '#3fa9ff' },
-    { data: h.ioR, color: '#f5b544', fill: false },
-    { data: h.ioW, color: '#ff5c6c', fill: false },
+  multiChart($('chNet'), [
+    { data: h.rx, color: C.green },
+    { data: h.tx, color: C.blue },
+    { data: h.ioR, color: C.amber, fill: false },
+    { data: h.ioW, color: C.red, fill: false },
   ], { unit: 'KB' });
 }
 
 function renderCores(d) {
   const cores = d.cpu?.cores || [];
   $('coreCount').textContent = cores.length;
-  $('cores').innerHTML = cores.map((v, i) => {
-    const lvl = level(v, 75, 90);
-    return `<div class="core">
-      <div class="top"><span>CPU ${i}</span><span>${v.toFixed(0)}%</span></div>
-      <div class="bar"><i class="${lvl === 'ok' ? '' : lvl}" style="width:${clamp(v, 0, 100)}%"></i></div>
-    </div>`;
-  }).join('');
+  $('cores').innerHTML = cores.map((v, i) => `
+    <div class="core">
+      <div class="c-top"><span>CPU ${i}</span><b>${v.toFixed(0)}%</b></div>
+      <div class="track"><i class="${lvl(v, 75, 90) === 'ok' ? '' : lvl(v, 75, 90)}" style="width:${clamp(v, 0, 100)}%"></i></div>
+    </div>`).join('');
 }
 
 function renderFs(d) {
   const rows = d.filesystems || [];
   $('fsBody').innerHTML = rows.length ? rows.map(f => {
-    const lvl = level(f.usedPct, 80, 90);
+    const l = lvl(f.usedPct, 80, 90);
     return `<tr>
-      <td class="name">${esc(f.mount)}</td>
+      <td class="nm">${esc(f.mount)}</td>
       <td>${esc(f.device)}</td>
       <td class="num">${bytes(f.size)}</td>
       <td class="num">${bytes(f.avail)}</td>
-      <td class="num"><span class="pill ${lvl}">${f.usedPct.toFixed(0)}%</span></td>
+      <td class="num"><span class="pill ${l}">${f.usedPct.toFixed(0)}%</span></td>
     </tr>`;
   }).join('') : '<tr><td colspan="5" class="empty">нет данных</td></tr>';
 }
@@ -236,18 +253,21 @@ function renderFs(d) {
 function renderContainers(d) {
   const c = d.containers;
   const box = $('containers');
-  if (!c || !c.available) { box.innerHTML = '<div class="empty">Docker недоступен</div>'; return; }
+  if (!c || !c.available) {
+    box.innerHTML = '<div class="empty">Docker недоступен</div>';
+    return;
+  }
   $('ctnCount').textContent = c.items.length;
+  $('nbDocker').textContent = String(c.items.length);
+  $('nbDocker').className = `n-badge${c.unhealthy ? ' alert' : c.stopped ? ' warn' : ''}`;
   $('ctnSummary').textContent = `${c.running} работает · ${c.stopped} остановлено`;
 
   const groups = {};
-  for (const it of c.items) {
-    const k = it.project || 'без проекта';
-    (groups[k] = groups[k] || []).push(it);
-  }
+  for (const it of c.items) (groups[it.project || 'без проекта'] ??= []).push(it);
+
   box.innerHTML = Object.entries(groups).map(([proj, items]) => `
     <div class="proj">
-      <div class="head">${esc(proj)}<span class="count">${items.length}</span></div>
+      <div class="p-head">${esc(proj)}<span class="count">${items.length}</span></div>
       ${items.map(i => {
     const sd = i.state !== 'running' ? 'idle'
       : i.health === 'unhealthy' ? 'crit'
@@ -270,8 +290,10 @@ function renderPm2(d) {
     return;
   }
   $('pm2Count').textContent = p.items.length;
+  $('nbPm2').textContent = String(p.items.length);
+  $('nbPm2').className = `n-badge${p.down ? ' alert' : ''}`;
   body.innerHTML = p.items.map(i => `<tr>
-    <td class="name">${esc(i.name)}</td>
+    <td class="nm">${esc(i.name)}</td>
     <td><span class="pill ${i.status === 'online' ? 'ok' : 'crit'}">${esc(i.status)}</span></td>
     <td class="num">${i.cpu}%</td>
     <td class="num">${bytes(i.memory)}</td>
@@ -280,20 +302,20 @@ function renderPm2(d) {
   </tr>`).join('');
 }
 
+const kv = (k, v, sub) =>
+  `<div class="kv"><span class="k">${k}${sub ? `<span class="sub">${sub}</span>` : ''}</span><span class="v">${v}</span></div>`;
+
 function renderSecurity(d) {
-  const f2b = d.fail2ban || {};
-  const ssh = d.ssh || {};
-  const rows = [
-    ['SSH: вход по паролю', '<span class="pill ok">отключён</span>'],
-    ['Забанено сейчас', f2b.available ? f2b.currentlyBanned : '—'],
-    ['Забанено всего', f2b.available ? f2b.totalBanned : '—'],
-    ['Неудачных паролей (в окне лога)', ssh.available ? ssh.failedPassword : '—'],
-    ['Попыток с несуществующим юзером', ssh.available ? ssh.invalidUser : '—'],
-  ];
-  let html = rows.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
-  if (ssh.topAttackers?.length) {
-    html += `<div class="kv" style="border:none;padding-top:12px"><span class="k">Топ источников атак</span><span class="v"></span></div>`;
-    html += ssh.topAttackers.map(a => `<div class="kv"><span class="k" style="font-family:var(--mono)">${esc(a.ip)}</span><span class="v">${a.count}</span></div>`).join('');
+  const f = d.fail2ban || {}; const s = d.ssh || {};
+  let html = kv('Вход по паролю', '<span class="pill ok">отключён</span>')
+    + kv('Забанено сейчас', f.available ? f.currentlyBanned : '—')
+    + kv('Забанено всего', f.available ? f.totalBanned : '—')
+    + kv('Неудачных паролей', s.available ? s.failedPassword : '—', 'в текущем окне лога')
+    + kv('Несуществующие юзеры', s.available ? s.invalidUser : '—');
+  if (s.topAttackers?.length) {
+    html += `<div class="kv" style="padding-top:12px"><span class="k">Топ источников</span><span class="v"></span></div>`;
+    html += s.topAttackers.map(a =>
+      kv(`<span style="font-family:var(--mono)">${esc(a.ip)}</span>`, a.count)).join('');
   }
   $('security').innerHTML = html;
 }
@@ -302,8 +324,8 @@ function renderCerts(d) {
   const list = (d.certificates || []).filter(c => c.ok);
   $('certCount').textContent = list.length;
   $('certBody').innerHTML = list.length ? list.map(c => {
-    const lvl = c.daysLeft <= 7 ? 'crit' : c.daysLeft <= 21 ? 'warn' : 'ok';
-    return `<tr><td class="name">${esc(c.domain)}</td><td class="num"><span class="pill ${lvl}">${c.daysLeft} дн.</span></td></tr>`;
+    const l = c.daysLeft <= 7 ? 'crit' : c.daysLeft <= 21 ? 'warn' : 'ok';
+    return `<tr><td class="nm">${esc(c.domain)}</td><td class="num"><span class="pill ${l}">${c.daysLeft} дн.</span></td></tr>`;
   }).join('') : '<tr><td colspan="2" class="empty">нет данных</td></tr>';
 }
 
@@ -311,12 +333,12 @@ function renderBackups(d) {
   const list = d.backups || [];
   $('backups').innerHTML = list.length ? list.map(b => {
     const name = b.dir.split('/').filter(Boolean).slice(-2).join('/');
-    if (!b.exists) return `<div class="kv"><span class="k">${esc(name)}</span><span class="v"><span class="pill idle">нет папки</span></span></div>`;
-    if (!b.newest) return `<div class="kv"><span class="k">${esc(name)}</span><span class="v"><span class="pill warn">пусто</span></span></div>`;
-    const lvl = b.ageHours > 36 ? 'warn' : 'ok';
+    if (!b.exists) return kv(esc(name), '<span class="pill idle">нет папки</span>');
+    if (!b.newest) return kv(esc(name), '<span class="pill warn">пусто</span>');
+    const l = b.ageHours > 36 ? 'warn' : 'ok';
     return `<div class="kv">
-      <span class="k">${esc(name)}<br><span style="font-size:11px;color:var(--text-faint)">${b.count} файлов · ${bytes(b.bytes)}</span></span>
-      <span class="v"><span class="pill ${lvl}">${ago(b.newest.at)}</span><br><span style="font-size:11px;color:var(--text-faint)">${bytes(b.newest.size)}</span></span>
+      <span class="k">${esc(name)}<span class="sub">${b.count} файлов · ${bytes(b.bytes)}</span></span>
+      <span class="v"><span class="pill ${l}">${ago(b.newest.at)}</span><span class="sub">${bytes(b.newest.size)}</span></span>
     </div>`;
   }).join('') : '<div class="empty">нет данных</div>';
 }
@@ -324,33 +346,37 @@ function renderBackups(d) {
 function renderServices(d) {
   const s = d.systemd || {};
   const pill = (v) => `<span class="pill ${v === 'active' ? 'ok' : 'crit'}">${esc(v || '—')}</span>`;
-  let html = `
-    <div class="kv"><span class="k">nginx</span><span class="v">${pill(s.nginx)}</span></div>
-    <div class="kv"><span class="k">docker</span><span class="v">${pill(s.docker)}</span></div>
-    <div class="kv"><span class="k">ssh</span><span class="v">${pill(s.ssh)}</span></div>`;
   const failed = s.failedUnits || [];
-  html += `<div class="kv"><span class="k">Упавших юнитов</span><span class="v">${
-    failed.length ? `<span class="pill crit">${failed.length}</span>` : '<span class="pill ok">0</span>'}</span></div>`;
-  for (const u of failed) html += `<div class="kv"><span class="k" style="color:var(--crit)">${esc(u)}</span><span class="v"></span></div>`;
+  let html = kv('nginx', pill(s.nginx)) + kv('docker', pill(s.docker)) + kv('ssh', pill(s.ssh));
+  html += kv('Упавших юнитов', failed.length
+    ? `<span class="pill crit">${failed.length}</span>`
+    : '<span class="pill ok">0</span>');
+  for (const u of failed) html += kv(`<span style="color:var(--red)">${esc(u)}</span>`, '');
+  if (d.os) {
+    html += kv('Ядро', esc(d.os.kernelRunning));
+    if (d.os.rebootRequired) {
+      html += kv('Перезагрузка', `<span class="pill warn">нужна</span>`, `установлено ${esc(d.os.kernelInstalled)}`);
+    }
+  }
   $('services').innerHTML = html;
 }
 
 function renderDockerDisk(d) {
   const dd = d.dockerDisk;
   if (!dd) { $('dockerDisk').innerHTML = '<div class="empty">нет данных</div>'; return; }
-  $('dockerDisk').innerHTML = `
-    <div class="kv"><span class="k">Образы (${dd.images.count})</span><span class="v">${bytes(dd.images.size)}</span></div>
-    <div class="kv"><span class="k">Контейнеры (${dd.containers.count})</span><span class="v">${bytes(dd.containers.size)}</span></div>
-    <div class="kv"><span class="k">Тома (${dd.volumes.count})</span><span class="v">${bytes(dd.volumes.size)}</span></div>
-    <div class="kv"><span class="k">Кэш сборки</span><span class="v">${bytes(dd.buildCache.size)}</span></div>
-    <div class="kv"><span class="k">Можно освободить</span><span class="v"><span class="pill ${dd.buildCache.reclaimable > 2e9 ? 'warn' : 'ok'}">${bytes(dd.buildCache.reclaimable)}</span></span></div>`;
+  $('dockerDisk').innerHTML =
+    kv(`Образы (${dd.images.count})`, bytes(dd.images.size))
+    + kv(`Контейнеры (${dd.containers.count})`, bytes(dd.containers.size))
+    + kv(`Тома (${dd.volumes.count})`, bytes(dd.volumes.size))
+    + kv('Кэш сборки', bytes(dd.buildCache.size))
+    + kv('Можно освободить', `<span class="pill ${dd.buildCache.reclaimable > 2e9 ? 'warn' : 'ok'}">${bytes(dd.buildCache.reclaimable)}</span>`);
 }
 
 function renderLogins(d) {
   const list = d.ssh?.recentLogins || [];
   $('logins').innerHTML = list.length
     ? `<table><tbody>${list.map(l => `<tr>
-        <td class="name">${esc(l.user)}</td>
+        <td class="nm">${esc(l.user)}</td>
         <td>${esc(l.ip)}</td>
         <td><span class="pill ${l.method === 'publickey' ? 'ok' : 'warn'}">${esc(l.method)}</span></td>
         <td class="num">${esc(String(l.at).replace('T', ' ').slice(5, 16))}</td>
@@ -359,10 +385,12 @@ function renderLogins(d) {
 }
 
 function renderHeader(d) {
-  $('hostname').textContent = d.kernel?.hostname || '—';
-  $('os').textContent = d.os?.pretty || '—';
-  $('kernel').textContent = d.os?.kernelRunning || d.kernel?.release || '—';
-  $('uptime').textContent = dur(d.uptime);
+  const host = d.kernel?.hostname || '—';
+  $('sideHost').textContent = host;
+  $('tbTitle').textContent = host;
+  $('tbSub').textContent = `${d.os?.pretty || '—'} · аптайм ${dur(d.uptime)}`;
+  $('sideUpdated').textContent = `обновлено ${new Date().toLocaleTimeString('ru-RU')}`;
+  $('tickInfo').textContent = `${d.cpu?.count || 0} vCPU · ${bytes(d.memory?.total || 0)} RAM`;
 }
 
 let lastFull = 0;
@@ -377,15 +405,9 @@ function render(d) {
   const now = Date.now();
   if (now - lastFull > 4000) {
     lastFull = now;
-    renderFs(d);
-    renderContainers(d);
-    renderPm2(d);
-    renderSecurity(d);
-    renderCerts(d);
-    renderBackups(d);
-    renderServices(d);
-    renderDockerDisk(d);
-    renderLogins(d);
+    renderFs(d); renderContainers(d); renderPm2(d);
+    renderSecurity(d); renderCerts(d); renderBackups(d);
+    renderServices(d); renderDockerDisk(d); renderLogins(d);
   }
 }
 
@@ -402,7 +424,7 @@ function connect() {
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`;
   ws = new WebSocket(url);
 
-  ws.onopen = () => { retry = 0; setConn('live', 'в реальном времени'); };
+  ws.onopen = () => { retry = 0; setConn('live', 'live'); };
 
   ws.onmessage = (ev) => {
     let msg;
@@ -429,11 +451,40 @@ async function bootstrap() {
   connect();
 }
 
+/* ------------------------------ ui ------------------------------- */
 $('logout').addEventListener('click', async () => {
   await fetch('/auth/logout', { method: 'POST', credentials: 'same-origin' });
   location.href = '/login';
 });
 
-window.addEventListener('resize', () => { if (latest) { renderCharts(latest); renderKpis(latest); } });
+const sidebar = $('sidebar');
+$('burger').addEventListener('click', () => sidebar.classList.toggle('open'));
+
+/* scroll spy */
+const navItems = [...document.querySelectorAll('.nav-item')];
+const sections = navItems
+  .map(a => document.querySelector(a.getAttribute('href')))
+  .filter(Boolean);
+
+$('content').addEventListener('scroll', () => {
+  const top = $('content').scrollTop + 90;
+  let active = 0;
+  sections.forEach((s, i) => { if (s.offsetTop <= top) active = i; });
+  navItems.forEach((a, i) => a.classList.toggle('active', i === active));
+}, { passive: true });
+
+navItems.forEach((a) => a.addEventListener('click', (e) => {
+  e.preventDefault();
+  const target = document.querySelector(a.getAttribute('href'));
+  if (target) $('content').scrollTo({ top: target.offsetTop - 8, behavior: 'smooth' });
+  sidebar.classList.remove('open');
+}));
+navItems[0]?.classList.add('active');
+
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (latest) { renderCharts(latest); renderKpis(latest); } }, 120);
+});
 
 bootstrap();

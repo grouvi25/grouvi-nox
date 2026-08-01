@@ -4,21 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#111111">
 <title>Вход · VPS Sentinel</title>
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2335d6a4'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23F4EDE4'/><path d='M12 5l5 2v4c0 3-2 5.5-5 7-3-1.5-5-4-5-7V7z' fill='%23111'/></svg>">
 </head>
 <body>
 <div class="auth-page">
   <div class="auth-card">
-    <div class="logo">S</div>
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
     <h1>VPS Sentinel</h1>
-    <p class="lead">Вход по ключу доступа этого компьютера. Windows попросит подтвердить личность: PIN, отпечаток или пароль от учётной записи.</p>
+    <p class="lead">Вход по ключу доступа этого компьютера. Windows попросит подтвердить личность: PIN, отпечаток или пароль учётной записи.</p>
 
     <button class="btn-primary" id="loginBtn">Войти по ключу доступа</button>
-    <button class="btn-link" id="recoverLink">Потерял доступ? Использовать код восстановления</button>
+    <button class="btn-link" id="recoverLink">Потерял доступ? Ввести код восстановления</button>
 
-    <div id="recoverBox" class="hidden" style="margin-top:18px">
+    <div id="recoverBox" class="hidden" style="margin-top:16px">
       <input class="code" id="recoverCode" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" maxlength="14">
       <button class="btn-primary" id="recoverBtn">Восстановить доступ</button>
     </div>

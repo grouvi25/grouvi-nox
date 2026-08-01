@@ -4,16 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#111111">
 <title>Привязка ключа · VPS Sentinel</title>
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2335d6a4'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23F4EDE4'/><path d='M12 5l5 2v4c0 3-2 5.5-5 7-3-1.5-5-4-5-7V7z' fill='%23111'/></svg>">
 </head>
 <body>
 <div class="auth-page">
   <div class="auth-card">
-    <div class="logo">S</div>
+    <div class="brand-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
     <h1>Привязка ключа доступа</h1>
-    <p class="lead">Сейчас Windows предложит создать ключ доступа. Он останется в защищённом хранилище этого компьютера и никогда не покинет его. Подтвердите PIN-кодом, отпечатком или паролем учётной записи.</p>
+    <p class="lead">Windows создаст ключ доступа и оставит его в защищённом хранилище этого компьютера. Ключ никогда не покидает устройство и не хранится на сервере.</p>
 
     <input class="code" id="label" placeholder="Название устройства, например: Рабочий ПК" maxlength="40" autocomplete="off">
     <button class="btn-primary" id="enrollBtn">Создать ключ доступа</button>

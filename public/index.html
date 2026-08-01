@@ -4,158 +4,244 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
 <link rel="stylesheet" href="/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%2335d6a4'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%23F4EDE4'/><path d='M12 5l5 2v4c0 3-2 5.5-5 7-3-1.5-5-4-5-7V7z' fill='%23111'/></svg>">
 </head>
 <body>
-<div class="wrap">
 
-  <header class="top">
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="logo">S</div>
-      <div>
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      <div class="brand-info">
         <h1>VPS Sentinel</h1>
-        <div class="sub" id="hostname">…</div>
+        <div class="host" id="sideHost">…</div>
       </div>
     </div>
-    <div class="host-meta">
-      <div class="meta-item"><span class="k">Система</span><span class="v" id="os">…</span></div>
-      <div class="meta-item"><span class="k">Ядро</span><span class="v" id="kernel">…</span></div>
-      <div class="meta-item"><span class="k">Аптайм</span><span class="v" id="uptime">…</span></div>
-      <div class="conn"><span class="dot" id="dot"></span><span id="connText">подключение…</span></div>
-      <button class="ghost" id="logout">Выйти</button>
-    </div>
-  </header>
 
-  <div id="alerts"></div>
-
-  <section class="kpis">
-    <div class="kpi" id="k-cpu">
-      <div class="label">Процессор</div>
-      <div class="value"><span id="cpuVal">0</span><small>%</small></div>
-      <div class="foot" id="cpuFoot">—</div>
-      <canvas id="sparkCpu"></canvas>
-    </div>
-    <div class="kpi" id="k-mem">
-      <div class="label">Память</div>
-      <div class="value"><span id="memVal">0</span><small>%</small></div>
-      <div class="foot" id="memFoot">—</div>
-      <canvas id="sparkMem"></canvas>
-    </div>
-    <div class="kpi" id="k-disk">
-      <div class="label">Диск /</div>
-      <div class="value"><span id="diskVal">0</span><small>%</small></div>
-      <div class="foot" id="diskFoot">—</div>
-      <div class="bar"><i id="diskBar"></i></div>
-      <div class="foot" id="diskIoFoot" style="margin-top:10px">—</div>
-    </div>
-    <div class="kpi" id="k-load">
-      <div class="label">Load average</div>
-      <div class="value" id="loadVal">0.00</div>
-      <div class="foot" id="loadFoot">—</div>
-      <canvas id="sparkLoad"></canvas>
-    </div>
-    <div class="kpi" id="k-net">
-      <div class="label">Сеть</div>
-      <div class="value" style="font-size:21px" id="netVal">0 / 0</div>
-      <div class="foot" id="netFoot">—</div>
-      <canvas id="sparkNet"></canvas>
-    </div>
-    <div class="kpi" id="k-swap">
-      <div class="label">Своп</div>
-      <div class="value"><span id="swapVal">0</span><small>%</small></div>
-      <div class="foot" id="swapFoot">—</div>
-      <div class="bar"><i id="swapBar"></i></div>
-      <div class="foot" id="procFoot" style="margin-top:10px">—</div>
-    </div>
-  </section>
-
-  <section class="cols c2">
-    <div class="panel">
-      <h2>Нагрузка CPU и памяти <span class="right" id="chartRange">последние минуты</span></h2>
-      <div class="chart-wrap"><canvas id="chartCpu"></canvas></div>
-      <div class="legend">
-        <span><i style="background:#35d6a4"></i>CPU %</span>
-        <span><i style="background:#3fa9ff"></i>Память %</span>
-        <span><i style="background:#a074ff"></i>Своп %</span>
+    <div class="side-label">Нагрузка</div>
+    <div class="gauges">
+      <div class="gauge">
+        <div class="g-top"><span class="g-name">Процессор</span><span class="g-val" id="gCpu">—</span></div>
+        <div class="track"><i id="gCpuBar"></i></div>
+      </div>
+      <div class="gauge">
+        <div class="g-top"><span class="g-name">Память</span><span class="g-val" id="gMem">—</span></div>
+        <div class="track"><i id="gMemBar"></i></div>
+      </div>
+      <div class="gauge">
+        <div class="g-top"><span class="g-name">Диск</span><span class="g-val" id="gDisk">—</span></div>
+        <div class="track"><i id="gDiskBar"></i></div>
       </div>
     </div>
-    <div class="panel">
-      <h2>Сеть и диск <span class="right">КБ/с</span></h2>
-      <div class="chart-wrap"><canvas id="chartNet"></canvas></div>
-      <div class="legend">
-        <span><i style="background:#35d6a4"></i>Входящий</span>
-        <span><i style="background:#3fa9ff"></i>Исходящий</span>
-        <span><i style="background:#f5b544"></i>Чтение диска</span>
-        <span><i style="background:#ff5c6c"></i>Запись диска</span>
+
+    <div class="side-label">Разделы</div>
+    <nav class="nav" id="nav">
+      <a class="nav-item" href="#s-overview">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Обзор</span>
+        <span class="n-badge" id="nbAlerts">0</span>
+      </a>
+      <a class="nav-item" href="#s-perf">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
+        <span>Графики</span>
+      </a>
+      <a class="nav-item" href="#s-hw">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+        <span>Железо</span>
+      </a>
+      <a class="nav-item" href="#s-docker">
+        <svg viewBox="0 0 24 24"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 15c3 4 12 5 17-1 2 0 3-1 3-2"/></svg>
+        <span>Docker</span>
+        <span class="n-badge" id="nbDocker">0</span>
+      </a>
+      <a class="nav-item" href="#s-pm2">
+        <svg viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>
+        <span>Процессы</span>
+        <span class="n-badge" id="nbPm2">0</span>
+      </a>
+      <a class="nav-item" href="#s-sec">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <span>Безопасность</span>
+      </a>
+      <a class="nav-item" href="#s-ops">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.2-8.6"/><path d="M12 7v5l3 2"/></svg>
+        <span>Обслуживание</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <div>Режим: только чтение</div>
+      <div id="sideUpdated">—</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="btn-icon burger" id="burger" title="Меню">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div>
+          <div class="topbar-title" id="tbTitle">…</div>
+          <div class="topbar-sub" id="tbSub">…</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="conn"><span class="dot" id="dot"></span><span id="connText">подключение…</span></div>
+        <button class="btn-icon" id="logout" title="Выйти">
+          <svg viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M12 3H6a2 2 0 00-2 2v14a2 2 0 002 2h6"/></svg>
+        </button>
       </div>
     </div>
-  </section>
 
-  <section class="cols c2">
-    <div class="panel">
-      <h2>Ядра процессора <span class="count" id="coreCount">0</span></h2>
-      <div class="body"><div class="cores" id="cores"></div></div>
-    </div>
-    <div class="panel">
-      <h2>Файловые системы</h2>
-      <div class="body flush"><table><thead><tr>
-        <th>Точка монтирования</th><th>Устройство</th><th class="num">Всего</th><th class="num">Свободно</th><th class="num">Занято</th>
-      </tr></thead><tbody id="fsBody"></tbody></table></div>
-    </div>
-  </section>
+    <div class="content" id="content">
 
-  <section class="cols c2">
-    <div class="panel">
-      <h2>Docker <span class="count" id="ctnCount">0</span><span class="right" id="ctnSummary"></span></h2>
-      <div class="body flush" id="containers"></div>
-    </div>
-    <div class="panel">
-      <h2>PM2 <span class="count" id="pm2Count">0</span></h2>
-      <div class="body flush"><table><thead><tr>
-        <th>Процесс</th><th>Статус</th><th class="num">CPU</th><th class="num">Память</th><th class="num">Рестарты</th><th class="num">Аптайм</th>
-      </tr></thead><tbody id="pm2Body"></tbody></table></div>
-    </div>
-  </section>
+      <section id="s-overview">
+        <div id="alerts"></div>
+        <div class="sec-head"><h2>Ключевые метрики</h2><span class="right" id="tickInfo">—</span></div>
+        <div class="kpis">
+          <div class="kpi" id="kCpu">
+            <div class="k-label">Процессор</div>
+            <div class="k-val"><span id="cpuVal">0</span><small>%</small></div>
+            <div class="k-foot" id="cpuFoot">—</div>
+            <canvas id="spCpu"></canvas>
+          </div>
+          <div class="kpi" id="kMem">
+            <div class="k-label">Память</div>
+            <div class="k-val"><span id="memVal">0</span><small>%</small></div>
+            <div class="k-foot" id="memFoot">—</div>
+            <canvas id="spMem"></canvas>
+          </div>
+          <div class="kpi" id="kDisk">
+            <div class="k-label">Диск /</div>
+            <div class="k-val"><span id="diskVal">0</span><small>%</small></div>
+            <div class="k-foot" id="diskFoot">—</div>
+            <div class="track"><i id="diskBar"></i></div>
+            <div class="k-foot" id="ioFoot" style="margin-top:9px">—</div>
+          </div>
+          <div class="kpi" id="kLoad">
+            <div class="k-label">Load average</div>
+            <div class="k-val" id="loadVal">0.00</div>
+            <div class="k-foot" id="loadFoot">—</div>
+            <canvas id="spLoad"></canvas>
+          </div>
+          <div class="kpi" id="kNet">
+            <div class="k-label">Сеть</div>
+            <div class="k-val" id="netVal" style="font-size:19px">—</div>
+            <div class="k-foot" id="netFoot">—</div>
+            <canvas id="spNet"></canvas>
+          </div>
+          <div class="kpi" id="kSwap">
+            <div class="k-label">Своп</div>
+            <div class="k-val"><span id="swapVal">0</span><small>%</small></div>
+            <div class="k-foot" id="swapFoot">—</div>
+            <div class="track"><i id="swapBar"></i></div>
+            <div class="k-foot" id="procFoot" style="margin-top:9px">—</div>
+          </div>
+        </div>
+      </section>
 
-  <section class="cols c3">
-    <div class="panel">
-      <h2>Безопасность</h2>
-      <div class="body" id="security"></div>
-    </div>
-    <div class="panel">
-      <h2>TLS-сертификаты <span class="count" id="certCount">0</span></h2>
-      <div class="body flush"><table><thead><tr>
-        <th>Домен</th><th class="num">Осталось</th>
-      </tr></thead><tbody id="certBody"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <h2>Резервные копии</h2>
-      <div class="body" id="backups"></div>
-    </div>
-  </section>
+      <section id="s-perf">
+        <div class="sec-head"><h2>Графики</h2><span class="right">окно ~6 минут</span></div>
+        <div class="grid g2">
+          <div class="panel">
+            <h3>Процессор и память</h3>
+            <div class="chart-wrap"><canvas id="chCpu"></canvas></div>
+            <div class="legend">
+              <span><i style="background:#F4EDE4"></i>CPU</span>
+              <span><i style="background:#3b82f6"></i>Память</span>
+              <span><i style="background:#a855f7"></i>Своп</span>
+            </div>
+          </div>
+          <div class="panel">
+            <h3>Сеть и диск <span class="right">КБ/с</span></h3>
+            <div class="chart-wrap"><canvas id="chNet"></canvas></div>
+            <div class="legend">
+              <span><i style="background:#22c55e"></i>Входящий</span>
+              <span><i style="background:#3b82f6"></i>Исходящий</span>
+              <span><i style="background:#f59e0b"></i>Чтение</span>
+              <span><i style="background:#ef4444"></i>Запись</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-  <section class="cols c3">
-    <div class="panel">
-      <h2>Системные службы</h2>
-      <div class="body" id="services"></div>
-    </div>
-    <div class="panel">
-      <h2>Место в Docker</h2>
-      <div class="body" id="dockerDisk"></div>
-    </div>
-    <div class="panel">
-      <h2>Последние входы по SSH</h2>
-      <div class="body flush" id="logins"></div>
-    </div>
-  </section>
+      <section id="s-hw">
+        <div class="sec-head"><h2>Железо</h2></div>
+        <div class="grid g2">
+          <div class="panel">
+            <h3>Ядра <span class="count" id="coreCount">0</span></h3>
+            <div class="body"><div class="cores" id="cores"></div></div>
+          </div>
+          <div class="panel">
+            <h3>Файловые системы</h3>
+            <div class="body flush"><table><thead><tr>
+              <th>Точка</th><th>Устройство</th><th class="num">Объём</th><th class="num">Свободно</th><th class="num">Занято</th>
+            </tr></thead><tbody id="fsBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
 
-  <footer class="foot">
-    <span id="footInfo">VPS Sentinel — только чтение, изменения через панель невозможны</span>
-  </footer>
+      <section id="s-docker">
+        <div class="sec-head"><h2>Docker</h2><span class="count" id="ctnCount">0</span><span class="right" id="ctnSummary"></span></div>
+        <div class="panel"><div class="body flush" id="containers"></div></div>
+      </section>
 
+      <section id="s-pm2">
+        <div class="sec-head"><h2>Процессы PM2</h2><span class="count" id="pm2Count">0</span></div>
+        <div class="panel"><div class="body flush"><table><thead><tr>
+          <th>Процесс</th><th>Статус</th><th class="num">CPU</th><th class="num">Память</th><th class="num">Рестарты</th><th class="num">Аптайм</th>
+        </tr></thead><tbody id="pm2Body"></tbody></table></div></div>
+      </section>
+
+      <section id="s-sec">
+        <div class="sec-head"><h2>Безопасность</h2></div>
+        <div class="grid g3">
+          <div class="panel">
+            <h3>Доступ и атаки</h3>
+            <div class="body" id="security"></div>
+          </div>
+          <div class="panel">
+            <h3>Сертификаты <span class="count" id="certCount">0</span></h3>
+            <div class="body flush"><table><thead><tr>
+              <th>Домен</th><th class="num">Осталось</th>
+            </tr></thead><tbody id="certBody"></tbody></table></div>
+          </div>
+          <div class="panel">
+            <h3>Последние входы</h3>
+            <div class="body flush" id="logins"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s-ops">
+        <div class="sec-head"><h2>Обслуживание</h2></div>
+        <div class="grid g3">
+          <div class="panel">
+            <h3>Службы</h3>
+            <div class="body" id="services"></div>
+          </div>
+          <div class="panel">
+            <h3>Резервные копии</h3>
+            <div class="body" id="backups"></div>
+          </div>
+          <div class="panel">
+            <h3>Место в Docker</h3>
+            <div class="body" id="dockerDisk"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
 </div>
+
 <script src="/app.js" type="module"></script>
 </body>
 </html>
