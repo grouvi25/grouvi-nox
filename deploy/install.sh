@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # VPS Sentinel installer. Idempotent: safe to re-run.
 set -euo pipefail
 
@@ -34,7 +34,11 @@ ok "$STATE_DIR"
 # ------------------------------------------------------------ app deps
 say "Dependencies"
 cd "$APP_DIR"
-npm ci --omit=dev --no-audit --no-fund 2>&1 | tail -3
+if [ -f package-lock.json ]; then
+  npm ci --omit=dev --no-audit --no-fund 2>&1 | tail -3
+else
+  npm install --omit=dev --no-audit --no-fund 2>&1 | tail -3
+fi
 chown -R root:root "$APP_DIR"
 chmod -R go-w "$APP_DIR"
 ok "node_modules ready"
