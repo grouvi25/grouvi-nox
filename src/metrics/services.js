@@ -104,7 +104,8 @@ function decodeDockerLogs(buffer) {
   const text = (out.length ? Buffer.concat(out) : buffer).toString('utf8');
   return text
     .replace(/\x1b\[[0-9;]*m/g, '')
-    .replace(/(password|passwd|secret|token|api[_-]?key|authorization)(\s*[=:]\s*)[^\s,;]+/gi, '$1$2[REDACTED]')
+    .replace(/(password|passwd|secret|token|api[_-]?key|authorization)(["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1$2[REDACTED]')
+    .replace(/([?&](?:token|key|secret|signature)=)[^&\s]+/gi, '$1[REDACTED]')
     .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+/gi, '$1[REDACTED]')
     .split('\n').slice(-160).join('\n').slice(-40_000);
 }

@@ -30,7 +30,8 @@ function run(cmd, args, timeout = 10000, cwd) {
 function redact(text) {
   return String(text || '')
     .replace(/\x1b\[[0-9;]*m/g, '')
-    .replace(/(password|passwd|secret|token|api[_-]?key|authorization)(\s*[=:]\s*)[^\s,;]+/gi, '$1$2[REDACTED]')
+    .replace(/(password|passwd|secret|token|api[_-]?key|authorization)(["']?\s*[:=]\s*["']?)[^"'\s,;}]+/gi, '$1$2[REDACTED]')
+    .replace(/([?&](?:token|key|secret|signature)=)[^&\s]+/gi, '$1[REDACTED]')
     .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+/gi, '$1[REDACTED]')
     .slice(-24_000);
 }
