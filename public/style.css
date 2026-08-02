@@ -254,7 +254,9 @@ section:first-child .sec-head{margin-top:0}
 .chart-crosshair{position:absolute;top:9px;bottom:14px;width:1px;background:var(--accent);opacity:0;pointer-events:none;transform:translateX(-.5px)}
 .interactive-chart:hover .chart-crosshair,.interactive-chart:focus-within .chart-crosshair{opacity:.45}
 .x0{left:0}.x5{left:5%}.x10{left:10%}.x15{left:15%}.x20{left:20%}.x25{left:25%}.x30{left:30%}.x35{left:35%}.x40{left:40%}.x45{left:45%}.x50{left:50%}.x55{left:55%}.x60{left:60%}.x65{left:65%}.x70{left:70%}.x75{left:75%}.x80{left:80%}.x85{left:85%}.x90{left:90%}.x95{left:95%}.x100{left:100%}
-.chart-inspect{min-height:30px;padding:4px 16px 8px;color:var(--text3);font:10.5px/1.5 var(--mono);font-variant-numeric:tabular-nums}
+.chart-badge{position:absolute;left:54px;top:10px;z-index:2;max-width:calc(100% - 70px);padding:6px 9px;border:1px solid var(--border3);border-radius:6px;background:var(--bg2);color:var(--accent);font:10.5px/1.35 var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity 120ms cubic-bezier(.22,1,.36,1),transform 120ms cubic-bezier(.22,1,.36,1)}
+.interactive-chart:hover .chart-badge,.interactive-chart:focus-within .chart-badge{opacity:1;transform:none}
+.metric-detail-inspect{min-height:30px;padding:6px 0;color:var(--text3);font:10.5px/1.5 var(--mono);font-variant-numeric:tabular-nums}
 .legend{display:flex;gap:16px;flex-wrap:wrap;padding:2px 16px 12px;font-size:11px;color:var(--text3);font-family:var(--mono)}
 .legend i{display:inline-block;width:8px;height:2px;border-radius:2px;margin-right:6px;vertical-align:middle}
 .sw-accent{background:var(--accent)}

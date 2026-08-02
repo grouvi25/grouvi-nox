@@ -107,10 +107,19 @@ function multiChart(canvas, sets, { max, unit = '' } = {}) {
 
   for (const s of sets) {
     const d = s.data || [];
-    if (d.length < 2) continue;
-    const step = plotW / (d.length - 1);
+    if (!d.length) continue;
     const y = (v) => padT + plotH - (clamp(v, 0, top) / top) * plotH;
-
+    // A long range can legitimately contain one bucket shortly after first
+    // install. Draw a visible point instead of an empty chart.
+    if (d.length === 1) {
+      const x = padL + plotW;
+      ctx.beginPath(); ctx.arc(x, y(d[0]), 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = s.color; ctx.fill();
+      ctx.beginPath(); ctx.moveTo(padL, y(d[0])); ctx.lineTo(x, y(d[0]));
+      ctx.strokeStyle = `${s.color}55`; ctx.lineWidth = 1; ctx.setLineDash([4, 5]); ctx.stroke(); ctx.setLineDash([]);
+      continue;
+    }
+    const step = plotW / (d.length - 1);
     const p = new Path2D();
     p.moveTo(padL, y(d[0]));
     for (let i = 1; i < d.length; i += 1) p.lineTo(padL + i * step, y(d[i]));
@@ -431,7 +440,9 @@ async function loadHistory(range = '24h') {
   try {
     persistedHistory = await api(`/api/history?range=${encodeURIComponent(range)}`);
     const points = persistedHistory.rows?.length || 0;
-    $('historyMeta').textContent = `${points} точек · шаг ${Math.round(persistedHistory.bucketSeconds / 60) || '<1'} мин.`;
+    const collected = persistedHistory.rows?.length
+      ? ` · данные с ${formatWhen(persistedHistory.rows[0].ts)}` : ' · история ещё накапливается';
+    $('historyMeta').textContent = `${points} точек · шаг ${Math.round(persistedHistory.bucketSeconds / 60) || '<1'} мин.${collected}`;
     if (latest) renderCharts(latest);
     renderAnalytics();
   } catch (e) { $('historyMeta').textContent = `Ошибка: ${e.message}`; }
@@ -644,7 +655,7 @@ function inspectChart(kind, event) {
 function resetChartInspect(kind) {
   const cross = kind === 'cpu' ? $('cpuCrosshair') : $('netCrosshair');
   cross.className = 'chart-crosshair';
-  $(kind === 'cpu' ? 'cpuInspect' : 'netInspect').textContent = 'Наведи на график для точных значений.';
+  $(kind === 'cpu' ? 'cpuInspect' : 'netInspect').textContent = 'Наведи на график';
 }
 
 const METRICS = {
@@ -687,7 +698,7 @@ function openMetricDetail(metric) {
   ];
   $('detailBody').innerHTML = `
     <section class="detail-section"><h3>${esc(persistedHistory?.range || '24h')} · статистика</h3>${detailStats(stats)}</section>
-    <section class="detail-section"><h3>Детальный график</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="chart-inspect" id="metricDetailInspect">Период: ${formatWhen(persistedHistory?.from)} → ${formatWhen(persistedHistory?.to)}</div></section>
+    <section class="detail-section"><h3>Детальный график</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="metric-detail-inspect" id="metricDetailInspect">Период: ${formatWhen(persistedHistory?.from)} → ${formatWhen(persistedHistory?.to)}</div></section>
     <section class="detail-section"><h3>Ряды</h3><div class="metric-series-list">${spec.keys.map(([,label])=>`<span>${esc(label)}</span>`).join('')}</div></section>`;
   const canvas = $('metricDetailCanvas');
   const sets = spec.keys.map(([key,,color]) => ({ data: rows.map(r => spec.unit === 'bytes' ? Number(r[key]||0)/1024 : Number(r[key]||0)), color }));
