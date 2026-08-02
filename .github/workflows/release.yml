@@ -23,7 +23,8 @@ jobs:
         run: ./scripts/build-release.sh "${GITHUB_REF_NAME}" dist
       - name: Verify bundle
         run: ./scripts/verify-release.sh "dist/vps-sentinel-${GITHUB_REF_NAME}-linux.tar.gz" dist/SHA256SUMS
-      - name: Attest build provenance
+      - name: Attest build provenance (public repositories)
+        if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: dist/vps-sentinel-${{ github.ref_name }}-linux.tar.gz

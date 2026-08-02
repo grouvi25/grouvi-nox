@@ -36,7 +36,7 @@ sudo ./deploy/install.sh \
 
 For an orange-cloud Cloudflare record, use `--proxy cloudflare`; the origin then rejects direct non-Cloudflare traffic.
 
-**Do not install with `curl | sh`.** VPS Sentinel publishes checksums and GitHub build-provenance attestations so the exact local bundle can be verified first.
+**Do not install with `curl | sh`.** Every release publishes a SHA-256 manifest; public repositories additionally publish GitHub build-provenance attestations. Private repositories do not support GitHub attestations, so verify the checksum from the authenticated release page.
 
 Full guide: [docs/INSTALL.md](docs/INSTALL.md)
 

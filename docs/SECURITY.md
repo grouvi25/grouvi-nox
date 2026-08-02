@@ -19,7 +19,7 @@ Only metadata is indexed: path, type, size, permissions, ownership and modificat
 
 ## Release integrity
 
-GitHub tag builds create a reproducible tarball, SHA-256 manifest and GitHub build-provenance attestation. Operators verify the downloaded archive before extraction. `sentinelctl update` requires the expected checksum and performs package-identity checks.
+GitHub tag builds create a reproducible tarball and SHA-256 manifest. Public repositories also receive a GitHub build-provenance attestation; GitHub does not offer attestations for user-owned private repositories. Operators verify the downloaded archive before extraction. `sentinelctl update` requires the expected checksum and performs package-identity checks.
 
 ## Secrets
 
