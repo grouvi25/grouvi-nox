@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_DIR=${SENTINEL_APP_DIR:-/opt/vps-sentinel}
+COMMON="$APP_DIR/deploy/lib/common.sh"
+[[ -r $COMMON ]] || { echo "VPS Sentinel common library missing: $COMMON" >&2; exit 1; }
+# shellcheck source=../deploy/lib/common.sh
+. "$COMMON"
+
+usage(){ cat <<'EOF'
+VPS Sentinel lifecycle manager
+
+Usage: sentinelctl <command> [options]
+
+Commands:
+  status                   Services, version, database and endpoint status
+  doctor                   Full read-only installation diagnostic
+  enroll [label]           Create a one-time passkey enrollment link
+  recovery                 Rotate and print recovery codes
+  backup [output.tar.gz]   Backup state, configuration and nginx integration
+  update <bundle> <sha256> Verify a release bundle and perform atomic update
+  restore <backup.tar.gz>  Restore state/config from a sentinelctl backup
+  uninstall [--purge]      Remove services and integration; keep data by default
+  logs [agent|web]         Follow service logs
+  version                  Print installed version and commit
+
+Never use `curl | sh`. Download releases and SHA256SUMS separately, verify, then
+pass the local bundle plus expected SHA-256 to `sentinelctl update`.
+EOF
+}
+
+cmd_status(){
+  load_install_config
+  section 'VPS Sentinel'
+  printf '  Version: %s\n' "$(node -p "require('$APP_DIR/package.json').version" 2>/dev/null || echo unknown)"
+  printf '  Domain:  %s\n' "$DOMAIN"
+  printf '  Mode:    %s\n' "$PROXY_MODE"
+  printf '  App:     %s\n' "$APP_DIR"
+  printf '  State:   %s\n' "$STATE_DIR"
+  printf '  Commit:  %s\n' "$(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null || echo release-bundle)"
+  section 'Services'
+  for service in "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE" nginx; do
+    state=$(systemctl is-active "$service" 2>/dev/null || true)
+    [[ $state == active ]] && ok "$service: active" || warn "$service: ${state:-missing}"
+  done
+  section 'Endpoints'
+  wait_http "http://127.0.0.1:${PORT}/healthz" 1 0 && ok 'local health endpoint' || warn 'local health endpoint failed'
+  curl -fsS --max-time 8 "https://${DOMAIN}/login" >/dev/null 2>&1 && ok 'public HTTPS endpoint' || warn 'public HTTPS endpoint failed'
+  section 'State'
+  du -sh "$STATE_DIR" 2>/dev/null || true
+  [[ -f $STATE_DIR/sentinel.db ]] && sqlite3 "$STATE_DIR/sentinel.db" "select 'metrics='||count(*) from metrics; select 'active_incidents='||count(*) from incidents where status!='resolved';" || true
+}
+
+cmd_doctor(){
+  require_root; load_install_config
+  local failed=0
+  check(){ if "$@"; then ok "$CHECK_NAME"; else warn "$CHECK_NAME"; failed=$((failed+1)); fi; }
+  section 'Platform'
+  CHECK_NAME="supported OS ($(. /etc/os-release; echo "$PRETTY_NAME"))"; check supported_os
+  CHECK_NAME='Node.js >= 20'; check bash -c 'v=$(node -p "process.versions.node.split(\".\")[0]"); ((v>=20))'
+  CHECK_NAME='configuration permissions 0600'; check bash -c "[[ \$(stat -c %a '$SENTINEL_CONFIG') == 600 ]]"
+  CHECK_NAME='state owner and mode'; check bash -c "[[ \$(stat -c %U '$STATE_DIR') == '$SENTINEL_USER' && \$(stat -c %a '$STATE_DIR') == 700 ]]"
+  section 'Services'
+  for service in "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE" nginx; do CHECK_NAME="$service active"; check service_active "$service"; done
+  CHECK_NAME='nginx configuration'; check nginx -t
+  CHECK_NAME='systemd web sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_SERVICE}.service"
+  CHECK_NAME='systemd agent sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+  section 'Runtime'
+  CHECK_NAME='local health endpoint'; check wait_http "http://127.0.0.1:${PORT}/healthz" 1 0
+  CHECK_NAME='public HTTPS endpoint'; check curl -fsS --max-time 10 "https://${DOMAIN}/login" -o /dev/null
+  CHECK_NAME='SQLite integrity'; check bash -c "[[ \$(sqlite3 '$STATE_DIR/sentinel.db' 'pragma integrity_check;') == ok ]]"
+  CHECK_NAME='filesystem metadata index'; check bash -c "node -e \"const d=require('$STATE_DIR/filesystem.json');if(!d.policy?.metadataOnly||d.policy?.contentAccess)process.exit(1)\""
+  CHECK_NAME='SSH private paths excluded'; check bash -c "! grep -q '\"path\":\"/root/.ssh/' '$STATE_DIR/filesystem.json'"
+  section 'Security posture'
+  CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
+  CHECK_NAME='web listener is loopback only'; check bash -c "ss -H -lntp | grep -q '127.0.0.1:${PORT}' && ! ss -H -lntp | grep -qE '(0.0.0.0|\[::\]):${PORT}'"
+  CHECK_NAME='API rejects unauthenticated history'; check bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/api/history) == 401 ]]"
+  if [[ $PROXY_MODE == cloudflare ]]; then
+    CHECK_NAME='Cloudflare origin allowlist installed'; check test -s /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf
+  fi
+  section 'Result'
+  ((failed==0)) && { ok 'All checks passed'; return 0; }
+  warn "$failed checks failed"; return 1
+}
+
+cmd_enroll(){ require_root; cd "$APP_DIR"; node bin/enroll.js "${1:-sentinelctl}"; }
+cmd_recovery(){ require_root; cd "$APP_DIR"; node bin/enroll.js --recovery; }
+
+cmd_backup(){
+  require_root; load_install_config
+  local output=${1:-/root/vps-sentinel-backup-$(date -u +%Y%m%dT%H%M%SZ).tar.gz} staging
+  staging=$(mktemp -d); trap 'rm -rf "$staging"' RETURN
+  mkdir -p "$staging/state" "$staging/etc" "$staging/nginx"
+  sqlite3 "$STATE_DIR/sentinel.db" ".backup '$staging/state/sentinel.db'" 2>/dev/null || true
+  cp -a "$STATE_DIR/state.json" "$staging/state/" 2>/dev/null || true
+  cp -a "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" "$staging/etc/"
+  cp -a /etc/nginx/sites-available/vps-sentinel "$staging/nginx/" 2>/dev/null || true
+  cat > "$staging/MANIFEST" <<EOF
+created=$(date -u +%FT%TZ)
+domain=$DOMAIN
+version=$(node -p "require('$APP_DIR/package.json').version")
+source_host=$(hostname)
+EOF
+  tar -C "$staging" -czf "$output" .
+  chmod 600 "$output"
+  ok "Backup created: $output"
+  printf '  SHA256: %s\n' "$(sha256_file "$output")"
+}
+
+cmd_update(){
+  require_root; load_install_config
+  local bundle=${1:-} expected=${2:-} work backup app_backup
+  [[ -f $bundle && -n $expected ]] || die 'Usage: sentinelctl update <bundle.tar.gz> <expected-sha256>'
+  actual=$(sha256_file "$bundle"); [[ $actual == "$expected" ]] || die "Checksum mismatch: expected $expected, got $actual"
+  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  tar -xzf "$bundle" -C "$work"
+  [[ -f $work/package.json && -f $work/src/server.js && -f $work/deploy/install.sh ]] || die 'Invalid VPS Sentinel bundle.'
+  node -e "const p=require('$work/package.json');if(!p.name?.includes('vps-sentinel'))process.exit(1)" || die 'Bundle identity check failed.'
+  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  backup="/root/vps-sentinel-pre-update-${stamp}.tar.gz"
+  app_backup="/root/vps-sentinel-app-pre-update-${stamp}.tar.gz"
+  cmd_backup "$backup" >/dev/null
+  tar -C "$APP_DIR" --exclude=node_modules --exclude=.git -czf "$app_backup" .
+  chmod 600 "$app_backup"
+  systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+  rsync -a --delete --exclude node_modules --exclude .git "$work/" "$APP_DIR/"
+  cd "$APP_DIR"
+  if ! npm ci --omit=dev --no-audit --no-fund \
+    || ! install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service" \
+    || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"; then
+    warn 'Update staging failed; restoring previous application.'
+    rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
+    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+    die "Update rolled back. Diagnostics: $app_backup"
+  fi
+  chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"
+  systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
+    warn 'New version failed health check; restoring previous application.'
+    systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+    rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
+    install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service"
+    install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+    wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Rollback also failed; manual intervention required.'
+    die "Update failed and was rolled back. Failed bundle retained: $bundle"
+  fi
+  ok "Updated to $(node -p "require('$APP_DIR/package.json').version")"
+  info "Rollback backups: $backup and $app_backup"
+}
+
+cmd_restore(){
+  require_root; load_install_config
+  local archive=${1:-} work
+  [[ -f $archive ]] || die 'Usage: sentinelctl restore <backup.tar.gz>'
+  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  tar -xzf "$archive" -C "$work"
+  [[ -f $work/etc/vps-sentinel.env ]] || die 'Not a VPS Sentinel backup.'
+  systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+  cp -a "$work/etc/vps-sentinel.env" "$SENTINEL_CONFIG"
+  [[ -f $work/etc/install.conf ]] && cp -a "$work/etc/install.conf" "$SENTINEL_INSTALL_CONFIG"
+  [[ -f $work/state/state.json ]] && install -m 600 -o "$SENTINEL_USER" -g "$SENTINEL_USER" "$work/state/state.json" "$STATE_DIR/state.json"
+  [[ -f $work/state/sentinel.db ]] && install -m 600 -o "$SENTINEL_USER" -g "$SENTINEL_USER" "$work/state/sentinel.db" "$STATE_DIR/sentinel.db"
+  systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Restore completed but service failed health check.'
+  ok 'Restore completed.'
+}
+
+cmd_uninstall(){
+  require_root; load_install_config
+  local purge=0; [[ ${1:-} == --purge ]] && purge=1
+  confirm "Remove VPS Sentinel from this server?" || die 'Cancelled.'
+  systemctl disable --now "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE" >/dev/null 2>&1 || true
+  rm -f "/etc/systemd/system/${SENTINEL_SERVICE}.service" "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+  rm -f /etc/nginx/sites-enabled/vps-sentinel /etc/nginx/sites-available/vps-sentinel
+  rm -f /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf /etc/nginx/conf.d/vps-sentinel-http.conf
+  rm -f /etc/nginx/snippets/vps-sentinel-cloudflare-realip.conf /etc/nginx/snippets/sentinel-proxy.conf
+  nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
+  rm -rf "${APP_DIR:?}"; rm -f /usr/local/sbin/sentinelctl
+  if ((purge)); then rm -rf "${STATE_DIR:?}"; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG"; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
+  systemctl daemon-reload
+  if ((purge)); then ok 'Uninstalled; application data purged.'; else ok "Uninstalled; data kept in $STATE_DIR."; fi
+}
+
+cmd_logs(){
+  case ${1:-web} in
+    web) journalctl -u "$SENTINEL_SERVICE" -f -n 100 ;;
+    agent) journalctl -u "$SENTINEL_AGENT_SERVICE" -f -n 100 ;;
+    *) die 'Usage: sentinelctl logs [web|agent]' ;;
+  esac
+}
+
+cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || true; }
+
+command=${1:-}; shift || true
+case "$command" in
+  status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
+  backup) cmd_backup "$@";; update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
+  logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
+esac

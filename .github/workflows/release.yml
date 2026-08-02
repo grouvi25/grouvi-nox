@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate tag and build reproducible bundle
+        run: ./scripts/build-release.sh "${GITHUB_REF_NAME}" dist
+      - name: Verify bundle
+        run: ./scripts/verify-release.sh "dist/vps-sentinel-${GITHUB_REF_NAME}-linux.tar.gz" dist/SHA256SUMS
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/vps-sentinel-${{ github.ref_name }}-linux.tar.gz
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/vps-sentinel-${{ github.ref_name }}-linux.tar.gz
+            dist/SHA256SUMS
