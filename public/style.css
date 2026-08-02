@@ -124,16 +124,11 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
 
 /* ============================ main ============================= */
 .main{
-  flex:1;display:flex;flex-direction:column;min-width:0;position:relative;isolation:isolate;overflow:hidden;
+  flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden;
   background:linear-gradient(135deg,#111111,#161616,#0e0e0e,#141414,#111111);
   background-size:400% 400%;
-  animation:bgShift 20s cubic-bezier(.65,0,.35,1) infinite;
+  animation:bgShift 20s ease-in-out infinite;
 }
-.main::before,.main::after{content:'';position:fixed;z-index:-1;pointer-events:none;width:82vw;height:82vw;border-radius:48%;opacity:.12;background:repeating-radial-gradient(ellipse at center,transparent 0 42px,oklch(82% .015 75) 43px 44px,transparent 45px 86px);will-change:transform}
-.main::before{left:18vw;top:26vh;animation:waveOne 22s cubic-bezier(.65,0,.35,1) infinite alternate}
-.main::after{right:-30vw;bottom:-44vw;opacity:.08;animation:waveTwo 28s cubic-bezier(.65,0,.35,1) infinite alternate}
-@keyframes waveOne{from{transform:translate3d(-4%,2%,0) rotate(-7deg) scale(1)}to{transform:translate3d(6%,-5%,0) rotate(5deg) scale(1.08)}}
-@keyframes waveTwo{from{transform:translate3d(2%,-3%,0) rotate(8deg) scale(.95)}to{transform:translate3d(-7%,4%,0) rotate(-5deg) scale(1.06)}}
 @keyframes bgShift{
   0%{background-position:0% 50%}
   25%{background-position:100% 25%}
@@ -141,7 +136,7 @@ svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-l
   75%{background-position:0% 50%}
   100%{background-position:0% 50%}
 }
-@media(prefers-reduced-motion:reduce){.main{animation:none}.main::before,.main::after{animation:none}}
+@media(prefers-reduced-motion:reduce){.main{animation:none}}
 
 .topbar{
   padding:12px 24px;border-bottom:1px solid var(--border);
@@ -207,10 +202,14 @@ section:first-child .sec-head{margin-top:0}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:12px}
 .kpi{
   background:var(--panel);border:1px solid var(--border);border-radius:var(--r2);
-  padding:14px 16px 10px;overflow:hidden;
+  padding:14px 16px 10px;overflow:hidden;position:relative;
   transition:border-color .15s ease,background .15s ease,transform .15s ease;
 }
 .kpi:hover{border-color:var(--border3);background:var(--panel2);transform:translateY(-1px)}
+.kpi.expandable{cursor:pointer}
+.kpi.expandable::after{content:'↗';position:absolute;right:12px;top:10px;color:var(--text3);font:12px var(--mono);opacity:0;transform:translate(-2px,2px);transition:opacity 120ms cubic-bezier(.22,1,.36,1),transform 120ms cubic-bezier(.22,1,.36,1)}
+.kpi.expandable:hover::after,.kpi.expandable:focus-visible::after{opacity:1;transform:none}
+.kpi.expandable:active{transform:translateY(1px)}
 .kpi .k-label{
   font-size:10px;font-weight:600;color:var(--text3);
   text-transform:uppercase;letter-spacing:1px;
@@ -462,6 +461,10 @@ input.code:focus{outline:none;border-color:var(--accent)}
 .detail-stat span{display:block;font-size:10px;color:var(--text3);margin-bottom:4px}
 .detail-stat b{font:500 12px var(--mono);color:var(--text)}
 .log-view{min-height:220px;max-height:46vh;overflow:auto;white-space:pre-wrap;word-break:break-word;padding:14px;border:1px solid var(--border);border-radius:8px;background:oklch(11% .008 75);color:oklch(79% .012 75);font:11px/1.55 var(--mono);tab-size:2}
+.metric-detail-chart{height:300px;border:1px solid var(--border);border-radius:8px;background:var(--panel);padding:10px}
+.metric-detail-chart canvas{display:block;width:100%;height:100%}
+.metric-series-list{display:flex;gap:8px;flex-wrap:wrap}
+.metric-series-list span{padding:4px 8px;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font:11px var(--mono)}
 .log-tabs{display:flex;gap:4px}
 .detail-skeleton{height:220px;border-radius:8px;background:linear-gradient(90deg,var(--panel),var(--panel2),var(--panel));background-size:220% 100%;animation:skeleton 1.2s linear infinite}
 @keyframes skeleton{to{background-position:-220% 0}}

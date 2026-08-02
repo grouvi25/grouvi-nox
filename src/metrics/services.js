@@ -170,7 +170,13 @@ export async function privileged() {
 
 export async function pm2() {
   const p = await privileged();
-  return p?.pm2 || { available: false, items: [] };
+  if (!p?.pm2) return { available: false, items: [] };
+  // Realtime snapshots must stay tiny. Log tails and paths are served only by
+  // the authenticated drill-down endpoint, never pushed every two seconds.
+  return {
+    ...p.pm2,
+    items: (p.pm2.items || []).map(({ outLog, errorLog, cwd, script, ...item }) => item),
+  };
 }
 
 export async function deployments() {
@@ -180,8 +186,8 @@ export async function deployments() {
 
 export async function pm2Detail(name) {
   if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(name)) return null;
-  const p = await pm2();
-  return p.items?.find(item => item.name === name) || null;
+  const p = await privileged();
+  return p?.pm2?.items?.find(item => item.name === name) || null;
 }
 
 const FS_INDEX_FILE = `${config.stateDir}/filesystem.json`;
@@ -223,7 +229,10 @@ export async function filesystemBrowse(requestPath = '/', query = '') {
   return {
     at: index.at, current: current || null, path: clean, query: q,
     children, totals: index.totals, roots: index.roots,
-    largest: index.largest || [], risks: index.risks || [], policy: index.policy,
+    // Heavy overview lists are sent once at root, not on every folder click.
+    largest: clean === '/' && !q ? index.largest || [] : [],
+    risks: clean === '/' && !q ? index.risks || [] : [],
+    policy: index.policy,
   };
 }
 

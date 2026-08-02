@@ -17,7 +17,7 @@ const snapshot = {
   startedAt: Date.now(), updatedAt: null,
   cpu: null, memory: null, load: null, uptime: 0, network: null, diskIo: null, kernel: null,
   filesystems: [], containers: null, pm2: null, systemd: null, fail2ban: null,
-  ssh: null, backups: [], certificates: [], dockerDisk: null, os: null, deployments: [],
+  ssh: null, backups: [], certificates: [], dockerDisk: null, os: null,
   alerts: [], history, telegram: telegramState(),
 };
 
@@ -64,11 +64,11 @@ async function fastTick() {
 
 async function slowTick() {
   try {
-    const [filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel, deployments] = await Promise.all([
+    const [filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel] = await Promise.all([
       svc.filesystems(), svc.containers(), svc.pm2(), svc.systemd(), svc.fail2ban(),
-      svc.sshActivity(), svc.backups(), proc.kernel(), svc.deployments(),
+      svc.sshActivity(), svc.backups(), proc.kernel(),
     ]);
-    Object.assign(snapshot, { filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel, deployments });
+    Object.assign(snapshot, { filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel });
     snapshot.alerts = evaluate(snapshot);
     await reconcileIncidents();
   } catch (e) { console.error('[collector:slow]', e.message); }

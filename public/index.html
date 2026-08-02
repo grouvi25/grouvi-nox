@@ -116,38 +116,38 @@
       <section id="s-overview">
         <div class="sec-head"><h2>Ключевые метрики</h2><span class="right" id="tickInfo">—</span></div>
         <div class="kpis">
-          <div class="kpi" id="kCpu">
+          <div class="kpi expandable" id="kCpu" role="button" tabindex="0" data-metric="cpu">
             <div class="k-label">Процессор</div>
             <div class="k-val"><span id="cpuVal">0</span><small>%</small></div>
             <div class="k-foot" id="cpuFoot">—</div>
             <canvas id="spCpu"></canvas>
           </div>
-          <div class="kpi" id="kMem">
+          <div class="kpi expandable" id="kMem" role="button" tabindex="0" data-metric="memory">
             <div class="k-label">Память</div>
             <div class="k-val"><span id="memVal">0</span><small>%</small></div>
             <div class="k-foot" id="memFoot">—</div>
             <canvas id="spMem"></canvas>
           </div>
-          <div class="kpi" id="kDisk">
+          <div class="kpi expandable" id="kDisk" role="button" tabindex="0" data-metric="disk">
             <div class="k-label">Диск /</div>
             <div class="k-val"><span id="diskVal">0</span><small>%</small></div>
             <div class="k-foot" id="diskFoot">—</div>
             <div class="track"><i id="diskBar"></i></div>
             <div class="k-foot mt-sm" id="ioFoot">—</div>
           </div>
-          <div class="kpi" id="kLoad">
+          <div class="kpi expandable" id="kLoad" role="button" tabindex="0" data-metric="load">
             <div class="k-label">Load average</div>
             <div class="k-val" id="loadVal">0.00</div>
             <div class="k-foot" id="loadFoot">—</div>
             <canvas id="spLoad"></canvas>
           </div>
-          <div class="kpi" id="kNet">
+          <div class="kpi expandable" id="kNet" role="button" tabindex="0" data-metric="network">
             <div class="k-label">Сеть</div>
             <div class="k-val val-sm" id="netVal">—</div>
             <div class="k-foot" id="netFoot">—</div>
             <canvas id="spNet"></canvas>
           </div>
-          <div class="kpi" id="kSwap">
+          <div class="kpi expandable" id="kSwap" role="button" tabindex="0" data-metric="swap">
             <div class="k-label">Своп</div>
             <div class="k-val"><span id="swapVal">0</span><small>%</small></div>
             <div class="k-foot" id="swapFoot">—</div>

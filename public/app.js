@@ -141,6 +141,7 @@ let persistedHistory = null;
 let incidentFilter = 'all';
 let filesystemPath = '/';
 let filesystemTimer = null;
+let filesystemOverview = { largest: [], risks: [] };
 
 function renderAlerts(a) {
   const nb = $('nbAlerts');
@@ -156,7 +157,7 @@ function renderKpis(d) {
   const h = d.history || {};
 
   const cl = lvl(cpu.usage || 0, 85, 95);
-  $('kCpu').className = `kpi ${cl === 'ok' ? '' : cl}`;
+  $('kCpu').className = `kpi expandable ${cl === 'ok' ? '' : cl}`;
   $('cpuVal').textContent = (cpu.usage || 0).toFixed(1);
   $('cpuFoot').textContent = `${cpu.count || 0} ядра · iowait ${(cpu.iowait || 0).toFixed(1)}% · steal ${(cpu.steal || 0).toFixed(1)}%`;
   spark($('spCpu'), h.cpu, C.accent, 100);
@@ -164,7 +165,7 @@ function renderKpis(d) {
   setBar($('gCpuBar'), cpu.usage || 0, cl);
 
   const ml = lvl(mem.usedPct || 0, 85, 94);
-  $('kMem').className = `kpi ${ml === 'ok' ? '' : ml}`;
+  $('kMem').className = `kpi expandable ${ml === 'ok' ? '' : ml}`;
   $('memVal').textContent = (mem.usedPct || 0).toFixed(1);
   $('memFoot').textContent = `${bytes(mem.used)} из ${bytes(mem.total)} · доступно ${bytes(mem.available)}`;
   spark($('spMem'), h.mem, C.blue, 100);
@@ -174,7 +175,7 @@ function renderKpis(d) {
   const root = (d.filesystems || []).find(f => f.mount === '/') || (d.filesystems || [])[0];
   if (root) {
     const dl = lvl(root.usedPct, 80, 90);
-    $('kDisk').className = `kpi ${dl === 'ok' ? '' : dl}`;
+    $('kDisk').className = `kpi expandable ${dl === 'ok' ? '' : dl}`;
     $('diskVal').textContent = root.usedPct.toFixed(1);
     $('diskFoot').textContent = `${bytes(root.used)} из ${bytes(root.size)} · свободно ${bytes(root.avail)}`;
     setBar($('diskBar'), root.usedPct, dl);
@@ -185,7 +186,7 @@ function renderKpis(d) {
 
   const perCore = cpu.count ? (ld.five || 0) / cpu.count : 0;
   const ll = lvl(perCore, 1.5, 3);
-  $('kLoad').className = `kpi ${ll === 'ok' ? '' : ll}`;
+  $('kLoad').className = `kpi expandable ${ll === 'ok' ? '' : ll}`;
   $('loadVal').textContent = (ld.one || 0).toFixed(2);
   $('loadFoot').textContent = `5м ${(ld.five || 0).toFixed(2)} · 15м ${(ld.fifteen || 0).toFixed(2)} · ${ld.processes || 0} процессов`;
   spark($('spLoad'), h.load, C.purple);
@@ -195,7 +196,7 @@ function renderKpis(d) {
   spark($('spNet'), h.rx, C.green);
 
   const sl = lvl(mem.swapPct || 0, 40, 75);
-  $('kSwap').className = `kpi ${sl === 'ok' ? '' : sl}`;
+  $('kSwap').className = `kpi expandable ${sl === 'ok' ? '' : sl}`;
   $('swapVal').textContent = (mem.swapPct || 0).toFixed(1);
   $('swapFoot').textContent = `${bytes(mem.swapUsed || 0)} из ${bytes(mem.swapTotal || 0)}`;
   setBar($('swapBar'), mem.swapPct || 0, sl);
@@ -601,8 +602,10 @@ function renderFilesystem(data) {
     + kv('Симлинков', (totals.symlinks || 0).toLocaleString('ru-RU'))
     + kv('Известный объём', bytes(totals.bytes || 0))
     + kv('Исключено зон', String(totals.excluded || 0), 'секреты и тяжёлые технические деревья');
-  $('fsLargest').innerHTML = (data.largest || []).slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${bytes(x.size)}</b></div>`).join('') || '<div class="empty">Нет файлов крупнее 10 МБ.</div>';
-  $('fsRisks').innerHTML = (data.risks || []).slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${esc(x.risk.filter(r => r !== 'recent' && r !== 'privileged-area').join(', ') || x.risk.join(', '))}</b></div>`).join('') || '<div class="empty">Явных рисков прав не найдено.</div>';
+  if (data.largest?.length) filesystemOverview.largest = data.largest;
+  if (data.risks?.length) filesystemOverview.risks = data.risks;
+  $('fsLargest').innerHTML = filesystemOverview.largest.slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${bytes(x.size)}</b></div>`).join('') || '<div class="empty">Нет файлов крупнее 10 МБ.</div>';
+  $('fsRisks').innerHTML = filesystemOverview.risks.slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${esc(x.risk.filter(r => r !== 'recent' && r !== 'privileged-area').join(', ') || x.risk.join(', '))}</b></div>`).join('') || '<div class="empty">Явных рисков прав не найдено.</div>';
 }
 
 async function loadFilesystem(pathname = filesystemPath, query = '') {
@@ -644,6 +647,58 @@ function resetChartInspect(kind) {
   $(kind === 'cpu' ? 'cpuInspect' : 'netInspect').textContent = 'Наведи на график для точных значений.';
 }
 
+const METRICS = {
+  cpu: { title: 'Процессор', keys: [['cpu','CPU',C.accent]], unit: '%', max: 100 },
+  memory: { title: 'Оперативная память', keys: [['memory','RAM',C.blue]], unit: '%', max: 100 },
+  swap: { title: 'Своп', keys: [['swap','Swap',C.purple]], unit: '%', max: 100 },
+  load: { title: 'Load average', keys: [['load1','Load 1m',C.purple]], unit: '' },
+  network: { title: 'Сетевой трафик', keys: [['network_rx','Входящий',C.green],['network_tx','Исходящий',C.blue]], unit: 'bytes' },
+  disk: { title: 'Диск и I/O', keys: [['disk_read','Чтение',C.amber],['disk_write','Запись',C.red]], unit: 'bytes' },
+};
+
+function percentile(values, p) {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a,b)=>a-b);
+  return sorted[Math.min(sorted.length-1,Math.floor((sorted.length-1)*p))];
+}
+
+function metricValue(value, unit) {
+  if (unit === 'bytes') return rate(value);
+  if (unit === '%') return `${Number(value).toFixed(1)}%`;
+  return Number(value).toFixed(2);
+}
+
+function openMetricDetail(metric) {
+  const spec = METRICS[metric];
+  if (!spec) return;
+  openDetailShell('metric', spec.title);
+  $('detailType').textContent = 'Историческая метрика';
+  $('detailStatus').textContent = persistedHistory?.range || '24h';
+  $('detailStatus').className = 'pill info';
+  const rows = persistedHistory?.rows || [];
+  const primary = rows.map(r => Number(r[spec.keys[0][0]] || 0));
+  const stats = [
+    ['Текущее', metricValue(primary.at(-1) || 0, spec.unit)],
+    ['Среднее', metricValue(primary.reduce((a,b)=>a+b,0)/(primary.length||1), spec.unit)],
+    ['Минимум', metricValue(primary.length ? Math.min(...primary) : 0, spec.unit)],
+    ['Максимум', metricValue(primary.length ? Math.max(...primary) : 0, spec.unit)],
+    ['P95', metricValue(percentile(primary,.95), spec.unit)],
+    ['Точек', String(rows.length)],
+  ];
+  $('detailBody').innerHTML = `
+    <section class="detail-section"><h3>${esc(persistedHistory?.range || '24h')} · статистика</h3>${detailStats(stats)}</section>
+    <section class="detail-section"><h3>Детальный график</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="chart-inspect" id="metricDetailInspect">Период: ${formatWhen(persistedHistory?.from)} → ${formatWhen(persistedHistory?.to)}</div></section>
+    <section class="detail-section"><h3>Ряды</h3><div class="metric-series-list">${spec.keys.map(([,label])=>`<span>${esc(label)}</span>`).join('')}</div></section>`;
+  const canvas = $('metricDetailCanvas');
+  const sets = spec.keys.map(([key,,color]) => ({ data: rows.map(r => spec.unit === 'bytes' ? Number(r[key]||0)/1024 : Number(r[key]||0)), color }));
+  requestAnimationFrame(() => multiChart(canvas, sets, { max: spec.max, unit: spec.unit === 'bytes' ? 'KB' : spec.unit }));
+  canvas.addEventListener('mousemove', (e) => {
+    if (!rows.length) return;
+    const rect=canvas.getBoundingClientRect(); const i=Math.min(rows.length-1,Math.round(clamp((e.clientX-rect.left)/rect.width,0,1)*(rows.length-1))); const row=rows[i];
+    $('metricDetailInspect').textContent=`${formatWhen(row.ts)} · ${spec.keys.map(([k,l])=>`${l}: ${metricValue(row[k]||0,spec.unit)}`).join(' · ')}`;
+  });
+}
+
 function renderHeader(d) {
   const host = d.kernel?.hostname || '—';
   $('sideHost').textContent = host;
@@ -659,11 +714,10 @@ function render(d) {
   renderHeader(d);
   renderAlerts(d.alerts);
   renderKpis(d);
-  renderCharts(d);
   renderCores(d);
 
   const now = Date.now();
-  if (now - lastFull > 4000) {
+  if (now - lastFull > 15_000) {
     lastFull = now;
     renderFs(d); renderContainers(d); renderPm2(d);
     renderSecurity(d); renderCerts(d); renderBackups(d);
@@ -728,17 +782,33 @@ const sections = navItems
   .map(a => document.querySelector(a.getAttribute('href')))
   .filter(Boolean);
 
-$('content').addEventListener('scroll', () => {
-  const top = $('content').scrollTop + 90;
-  let active = 0;
-  sections.forEach((s, i) => { if (s.offsetTop <= top) active = i; });
-  navItems.forEach((a, i) => a.classList.toggle('active', i === active));
+const content = $('content');
+let spyFrame = 0;
+content.addEventListener('scroll', () => {
+  if (spyFrame) return;
+  spyFrame = requestAnimationFrame(() => {
+    spyFrame = 0;
+    const contentTop = content.getBoundingClientRect().top;
+    let active = 0;
+    let best = Infinity;
+    sections.forEach((section, i) => {
+      const distance = Math.abs(section.getBoundingClientRect().top - contentTop - 4);
+      if (section.getBoundingClientRect().top <= contentTop + 96) active = i;
+      if (distance < best && content.scrollTop < 20) { best = distance; active = i; }
+    });
+    navItems.forEach((a, i) => a.classList.toggle('active', i === active));
+  });
 }, { passive: true });
 
 navItems.forEach((a) => a.addEventListener('click', (e) => {
   e.preventDefault();
   const target = document.querySelector(a.getAttribute('href'));
-  if (target) $('content').scrollTo({ top: target.offsetTop - 8, behavior: 'smooth' });
+  if (target) {
+    const top = content.scrollTop + target.getBoundingClientRect().top - content.getBoundingClientRect().top - 4;
+    content.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    navItems.forEach(x => x.classList.toggle('active', x === a));
+    history.replaceState(null, '', a.getAttribute('href'));
+  }
   sidebar.classList.remove('open');
 }));
 navItems[0]?.classList.add('active');
@@ -761,12 +831,16 @@ $('incidentFilters').addEventListener('click', (e) => {
 $('content').addEventListener('click', (e) => {
   const action = e.target.closest('[data-incident-action]');
   if (action) { incidentAction(action.dataset.id, action.dataset.incidentAction, action); return; }
+  const metric = e.target.closest('[data-metric]');
+  if (metric) { openMetricDetail(metric.dataset.metric); return; }
   const service = e.target.closest('[data-service-type]');
   if (service) openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
 });
 
 $('content').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
+  const metric = e.target.closest('[data-metric]');
+  if (metric) { e.preventDefault(); openMetricDetail(metric.dataset.metric); return; }
   const service = e.target.closest('[data-service-type]');
   if (!service) return;
   e.preventDefault(); openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
