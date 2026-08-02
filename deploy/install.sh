@@ -167,6 +167,7 @@ fi
 ok 'Metadata-only filesystem index; sensitive trees excluded by policy.'
 
 section 'Configuration'
+install -d -m 700 -o root -g root /etc/vps-sentinel
 cat > "$SENTINEL_CONFIG" <<EOF
 NODE_ENV=production
 PORT=$PORT
