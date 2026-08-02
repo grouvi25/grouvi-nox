@@ -25,6 +25,16 @@ export const config = {
   certIntervalMs: num(env.CERT_INTERVAL_MS, 6 * 3600 * 1000),
 
   historyPoints: num(env.HISTORY_POINTS, 180),
+  historyPersistIntervalMs: num(env.HISTORY_PERSIST_INTERVAL_MS, 10_000),
+  historyRetentionDays: num(env.HISTORY_RETENTION_DAYS, 30),
+  incidentResolveGraceMs: num(env.INCIDENT_RESOLVE_GRACE_MS, 45_000),
+
+  telegram: {
+    botToken: env.SENTINEL_TELEGRAM_BOT_TOKEN || '',
+    chatId: env.SENTINEL_TELEGRAM_CHAT_ID || '',
+    enabled: Boolean(env.SENTINEL_TELEGRAM_BOT_TOKEN && env.SENTINEL_TELEGRAM_CHAT_ID),
+    cooldownMs: num(env.TELEGRAM_COOLDOWN_MIN, 30) * 60_000,
+  },
 
   paths: {
     dockerSocket: env.DOCKER_SOCKET || '/var/run/docker.sock',
@@ -55,3 +65,4 @@ export const config = {
 };
 
 export const statePath = path.join(config.stateDir, 'state.json');
+export const databasePath = path.join(config.stateDir, 'sentinel.db');

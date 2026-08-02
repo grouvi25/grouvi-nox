@@ -40,8 +40,8 @@ function esc(s) {
 }
 function setBar(el, pct, level) {
   if (!el) return;
-  el.style.width = `${clamp(pct, 0, 100)}%`;
-  el.className = level === 'ok' ? '' : level;
+  const step = Math.round(clamp(pct, 0, 100) / 5) * 5;
+  el.className = `w${step}${level === 'ok' ? '' : ` ${level}`}`;
 }
 
 /* ---------------------------- charts ----------------------------- */
@@ -137,6 +137,8 @@ const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d
 
 /* ----------------------------- render ---------------------------- */
 let latest = null;
+let persistedHistory = null;
+let incidentFilter = 'all';
 
 function renderAlerts(a) {
   const box = $('alerts');
@@ -211,13 +213,18 @@ function renderKpis(d) {
 }
 
 function renderCharts(d) {
-  const h = d.history || {};
+  const live = d.history || {};
+  const rows = persistedHistory?.rows || [];
+  const h = rows.length ? {
+    cpu: rows.map(r => r.cpu), mem: rows.map(r => r.memory), swap: rows.map(r => r.swap),
+    rx: rows.map(r => r.network_rx / 1024), tx: rows.map(r => r.network_tx / 1024),
+    ioR: rows.map(r => r.disk_read / 1024), ioW: rows.map(r => r.disk_write / 1024),
+  } : live;
   multiChart($('chCpu'), [
     { data: h.cpu, color: C.accent },
     { data: h.mem, color: C.blue },
     { data: h.swap, color: C.purple, fill: false },
   ], { max: 100, unit: '%' });
-
   multiChart($('chNet'), [
     { data: h.rx, color: C.green },
     { data: h.tx, color: C.blue },
@@ -284,7 +291,7 @@ function renderContainers(d) {
     const sd = i.state !== 'running' ? 'idle'
       : i.health === 'unhealthy' ? 'crit'
         : i.health === 'health: starting' ? 'warn' : 'ok';
-    return `<div class="ctn">
+    return `<div class="ctn" role="button" tabindex="0" data-service-type="container" data-service-name="${esc(i.name)}">
           <span class="sd ${sd}"></span>
           <span class="nm">${esc(i.name)}</span>
           <span class="im">${esc(i.image)}</span>
@@ -304,7 +311,7 @@ function renderPm2(d) {
   $('pm2Count').textContent = p.items.length;
   $('nbPm2').textContent = String(p.items.length);
   $('nbPm2').className = `n-badge${p.down ? ' alert' : ''}`;
-  body.innerHTML = p.items.map(i => `<tr>
+  body.innerHTML = p.items.map(i => `<tr class="pm2-click" tabindex="0" data-service-type="pm2" data-service-name="${esc(i.name)}">
     <td class="nm">${esc(i.name)}</td>
     <td><span class="pill ${i.status === 'online' ? 'ok' : 'crit'}">${esc(i.status)}</span></td>
     <td class="num">${i.cpu}%</td>
@@ -396,6 +403,159 @@ function renderLogins(d) {
     : '<div class="empty">нет данных</div>';
 }
 
+async function api(url, options) {
+  const res = await fetch(url, { credentials: 'same-origin', ...options });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+function formatWhen(ts) {
+  if (!ts) return '—';
+  return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ts));
+}
+
+async function loadHistory(range = '24h') {
+  $('historyMeta').textContent = 'SQLite: загрузка…';
+  try {
+    persistedHistory = await api(`/api/history?range=${encodeURIComponent(range)}`);
+    const points = persistedHistory.rows?.length || 0;
+    $('historyMeta').textContent = `${points} точек · шаг ${Math.round(persistedHistory.bucketSeconds / 60) || '<1'} мин.`;
+    if (latest) renderCharts(latest);
+  } catch (e) { $('historyMeta').textContent = `Ошибка: ${e.message}`; }
+}
+
+function incidentStatusPill(status) {
+  if (status === 'resolved') return '<span class="pill ok">закрыт</span>';
+  if (status === 'acknowledged') return '<span class="pill info">принят</span>';
+  return '<span class="pill warn">открыт</span>';
+}
+
+function renderIncidents(items) {
+  $('incidentCount').textContent = items.length;
+  const active = items.filter(i => i.status !== 'resolved');
+  $('nbIncidents').textContent = active.length;
+  $('nbIncidents').className = `n-badge${active.some(i => i.severity === 'critical') ? ' alert' : active.length ? ' warn' : ''}`;
+  if (!items.length) {
+    $('incidentList').innerHTML = '<div class="empty">В этом фильтре инцидентов нет.</div>';
+    return;
+  }
+  $('incidentList').innerHTML = items.map(i => `
+    <article class="incident-row" data-incident-id="${i.id}">
+      <span class="incident-mark ${i.severity}"></span>
+      <div><div class="incident-title">${esc(i.title)}</div><div class="incident-detail">${esc(i.detail || i.incident_key)}</div></div>
+      <div class="incident-meta">${incidentStatusPill(i.status)}<br>${formatWhen(i.first_seen)} · ${i.occurrences} срабатываний</div>
+      <div class="incident-actions">
+        ${i.status === 'open' ? `<button class="action-sm" data-incident-action="ack" data-id="${i.id}">Принять</button>` : ''}
+        ${i.status !== 'resolved' ? `<button class="action-sm" data-incident-action="resolve" data-id="${i.id}">Закрыть</button>` : ''}
+      </div>
+    </article>`).join('');
+}
+
+async function loadIncidents(status = incidentFilter) {
+  try {
+    const data = await api(`/api/incidents?status=${encodeURIComponent(status)}`);
+    renderIncidents(data.incidents || []);
+  } catch (e) { $('incidentList').innerHTML = `<div class="empty">Ошибка загрузки: ${esc(e.message)}</div>`; }
+}
+
+async function incidentAction(id, action, button) {
+  button.disabled = true;
+  button.textContent = 'Сохраняю…';
+  try {
+    await api(`/api/incidents/${id}/${action}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
+    });
+    await loadIncidents();
+  } catch (e) { button.disabled = false; button.textContent = 'Ошибка'; }
+}
+
+function renderDeployments(projects) {
+  const rows = [];
+  for (const project of projects || []) {
+    for (const c of (project.commits || []).slice(0, 3)) rows.push({ ...c, project: project.project, dirty: project.dirty });
+  }
+  rows.sort((a, b) => new Date(b.at) - new Date(a.at));
+  $('deployMeta').textContent = `${projects?.length || 0} проектов`;
+  $('deployments').innerHTML = rows.length ? rows.slice(0, 14).map(c => `
+    <div class="deploy-row">
+      <span class="deploy-project">${esc(c.project)}${c.dirty ? '*' : ''}</span>
+      <span class="deploy-sha">${esc(c.short)}</span>
+      <span class="deploy-subject">${esc(c.subject)}</span>
+      <span class="deploy-time">${formatWhen(new Date(c.at).getTime())}</span>
+    </div>`).join('') : '<div class="empty">Git-репозитории не найдены.</div>';
+}
+
+async function loadDeployments() {
+  try { renderDeployments((await api('/api/deployments')).projects); }
+  catch (e) { $('deployments').innerHTML = `<div class="empty">Ошибка: ${esc(e.message)}</div>`; }
+}
+
+function detailStats(entries) {
+  return `<div class="detail-grid">${entries.map(([k, v]) => `<div class="detail-stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
+}
+
+function openDetailShell(type, name) {
+  $('detailType').textContent = type === 'container' ? 'Docker container' : 'PM2 process';
+  $('detailTitle').textContent = name;
+  $('detailStatus').textContent = 'загрузка';
+  $('detailStatus').className = 'pill idle';
+  $('detailBody').innerHTML = '<div class="detail-skeleton"></div>';
+  $('detailPane').classList.add('open');
+  $('detailPane').setAttribute('aria-hidden', 'false');
+}
+
+function renderContainerDetail(d) {
+  const running = d.state?.Running;
+  $('detailStatus').textContent = d.state?.Health?.Status || (running ? 'running' : d.state?.Status || 'stopped');
+  $('detailStatus').className = `pill ${running ? (d.state?.Health?.Status === 'unhealthy' ? 'crit' : 'ok') : 'warn'}`;
+  const networks = Object.entries(d.network || {}).map(([name, x]) => `${name}: ↓${rate(x.rx_bytes || 0)} ↑${rate(x.tx_bytes || 0)}`).join(' · ') || '—';
+  $('detailBody').innerHTML = `
+    <section class="detail-section"><h3>Состояние</h3>${detailStats([
+      ['Image', d.image], ['CPU', `${d.cpuPct}%`], ['Memory', `${bytes(d.memory)} (${d.memoryPct}%)`],
+      ['PIDs', String(d.pids)], ['Restart policy', d.restartPolicy], ['Started', d.state?.StartedAt ? formatWhen(new Date(d.state.StartedAt).getTime()) : '—'],
+      ['Network', networks], ['Root FS', d.readonlyRootfs ? 'read-only' : 'writable'],
+    ])}</section>
+    <section class="detail-section"><h3>Последние логи · секреты редактируются</h3><pre class="log-view">${esc(d.logs || 'Логи пусты.')}</pre></section>`;
+}
+
+function renderPm2Detail(d) {
+  $('detailStatus').textContent = d.status;
+  $('detailStatus').className = `pill ${d.status === 'online' ? 'ok' : 'crit'}`;
+  $('detailBody').innerHTML = `
+    <section class="detail-section"><h3>Состояние</h3>${detailStats([
+      ['PID', String(d.pid || '—')], ['CPU', `${d.cpu}%`], ['Memory', bytes(d.memory)],
+      ['Uptime', dur(d.uptimeMs / 1000)], ['Restarts', String(d.restarts)], ['Node', d.nodeVersion || '—'],
+      ['CWD', d.cwd || '—'], ['Script', d.script || '—'],
+    ])}</section>
+    <section class="detail-section"><h3>stdout · секреты редактируются</h3><pre class="log-view">${esc(d.outLog || 'stdout пуст.')}</pre></section>
+    <section class="detail-section"><h3>stderr</h3><pre class="log-view">${esc(d.errorLog || 'stderr пуст.')}</pre></section>`;
+}
+
+async function openServiceDetail(type, name) {
+  openDetailShell(type, name);
+  try {
+    const data = await api(`/api/services/${type}/${encodeURIComponent(name)}`);
+    if (type === 'container') renderContainerDetail(data.detail); else renderPm2Detail(data.detail);
+  } catch (e) {
+    $('detailStatus').textContent = 'ошибка'; $('detailStatus').className = 'pill crit';
+    $('detailBody').innerHTML = `<div class="empty">Не удалось загрузить: ${esc(e.message)}</div>`;
+  }
+}
+
+function closeDetail() {
+  $('detailPane').classList.remove('open');
+  $('detailPane').setAttribute('aria-hidden', 'true');
+}
+
+async function loadNotificationState() {
+  try {
+    const d = await api('/api/notifications');
+    $('telegramState').textContent = d.telegram.enabled ? `Telegram: включён ${d.telegram.chat}` : 'Telegram: не настроен';
+  } catch { $('telegramState').textContent = 'Telegram: ошибка статуса'; }
+}
+
 function renderHeader(d) {
   const host = d.kernel?.hostname || '—';
   $('sideHost').textContent = host;
@@ -442,6 +602,7 @@ function connect() {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.type === 'snapshot' || msg.type === 'tick') render(msg.data);
+    if (msg.type === 'incidents') loadIncidents();
   };
 
   ws.onclose = (ev) => {
@@ -460,6 +621,7 @@ async function bootstrap() {
     if (r.status === 401) { location.href = '/login'; return; }
     render(await r.json());
   } catch { /* websocket will fill in */ }
+  await Promise.allSettled([loadHistory('24h'), loadIncidents('all'), loadDeployments(), loadNotificationState()]);
   connect();
 }
 
@@ -492,6 +654,40 @@ navItems.forEach((a) => a.addEventListener('click', (e) => {
   sidebar.classList.remove('open');
 }));
 navItems[0]?.classList.add('active');
+
+$('historyRange').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-range]');
+  if (!button) return;
+  $('historyRange').querySelectorAll('.seg').forEach(x => x.classList.toggle('active', x === button));
+  loadHistory(button.dataset.range);
+});
+
+$('incidentFilters').addEventListener('click', (e) => {
+  const button = e.target.closest('[data-status]');
+  if (!button) return;
+  incidentFilter = button.dataset.status;
+  $('incidentFilters').querySelectorAll('.seg').forEach(x => x.classList.toggle('active', x === button));
+  loadIncidents(incidentFilter);
+});
+
+$('content').addEventListener('click', (e) => {
+  const action = e.target.closest('[data-incident-action]');
+  if (action) { incidentAction(action.dataset.id, action.dataset.incidentAction, action); return; }
+  const service = e.target.closest('[data-service-type]');
+  if (service) openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
+});
+
+$('content').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const service = e.target.closest('[data-service-type]');
+  if (!service) return;
+  e.preventDefault(); openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
+});
+
+$('detailClose').addEventListener('click', closeDetail);
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+setInterval(() => loadIncidents(), 30_000);
+setInterval(() => loadDeployments(), 5 * 60_000);
 
 let resizeTimer;
 window.addEventListener('resize', () => {

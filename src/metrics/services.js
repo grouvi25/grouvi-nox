@@ -74,6 +74,81 @@ export async function dockerDisk() {
   };
 }
 
+function dockerRaw(urlPath, timeout = 10_000) {
+  return new Promise((resolve) => {
+    const req = http.request({ socketPath: config.paths.dockerSocket, path: urlPath, method: 'GET', timeout }, (res) => {
+      const chunks = [];
+      let size = 0;
+      res.on('data', chunk => {
+        if (size < 512_000) { chunks.push(chunk); size += chunk.length; }
+      });
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    });
+    req.on('error', () => resolve(Buffer.alloc(0)));
+    req.on('timeout', () => { req.destroy(); resolve(Buffer.alloc(0)); });
+    req.end();
+  });
+}
+
+function decodeDockerLogs(buffer) {
+  // Docker multiplexed stream: 8-byte header followed by payload. TTY logs are plain text.
+  if (!buffer.length) return '';
+  const out = [];
+  let offset = 0;
+  while (offset + 8 <= buffer.length && buffer[offset] <= 2) {
+    const length = buffer.readUInt32BE(offset + 4);
+    if (length < 0 || offset + 8 + length > buffer.length) break;
+    out.push(buffer.subarray(offset + 8, offset + 8 + length));
+    offset += 8 + length;
+  }
+  const text = (out.length ? Buffer.concat(out) : buffer).toString('utf8');
+  return text
+    .replace(/\x1b\[[0-9;]*m/g, '')
+    .replace(/(password|passwd|secret|token|api[_-]?key|authorization)(\s*[=:]\s*)[^\s,;]+/gi, '$1$2[REDACTED]')
+    .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+/gi, '$1[REDACTED]')
+    .split('\n').slice(-160).join('\n').slice(-40_000);
+}
+
+export async function containerDetail(name) {
+  if (!/^[A-Za-z0-9_.-]{1,128}$/.test(name)) return null;
+  const encoded = encodeURIComponent(name);
+  const [inspect, stats, logsBuffer] = await Promise.all([
+    dockerApi(`/v1.44/containers/${encoded}/json`),
+    dockerApi(`/v1.44/containers/${encoded}/stats?stream=false`, 12_000),
+    dockerRaw(`/v1.44/containers/${encoded}/logs?stdout=true&stderr=true&timestamps=true&tail=160`, 12_000),
+  ]);
+  if (!inspect) return null;
+  const cpuDelta = Number(stats?.cpu_stats?.cpu_usage?.total_usage || 0) - Number(stats?.precpu_stats?.cpu_usage?.total_usage || 0);
+  const systemDelta = Number(stats?.cpu_stats?.system_cpu_usage || 0) - Number(stats?.precpu_stats?.system_cpu_usage || 0);
+  const cpuCount = Number(stats?.cpu_stats?.online_cpus || 1);
+  const cpuPct = systemDelta > 0 ? (cpuDelta / systemDelta) * cpuCount * 100 : 0;
+  const memory = Number(stats?.memory_stats?.usage || 0);
+  const memoryLimit = Number(stats?.memory_stats?.limit || 0);
+  return {
+    name: String(inspect.Name || '').replace(/^\//, ''),
+    id: String(inspect.Id || '').slice(0, 12),
+    image: inspect.Config?.Image || '',
+    state: inspect.State || {},
+    created: inspect.Created,
+    platform: inspect.Platform,
+    restartPolicy: inspect.HostConfig?.RestartPolicy?.Name || 'no',
+    readonlyRootfs: Boolean(inspect.HostConfig?.ReadonlyRootfs),
+    privileged: Boolean(inspect.HostConfig?.Privileged),
+    networkMode: inspect.HostConfig?.NetworkMode || '',
+    project: inspect.Config?.Labels?.['com.docker.compose.project'] || null,
+    service: inspect.Config?.Labels?.['com.docker.compose.service'] || null,
+    mounts: (inspect.Mounts || []).map(m => ({ destination: m.Destination, type: m.Type, rw: m.RW })),
+    ports: inspect.NetworkSettings?.Ports || {},
+    cpuPct: Number(cpuPct.toFixed(2)),
+    memory,
+    memoryLimit,
+    memoryPct: memoryLimit ? Number((memory / memoryLimit * 100).toFixed(2)) : 0,
+    pids: Number(stats?.pids_stats?.current || 0),
+    network: stats?.networks || {},
+    logs: decodeDockerLogs(logsBuffer),
+  };
+}
+
 /* ------------------- privileged side-car snapshot ------------------ *
  * pm2 and fail2ban need root. Instead of granting the web process any
  * escalation path, a separate root service writes this file every 15 s.
@@ -81,7 +156,7 @@ export async function dockerDisk() {
 const PRIV_FILE = `${config.stateDir}/privileged.json`;
 const PRIV_MAX_AGE_MS = 90_000;
 
-async function privileged() {
+export async function privileged() {
   try {
     const raw = await fsp.readFile(PRIV_FILE, 'utf8');
     const data = JSON.parse(raw);
@@ -95,6 +170,17 @@ async function privileged() {
 export async function pm2() {
   const p = await privileged();
   return p?.pm2 || { available: false, items: [] };
+}
+
+export async function deployments() {
+  const p = await privileged();
+  return p?.deployments || [];
+}
+
+export async function pm2Detail(name) {
+  if (!/^[A-Za-z0-9_.:@-]{1,100}$/.test(name)) return null;
+  const p = await pm2();
+  return p.items?.find(item => item.name === name) || null;
 }
 
 /* ---------------------------- systemd ---------------------------- */

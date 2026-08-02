@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
 import { load, prune } from './store.js';
+import { initDatabase } from './database.js';
 import { securityHeaders, rateLimit } from './security.js';
 import { currentSession } from './auth.js';
 import authRoutes from './routes/auth.js';
@@ -16,6 +17,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', 'public');
 
 load();
+initDatabase();
 prune();
 setInterval(prune, 10 * 60_000).unref();
 

@@ -56,6 +56,12 @@ export function attachWebsocket(server) {
     }
   };
   bus.on('tick', onTick);
+  bus.on('incidents', (events) => {
+    const payload = JSON.stringify({ type: 'incidents', data: events });
+    for (const ws of wss.clients) {
+      if (ws.readyState === ws.OPEN) ws.send(payload, () => {});
+    }
+  });
 
   const heartbeat = setInterval(() => {
     for (const ws of wss.clients) {

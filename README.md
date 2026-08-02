@@ -83,6 +83,20 @@ npm run recovery      # prints 10 single-use recovery codes - store them offline
 
 Open the enroll link on the machine you want to log in from, confirm with Windows Hello, done.
 
+## Phase 1 operations
+
+Version 1.1 adds persistent operational visibility while keeping the dashboard read-only:
+
+- SQLite metrics history with 1 hour, 24 hour, 7 day and 30 day views.
+- Incident lifecycle: open, acknowledge, resolve and automatic recovery.
+- Telegram notifications for opened, escalated and resolved incidents with deduplication.
+- Container and PM2 drill-down with redacted log tails and runtime resource data.
+- Git deployment timeline for projects hosted on the VPS.
+
+The database lives at `/var/lib/vps-sentinel/sentinel.db` in WAL mode. Metrics are sampled every
+10 seconds and retained for 30 days by default. Telegram is optional and uses
+`SENTINEL_TELEGRAM_BOT_TOKEN` plus `SENTINEL_TELEGRAM_CHAT_ID`.
+
 ## Operations
 
 ```bash

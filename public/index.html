@@ -49,9 +49,14 @@
         <span>Обзор</span>
         <span class="n-badge" id="nbAlerts">0</span>
       </a>
+      <a class="nav-item" href="#s-incidents">
+        <svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+        <span>Инциденты</span>
+        <span class="n-badge" id="nbIncidents">0</span>
+      </a>
       <a class="nav-item" href="#s-perf">
         <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
-        <span>Графики</span>
+        <span>История</span>
       </a>
       <a class="nav-item" href="#s-hw">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
@@ -149,8 +154,33 @@
         </div>
       </section>
 
+      <section id="s-incidents">
+        <div class="sec-head">
+          <h2>Инциденты</h2><span class="count" id="incidentCount">0</span>
+          <div class="segmented" id="incidentFilters" aria-label="Фильтр инцидентов">
+            <button class="seg active" data-status="all">Все</button>
+            <button class="seg" data-status="open">Открытые</button>
+            <button class="seg" data-status="acknowledged">Принятые</button>
+            <button class="seg" data-status="resolved">Закрытые</button>
+          </div>
+          <span class="right" id="telegramState">Telegram: проверка…</span>
+        </div>
+        <div class="panel incident-shell">
+          <div id="incidentList" class="incident-list"><div class="empty">Загружаю журнал инцидентов…</div></div>
+        </div>
+      </section>
+
       <section id="s-perf">
-        <div class="sec-head"><h2>Графики</h2><span class="right">окно ~6 минут</span></div>
+        <div class="sec-head">
+          <h2>История</h2>
+          <div class="segmented" id="historyRange" aria-label="Период истории">
+            <button class="seg" data-range="1h">1 час</button>
+            <button class="seg active" data-range="24h">24 часа</button>
+            <button class="seg" data-range="7d">7 дней</button>
+            <button class="seg" data-range="30d">30 дней</button>
+          </div>
+          <span class="right" id="historyMeta">SQLite: загрузка…</span>
+        </div>
         <div class="grid g2">
           <div class="panel">
             <h3>Процессор и память</h3>
@@ -237,11 +267,26 @@
             <h3>Место в Docker</h3>
             <div class="body" id="dockerDisk"></div>
           </div>
+          <div class="panel deploy-panel">
+            <h3>Последние деплои <span class="right" id="deployMeta">git</span></h3>
+            <div class="body flush" id="deployments"><div class="empty">Загружаю историю…</div></div>
+          </div>
         </div>
       </section>
 
     </div>
   </main>
+
+  <aside class="detail-pane" id="detailPane" aria-hidden="true">
+    <div class="detail-head">
+      <button class="btn-icon" id="detailClose" aria-label="Закрыть детали">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div><div class="detail-kicker" id="detailType">Сервис</div><h2 id="detailTitle">Детали</h2></div>
+      <span class="pill idle" id="detailStatus">—</span>
+    </div>
+    <div class="detail-body" id="detailBody"><div class="detail-skeleton"></div></div>
+  </aside>
 </div>
 
 <script src="/app.js" type="module"></script>
