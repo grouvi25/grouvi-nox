@@ -139,25 +139,15 @@ const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d
 let latest = null;
 let persistedHistory = null;
 let incidentFilter = 'all';
+let filesystemPath = '/';
+let filesystemTimer = null;
 
 function renderAlerts(a) {
-  const box = $('alerts');
   const nb = $('nbAlerts');
-  if (!a || a.length === 0) {
-    box.innerHTML = `<div class="all-clear">${ICON_OK}<span>Всё в норме, проблем не обнаружено</span></div>`;
-    nb.textContent = '0';
-    nb.className = 'n-badge';
-    return;
-  }
-  const crit = a.filter(x => x.level === 'critical').length;
-  nb.textContent = String(a.length);
-  nb.className = `n-badge ${crit ? 'alert' : 'warn'}`;
-  box.innerHTML = a.slice(0, 8).map(x => `
-    <div class="alert ${x.level}">
-      ${x.level === 'critical' ? ICON_CRIT : ICON_WARN}
-      <span>${esc(x.message)}</span>
-      ${x.hint ? `<span class="hint">${esc(x.hint)}</span>` : ''}
-    </div>`).join('');
+  const list = a || [];
+  const crit = list.filter(x => x.level === 'critical').length;
+  nb.textContent = String(list.length);
+  nb.className = `n-badge${crit ? ' alert' : list.length ? ' warn' : ''}`;
 }
 
 function renderKpis(d) {
@@ -231,6 +221,25 @@ function renderCharts(d) {
     { data: h.ioR, color: C.amber, fill: false },
     { data: h.ioW, color: C.red, fill: false },
   ], { unit: 'KB' });
+}
+
+function renderAnalytics() {
+  const rows = persistedHistory?.rows || [];
+  if (!rows.length) {
+    for (const id of ['avgCpu','peakCpu','avgMem','netRatio','ioRatio','alertPoints']) $(id).textContent = '—';
+    return;
+  }
+  const avg = (key) => rows.reduce((sum, r) => sum + Number(r[key] || 0), 0) / rows.length;
+  const sum = (key) => rows.reduce((total, r) => total + Number(r[key] || 0), 0);
+  const peak = (key) => Math.max(...rows.map(r => Number(r[key] || 0)));
+  const rx = sum('network_rx'); const tx = sum('network_tx');
+  const rd = sum('disk_read'); const wr = sum('disk_write');
+  $('avgCpu').textContent = `${avg('cpu').toFixed(1)}%`;
+  $('peakCpu').textContent = `${peak('cpu').toFixed(1)}%`;
+  $('avgMem').textContent = `${avg('memory').toFixed(1)}%`;
+  $('netRatio').textContent = tx ? `${(rx / tx).toFixed(2)} : 1` : 'только вход';
+  $('ioRatio').textContent = wr ? `${(rd / wr).toFixed(2)} : 1` : 'только чтение';
+  $('alertPoints').textContent = String(rows.filter(r => Number(r.alert_count) > 0).length);
 }
 
 function renderCores(d) {
@@ -423,6 +432,7 @@ async function loadHistory(range = '24h') {
     const points = persistedHistory.rows?.length || 0;
     $('historyMeta').textContent = `${points} точек · шаг ${Math.round(persistedHistory.bucketSeconds / 60) || '<1'} мин.`;
     if (latest) renderCharts(latest);
+    renderAnalytics();
   } catch (e) { $('historyMeta').textContent = `Ошибка: ${e.message}`; }
 }
 
@@ -556,6 +566,84 @@ async function loadNotificationState() {
   } catch { $('telegramState').textContent = 'Telegram: ошибка статуса'; }
 }
 
+function fsIcon(type, excluded) {
+  if (excluded) return '<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
+  if (type === 'directory') return '<svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>';
+  if (type === 'symlink') return '<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.5.5l2-2a5 5 0 00-7-7l-1.1 1.1M14 11a5 5 0 00-7.5-.5l-2 2a5 5 0 007 7l1.1-1.1"/></svg>';
+  return '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>';
+}
+
+function breadcrumb(pathname) {
+  const parts = pathname.split('/').filter(Boolean);
+  let built = '';
+  const items = [{ name: '/', path: '/' }];
+  for (const part of parts) { built += `/${part}`; items.push({ name: part, path: built }); }
+  $('fsBreadcrumb').innerHTML = items.map((item, i) => `${i ? '<span class="crumb-sep">/</span>' : ''}<button class="crumb" data-fs-path="${esc(item.path)}">${esc(item.name)}</button>`).join('');
+}
+
+function renderFilesystem(data) {
+  filesystemPath = data.path || '/';
+  breadcrumb(filesystemPath);
+  const totals = data.totals || {};
+  $('fsIndexCount').textContent = `${(totals.files || 0).toLocaleString('ru-RU')} файлов`;
+  $('fsIndexMeta').textContent = `${formatWhen(data.at)} · ${totals.truncated ? 'индекс ограничен' : 'полный индекс'} · содержимое файлов скрыто`;
+  $('fsEntries').innerHTML = data.children?.length ? data.children.map(item => {
+    const critical = item.risk?.some(x => ['world-writable','setuid','setgid'].includes(x));
+    return `<div class="fs-row ${item.type} ${item.excluded ? 'fs-excluded' : ''}" ${item.type === 'directory' && !item.excluded ? `role="button" tabindex="0" data-fs-path="${esc(item.path)}"` : ''}>
+      <span class="fs-name">${fsIcon(item.type,item.excluded)}<span class="fs-label" title="${esc(item.path)}">${esc(item.name)}</span>${item.risk?.length ? `<span class="fs-flags"><i class="risk-dot ${critical ? 'critical' : ''}" title="${esc(item.risk.join(', '))}"></i></span>` : ''}</span>
+      <span>${item.type === 'file' ? bytes(item.size) : item.excluded ? 'скрыто' : '—'}</span>
+      <span>${esc(item.mode || '—')}</span>
+      <span>${formatWhen(item.mtime)}</span>
+    </div>`;
+  }).join('') : '<div class="empty">Папка пуста или не вошла в безопасный индекс.</div>';
+  $('fsSummary').innerHTML = kv('Директорий', (totals.directories || 0).toLocaleString('ru-RU'))
+    + kv('Файлов', (totals.files || 0).toLocaleString('ru-RU'))
+    + kv('Симлинков', (totals.symlinks || 0).toLocaleString('ru-RU'))
+    + kv('Известный объём', bytes(totals.bytes || 0))
+    + kv('Исключено зон', String(totals.excluded || 0), 'секреты и тяжёлые технические деревья');
+  $('fsLargest').innerHTML = (data.largest || []).slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${bytes(x.size)}</b></div>`).join('') || '<div class="empty">Нет файлов крупнее 10 МБ.</div>';
+  $('fsRisks').innerHTML = (data.risks || []).slice(0, 12).map(x => `<div class="fs-mini-row"><span title="${esc(x.path)}">${esc(x.path)}</span><b>${esc(x.risk.filter(r => r !== 'recent' && r !== 'privileged-area').join(', ') || x.risk.join(', '))}</b></div>`).join('') || '<div class="empty">Явных рисков прав не найдено.</div>';
+}
+
+async function loadFilesystem(pathname = filesystemPath, query = '') {
+  $('fsEntries').innerHTML = '<div class="empty">Загружаю metadata index…</div>';
+  try {
+    const q = query ? `&q=${encodeURIComponent(query)}` : '';
+    const data = await api(`/api/filesystem?path=${encodeURIComponent(pathname)}${q}`);
+    renderFilesystem(data);
+  } catch (e) { $('fsEntries').innerHTML = `<div class="empty">Ошибка индекса: ${esc(e.message)}</div>`; }
+}
+
+function fsParent(pathname) {
+  if (pathname === '/') return '/';
+  const parts = pathname.split('/').filter(Boolean); parts.pop();
+  return `/${parts.join('/')}` || '/';
+}
+
+function inspectChart(kind, event) {
+  const rows = persistedHistory?.rows || [];
+  if (!rows.length) return;
+  const canvas = event.currentTarget;
+  const rect = canvas.getBoundingClientRect();
+  const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+  const index = Math.min(rows.length - 1, Math.round(ratio * (rows.length - 1)));
+  const r = rows[index];
+  const snapped = Math.round(ratio * 20) * 5;
+  const cross = kind === 'cpu' ? $('cpuCrosshair') : $('netCrosshair');
+  cross.className = `chart-crosshair x${snapped}`;
+  if (kind === 'cpu') {
+    $('cpuInspect').textContent = `${formatWhen(r.ts)} · CPU ${r.cpu}% · RAM ${r.memory}% · swap ${r.swap}% · load ${r.load1}`;
+  } else {
+    $('netInspect').textContent = `${formatWhen(r.ts)} · ↓ ${rate(r.network_rx)} · ↑ ${rate(r.network_tx)} · disk R ${rate(r.disk_read)} · W ${rate(r.disk_write)}`;
+  }
+}
+
+function resetChartInspect(kind) {
+  const cross = kind === 'cpu' ? $('cpuCrosshair') : $('netCrosshair');
+  cross.className = 'chart-crosshair';
+  $(kind === 'cpu' ? 'cpuInspect' : 'netInspect').textContent = 'Наведи на график для точных значений.';
+}
+
 function renderHeader(d) {
   const host = d.kernel?.hostname || '—';
   $('sideHost').textContent = host;
@@ -621,7 +709,7 @@ async function bootstrap() {
     if (r.status === 401) { location.href = '/login'; return; }
     render(await r.json());
   } catch { /* websocket will fill in */ }
-  await Promise.allSettled([loadHistory('24h'), loadIncidents('all'), loadDeployments(), loadNotificationState()]);
+  await Promise.allSettled([loadHistory('24h'), loadIncidents('all'), loadDeployments(), loadNotificationState(), loadFilesystem('/')]);
   connect();
 }
 
@@ -684,8 +772,21 @@ $('content').addEventListener('keydown', (e) => {
   e.preventDefault(); openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
 });
 
+$('chCpu').addEventListener('mousemove', (e) => inspectChart('cpu', e));
+$('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
+$('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
+$('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+$('fsEntries').addEventListener('click', (e) => { const row = e.target.closest('[data-fs-path]'); if (row) loadFilesystem(row.dataset.fsPath); });
+$('fsEntries').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const row=e.target.closest('[data-fs-path]'); if(row) loadFilesystem(row.dataset.fsPath); } });
+$('fsBreadcrumb').addEventListener('click', (e) => { const c=e.target.closest('[data-fs-path]'); if(c) loadFilesystem(c.dataset.fsPath); });
+$('fsUp').addEventListener('click', () => loadFilesystem(fsParent(filesystemPath)));
+$('fsSearch').addEventListener('input', (e) => {
+  clearTimeout(filesystemTimer);
+  const value=e.target.value.trim();
+  filesystemTimer=setTimeout(() => loadFilesystem(value ? '/' : filesystemPath, value), 280);
+});
 setInterval(() => loadIncidents(), 30_000);
 setInterval(() => loadDeployments(), 5 * 60_000);
 

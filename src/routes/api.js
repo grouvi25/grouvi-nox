@@ -2,7 +2,7 @@ import express from 'express';
 import { requireAuth } from '../auth.js';
 import { requireSameOrigin, rateLimit } from '../security.js';
 import { publicSnapshot } from '../metrics/index.js';
-import { containerDetail, deployments, pm2Detail } from '../metrics/services.js';
+import { containerDetail, deployments, filesystemBrowse, pm2Detail } from '../metrics/services.js';
 import {
   acknowledgeIncident, getHistory, listIncidents, notificationStatus, resolveIncident,
 } from '../database.js';
@@ -67,6 +67,14 @@ router.get('/services/pm2/:name', detailLimit, async (req, res, next) => {
 router.get('/deployments', async (req, res, next) => {
   try { return res.json({ projects: await deployments() }); }
   catch (e) { return next(e); }
+});
+
+router.get('/filesystem', detailLimit, async (req, res, next) => {
+  try {
+    const result = await filesystemBrowse(String(req.query.path || '/'), String(req.query.q || ''));
+    if (!result) return res.status(503).json({ error: 'filesystem_index_unavailable' });
+    return res.json(result);
+  } catch (e) { return next(e); }
 });
 
 router.get('/notifications', (req, res) => {

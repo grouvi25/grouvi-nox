@@ -97,6 +97,11 @@ The database lives at `/var/lib/vps-sentinel/sentinel.db` in WAL mode. Metrics a
 10 seconds and retained for 30 days by default. Telegram is optional and uses
 `SENTINEL_TELEGRAM_BOT_TOKEN` plus `SENTINEL_TELEGRAM_CHAT_ID`.
 
+Version 1.2 adds an interactive, metadata-only filesystem explorer, large-file and permission-risk
+views, exact chart inspection, derived ratios and an animated wave backdrop. File contents are never
+exposed. SSH private areas, malware quarantine, Docker/containerd internals, `.git`, caches and
+`node_modules` are deliberately excluded from the index.
+
 ## Operations
 
 ```bash

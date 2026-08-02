@@ -184,6 +184,49 @@ export async function pm2Detail(name) {
   return p.items?.find(item => item.name === name) || null;
 }
 
+const FS_INDEX_FILE = `${config.stateDir}/filesystem.json`;
+let fsIndexCache = null;
+let fsIndexMtime = 0;
+
+async function filesystemIndex() {
+  try {
+    const stat = await fsp.stat(FS_INDEX_FILE);
+    if (!fsIndexCache || stat.mtimeMs !== fsIndexMtime) {
+      fsIndexCache = JSON.parse(await fsp.readFile(FS_INDEX_FILE, 'utf8'));
+      fsIndexMtime = stat.mtimeMs;
+    }
+    return fsIndexCache;
+  } catch { return null; }
+}
+
+export async function filesystemBrowse(requestPath = '/', query = '') {
+  const index = await filesystemIndex();
+  if (!index) return null;
+  const clean = path.posix.normalize(`/${String(requestPath || '/').replace(/^\/+/, '')}`);
+  if (!clean.startsWith('/')) return null;
+  const q = String(query || '').trim().toLowerCase().slice(0, 100);
+  const entries = index.entries || [];
+  let children;
+  if (q) {
+    children = entries.filter(item => item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)).slice(0, 300);
+  } else if (clean === '/') {
+    children = entries.filter(item => item.parent === '/');
+  } else {
+    children = entries.filter(item => item.parent === clean);
+  }
+  children.sort((a, b) => {
+    if (a.type === 'directory' && b.type !== 'directory') return -1;
+    if (a.type !== 'directory' && b.type === 'directory') return 1;
+    return a.name.localeCompare(b.name);
+  });
+  const current = clean === '/' ? { path: '/', name: '/', type: 'directory', parent: null } : entries.find(item => item.path === clean);
+  return {
+    at: index.at, current: current || null, path: clean, query: q,
+    children, totals: index.totals, roots: index.roots,
+    largest: index.largest || [], risks: index.risks || [], policy: index.policy,
+  };
+}
+
 /* ---------------------------- systemd ---------------------------- */
 export async function systemd() {
   const [failed, nginx, docker, ssh] = await Promise.all([

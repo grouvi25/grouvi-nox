@@ -11,7 +11,10 @@ import { execFile } from 'node:child_process';
 
 const STATE_DIR = process.env.STATE_DIR || '/var/lib/vps-sentinel';
 const OUT = path.join(STATE_DIR, 'privileged.json');
+const FS_OUT = path.join(STATE_DIR, 'filesystem.json');
 const INTERVAL = Number(process.env.PRIV_INTERVAL_MS || 15000);
+const FS_INTERVAL = Number(process.env.FS_INDEX_INTERVAL_MS || 600_000);
+const FS_MAX_ENTRIES = Number(process.env.FS_MAX_ENTRIES || 60_000);
 const PM2_BIN = process.env.PM2_BIN || '/usr/bin/pm2';
 const F2B_BIN = process.env.FAIL2BAN_BIN || '/usr/bin/fail2ban-client';
 const DEPLOY_DIRS = (process.env.DEPLOY_DIRS ||
@@ -114,6 +117,98 @@ async function deployments() {
   return projects;
 }
 
+const FS_ROOTS = ['/etc', '/opt', '/root', '/var', '/usr/local', '/home', '/boot', '/tmp'];
+const EXCLUDED_NAMES = new Set(['node_modules', '.git', '__pycache__', '.cache']);
+const EXCLUDED_PREFIXES = [
+  '/var/lib/docker', '/var/lib/containerd', '/var/lib/snapd', '/root/quarantine-',
+  '/root/.ssh', '/home/coursebackup/.ssh', '/proc', '/sys', '/dev', '/run',
+];
+const SECRET_NAME = /(^|[._-])(env|secret|credential|token|private|passwd|shadow|id_rsa|id_ed25519)([._-]|$)|\.pem$|\.key$/i;
+
+function excludedPath(full, name) {
+  return EXCLUDED_NAMES.has(name) || EXCLUDED_PREFIXES.some(prefix => full === prefix || full.startsWith(prefix));
+}
+
+function fsRisk(full, name, stat) {
+  const flags = [];
+  if (stat.mode & 0o002) flags.push('world-writable');
+  if (stat.mode & 0o4000) flags.push('setuid');
+  if (stat.mode & 0o2000) flags.push('setgid');
+  if (SECRET_NAME.test(name)) flags.push('sensitive-name');
+  if (stat.size > 500 * 1024 * 1024) flags.push('large');
+  if (Date.now() - stat.mtimeMs < 24 * 3600_000) flags.push('recent');
+  if (full.startsWith('/root') || full.startsWith('/etc')) flags.push('privileged-area');
+  return flags;
+}
+
+function indexFilesystem() {
+  const entries = [];
+  const totals = { files: 0, directories: 0, symlinks: 0, bytes: 0, excluded: 0, truncated: false };
+  const largest = [];
+  const risks = [];
+  const stack = FS_ROOTS.map(root => ({ full: root, parent: '/', depth: 1 }));
+
+  while (stack.length && entries.length < FS_MAX_ENTRIES) {
+    const current = stack.pop();
+    let stat;
+    try { stat = fs.lstatSync(current.full); } catch { continue; }
+    const name = path.basename(current.full) || current.full;
+    const isDir = stat.isDirectory();
+    const isLink = stat.isSymbolicLink();
+    const excluded = isDir && excludedPath(current.full, name);
+    const risk = fsRisk(current.full, name, stat);
+    const item = {
+      path: current.full, parent: current.parent, name,
+      type: isDir ? 'directory' : isLink ? 'symlink' : stat.isFile() ? 'file' : 'other',
+      size: stat.size, mode: (stat.mode & 0o7777).toString(8).padStart(4, '0'),
+      uid: stat.uid, gid: stat.gid, mtime: stat.mtimeMs,
+      depth: current.depth, excluded, risk,
+    };
+    entries.push(item);
+    if (isDir) totals.directories += 1;
+    else if (isLink) totals.symlinks += 1;
+    else if (stat.isFile()) { totals.files += 1; totals.bytes += stat.size; }
+    if (excluded) totals.excluded += 1;
+    if (risk.some(x => x !== 'recent' && x !== 'privileged-area')) risks.push(item);
+    if (stat.isFile() && stat.size > 10 * 1024 * 1024) largest.push(item);
+
+    if (!isDir || excluded || current.depth >= 9) continue;
+    let children;
+    try { children = fs.readdirSync(current.full, { withFileTypes: true }); } catch { continue; }
+    // Reverse alphabetical push gives stable alphabetical traversal after stack pop.
+    children.sort((a, b) => b.name.localeCompare(a.name));
+    for (const child of children) {
+      const full = path.join(current.full, child.name);
+      stack.push({ full, parent: current.full, depth: current.depth + 1 });
+    }
+  }
+  totals.truncated = stack.length > 0;
+  largest.sort((a, b) => b.size - a.size);
+  risks.sort((a, b) => b.mtime - a.mtime);
+  return {
+    at: Date.now(), roots: FS_ROOTS, totals,
+    entries,
+    largest: largest.slice(0, 100),
+    risks: risks.slice(0, 300),
+    policy: {
+      metadataOnly: true,
+      contentAccess: false,
+      excluded: ['node_modules', '.git', 'caches', 'Docker/containerd internals', 'SSH private areas', 'malware quarantine'],
+    },
+  };
+}
+
+async function filesystemTick() {
+  try {
+    const payload = JSON.stringify(indexFilesystem());
+    const tmp = `${FS_OUT}.tmp`;
+    fs.writeFileSync(tmp, payload, { mode: 0o644 });
+    fs.renameSync(tmp, FS_OUT);
+    fs.chmodSync(FS_OUT, 0o644);
+    console.log(`[filesystem] indexed ${JSON.parse(payload).entries.length} entries`);
+  } catch (e) { console.error('[filesystem]', e.message); }
+}
+
 async function tick() {
   try {
     const [p, f, d] = await Promise.all([pm2(), fail2ban(), deployments()]);
@@ -128,7 +223,8 @@ async function tick() {
 }
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
-await tick();
+await Promise.all([tick(), filesystemTick()]);
 setInterval(tick, INTERVAL);
+setInterval(filesystemTick, FS_INTERVAL);
 console.log(`[privileged] writing ${OUT} every ${INTERVAL} ms`);
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(0));

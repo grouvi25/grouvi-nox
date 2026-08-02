@@ -62,6 +62,10 @@
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
         <span>Железо</span>
       </a>
+      <a class="nav-item" href="#s-filesystem">
+        <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 10h18"/></svg>
+        <span>Файловая система</span>
+      </a>
       <a class="nav-item" href="#s-docker">
         <svg viewBox="0 0 24 24"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 15c3 4 12 5 17-1 2 0 3-1 3-2"/></svg>
         <span>Docker</span>
@@ -110,7 +114,6 @@
     <div class="content" id="content">
 
       <section id="s-overview">
-        <div id="alerts"></div>
         <div class="sec-head"><h2>Ключевые метрики</h2><span class="right" id="tickInfo">—</span></div>
         <div class="kpis">
           <div class="kpi" id="kCpu">
@@ -184,7 +187,8 @@
         <div class="grid g2">
           <div class="panel">
             <h3>Процессор и память</h3>
-            <div class="chart-wrap"><canvas id="chCpu"></canvas></div>
+            <div class="chart-wrap interactive-chart"><canvas id="chCpu" tabindex="0"></canvas><div class="chart-crosshair" id="cpuCrosshair"></div></div>
+            <div class="chart-inspect" id="cpuInspect">Наведи на график для точных значений.</div>
             <div class="legend">
               <span><i class="sw-accent"></i>CPU</span>
               <span><i class="sw-blue"></i>Память</span>
@@ -193,7 +197,8 @@
           </div>
           <div class="panel">
             <h3>Сеть и диск <span class="right">КБ/с</span></h3>
-            <div class="chart-wrap"><canvas id="chNet"></canvas></div>
+            <div class="chart-wrap interactive-chart"><canvas id="chNet" tabindex="0"></canvas><div class="chart-crosshair" id="netCrosshair"></div></div>
+            <div class="chart-inspect" id="netInspect">Наведи на график для точных значений.</div>
             <div class="legend">
               <span><i class="sw-green"></i>Входящий</span>
               <span><i class="sw-blue"></i>Исходящий</span>
@@ -201,6 +206,14 @@
               <span><i class="sw-red"></i>Запись</span>
             </div>
           </div>
+        </div>
+        <div class="analytics-strip" id="analyticsStrip">
+          <div><span>CPU среднее</span><b id="avgCpu">—</b></div>
+          <div><span>CPU пик</span><b id="peakCpu">—</b></div>
+          <div><span>RAM среднее</span><b id="avgMem">—</b></div>
+          <div><span>Сеть вход/выход</span><b id="netRatio">—</b></div>
+          <div><span>Disk R/W</span><b id="ioRatio">—</b></div>
+          <div><span>Инцидентные точки</span><b id="alertPoints">—</b></div>
         </div>
       </section>
 
@@ -216,6 +229,30 @@
             <div class="body flush"><table><thead><tr>
               <th>Точка</th><th>Устройство</th><th class="num">Объём</th><th class="num">Свободно</th><th class="num">Занято</th>
             </tr></thead><tbody id="fsBody"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="s-filesystem">
+        <div class="sec-head">
+          <h2>Файловая система VPS</h2>
+          <span class="count" id="fsIndexCount">—</span>
+          <span class="right" id="fsIndexMeta">metadata-only · только чтение</span>
+        </div>
+        <div class="filesystem-layout">
+          <div class="panel fs-browser-panel">
+            <div class="fs-toolbar">
+              <button class="btn-icon" id="fsUp" title="На уровень выше"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+              <div class="fs-breadcrumb" id="fsBreadcrumb"></div>
+              <label class="fs-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="fsSearch" type="search" placeholder="Поиск по имени или пути" autocomplete="off"></label>
+            </div>
+            <div class="fs-head"><span>Имя</span><span>Размер</span><span>Права</span><span>Изменён</span></div>
+            <div id="fsEntries" class="fs-entries"><div class="empty">Индексирую файловую систему…</div></div>
+          </div>
+          <div class="fs-aside">
+            <div class="panel"><h3>Сводка индекса</h3><div class="body" id="fsSummary"><div class="empty">Загрузка…</div></div></div>
+            <div class="panel"><h3>Крупные файлы</h3><div class="body flush" id="fsLargest"><div class="empty">Загрузка…</div></div></div>
+            <div class="panel"><h3>Риски доступа</h3><div class="body flush" id="fsRisks"><div class="empty">Загрузка…</div></div></div>
           </div>
         </div>
       </section>
