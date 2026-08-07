@@ -1,0 +1,7 @@
+import fs from 'node:fs';import path from 'node:path';
+const STANDARD_ROOTS=['/opt','/srv','/var/www','/home','/root'];
+const BLOCKED_PREFIXES=['/proc','/sys','/dev','/run','/var/lib/docker','/var/lib/containerd','/var/lib/snapd','/lost+found'];
+export function parseRoots(value){const roots=(value?String(value).split(','):STANDARD_ROOTS).map(x=>path.resolve('/',x.trim())).filter((x,i,a)=>x&&a.indexOf(x)===i&&fs.existsSync(x));return roots.filter(x=>!BLOCKED_PREFIXES.some(p=>x===p||x.startsWith(`${p}/`)))}
+export function isBlocked(full){return BLOCKED_PREFIXES.some(p=>full===p||full.startsWith(`${p}/`))}
+export function walk(root,{maxDepth=5,maxEntries=40000,onEntry}={}){const stack=[{full:root,depth:0}];let visited=0;while(stack.length&&visited<maxEntries){const current=stack.pop();let stat;try{stat=fs.lstatSync(current.full)}catch{continue}visited+=1;onEntry?.(current.full,stat,current.depth);if(!stat.isDirectory()||stat.isSymbolicLink()||current.depth>=maxDepth||isBlocked(current.full))continue;let entries;try{entries=fs.readdirSync(current.full,{withFileTypes:true})}catch{continue}for(let i=entries.length-1;i>=0;i-=1){const entry=entries[i];if(['node_modules','.git','__pycache__','.cache','.npm','.venv','vendor'].includes(entry.name))continue;stack.push({full:path.join(current.full,entry.name),depth:current.depth+1})}}return{visited,truncated:stack.length>0}}
+export const standardRoots=()=>[...STANDARD_ROOTS];

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { config } from '../../config.js';
 import { run } from './command.js';
 import { privileged } from './privileged.js';
+import {enabledNames,selectedPaths} from '../../discovery/store.js';
 
 /* ---------------------------- systemd ---------------------------- */
 export async function systemd() {
@@ -15,12 +16,10 @@ export async function systemd() {
   ]);
   const failedUnits = failed.stdout.split('\n').map(l => l.trim()).filter(Boolean)
     .map(l => l.split(/\s+/)[0]);
-  return {
-    failedUnits,
-    nginx: nginx.stdout.trim() || 'unknown',
-    docker: docker.stdout.trim() || 'unknown',
-    ssh: ssh.stdout.trim() || 'unknown',
-  };
+  const selected=enabledNames('service','systemd');
+  const monitored={};
+  if(selected)for(const unit of selected){const state=await run('systemctl',['is-active',unit]);monitored[unit]=state.stdout.trim()||'unknown'}
+  return{failedUnits,nginx:nginx.stdout.trim()||'unknown',docker:docker.stdout.trim()||'unknown',ssh:ssh.stdout.trim()||'unknown',monitored};
 }
 
 /* --------------------------- filesystem -------------------------- */
@@ -97,10 +96,13 @@ export async function sshActivity() {
   }
 }
 
+export async function databases(){const out=[];for(const file of selectedPaths('database')){try{const stat=await fsp.stat(file);out.push({path:file,name:path.basename(file),exists:true,bytes:stat.size,mtime:stat.mtimeMs})}catch{out.push({path:file,name:path.basename(file),exists:false,bytes:0,mtime:null})}}return out}
+
 /* ---------------------------- backups ---------------------------- */
 export async function backups() {
   const out = [];
-  for (const dir of config.backupDirs) {
+  const dirs=[...new Set([...config.backupDirs,...selectedPaths('backup')])];
+  for(const dir of dirs){
     try {
       const entries = await fsp.readdir(dir, { withFileTypes: true });
       let newest = null; let count = 0; let bytes = 0;

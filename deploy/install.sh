@@ -104,12 +104,7 @@ if [[ $PROXY_MODE == public && -n $resolved && $SKIP_DNS_CHECK -eq 0 ]]; then
   [[ -z $public_ip || " $resolved " == *" $public_ip "* ]] || die "DNS points to '$resolved', but this VPS public IPv4 is '$public_ip'."
 fi
 
-if [[ -z $BACKUP_DIRS ]]; then
-  BACKUP_DIRS=$(find /opt /srv /root -xdev -maxdepth 4 -type d -iname '*backup*' 2>/dev/null | head -20 | paste -sd, - || true)
-fi
-if [[ -z $DEPLOY_DIRS ]]; then
-  DEPLOY_DIRS=$(find /opt /srv /root -xdev -maxdepth 4 -type d -name .git 2>/dev/null | sed 's#/.git$##' | head -30 | paste -sd, - || true)
-fi
+# Empty backup/deploy lists are intentional: Discovery Engine manages them after first login.
 
 section 'Installation plan'
 printf '  Domain:          %s\n  Proxy mode:      %s\n  Internal port:   %s\n  Install path:    %s\n  State path:      %s\n  Backup folders:  %s\n  Git repositories:%s\n  Telegram:        %s\n' \
@@ -183,6 +178,10 @@ HISTORY_PERSIST_INTERVAL_MS=10000
 HISTORY_RETENTION_DAYS=30
 INCIDENT_RESOLVE_GRACE_MS=45000
 TELEGRAM_COOLDOWN_MIN=30
+DISCOVERY_ROOTS=${DISCOVERY_ROOTS:-/opt,/srv,/var/www,/home,/root}
+DISCOVERY_INTERVAL_MS=900000
+SENTINEL_PROXY_MODE=$PROXY_MODE
+LE_EMAIL=$LE_EMAIL
 FS_INDEX_INTERVAL_MS=600000
 FS_MAX_ENTRIES=60000
 SENTINEL_TELEGRAM_BOT_TOKEN=$TELEGRAM_TOKEN
@@ -270,6 +269,8 @@ install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVI
 install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
 systemctl daemon-reload
 systemctl enable --now "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+for _ in {1..30}; do [[ -s $SENTINEL_STATE_DIR/discovery.json ]] && break; sleep 1; done
+[[ -s $SENTINEL_STATE_DIR/discovery.json ]] || warn 'Initial discovery is still running; the setup wizard can rescan.'
 wait_http "http://127.0.0.1:${PORT}/healthz" 40 2 || { journalctl -u "$SENTINEL_SERVICE" -n 100 --no-pager; die 'Service failed health check.'; }
 
 if ((CONFIGURE_UFW)) && command -v ufw >/dev/null 2>&1; then

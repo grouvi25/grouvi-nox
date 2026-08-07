@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { chromium } from 'playwright';
 import { createApp } from '../../src/app.js';
+import { writeDiscoverySettings } from '../../src/discovery/store.js';
 
+writeDiscoverySettings({complete:true});
 const app=createApp({sessionResolver:()=>({sid:'visual'}),apiAuth:(req,res,next)=>{req.session={sid:'visual',exp:Date.now()+3600000};next()}});
 const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base=`http://127.0.0.1:${server.address().port}`;
@@ -13,8 +15,8 @@ try {
   const chrome=await page.evaluate(()=>['.topbar','.forge-pane-head','.notify-pane-head','.detail-head'].map(selector=>document.querySelector(selector).getBoundingClientRect().height));
   assert.deepEqual(chrome,[56,56,56,56]);
   const kpis=await page.locator('.kpi').evaluateAll(items=>items.map(x=>Math.round(x.getBoundingClientRect().top)));
-  assert.equal(new Set(kpis).size,1,'six KPI blocks must share one desktop row');
-  await page.click('#forgeOpen');await page.waitForTimeout(420);
+  assert.equal(new Set(kpis).size,1,'six KPI blocks must share one desktop row');assert.equal(await page.locator('#s-discovery').count(),1);
+  await page.goto(`${base}/setup`,{waitUntil:'networkidle'});assert.equal(await page.locator('.setup-shell').count(),1);assert.match(await page.locator('h1').textContent(),/Настроим наблюдение/);await page.goto(base,{waitUntil:'networkidle'});await page.click('#forgeOpen');await page.waitForTimeout(420);
   assert.equal(await page.locator('#forgePane').evaluate(x=>x.classList.contains('open')),true);
   await context.close();
 

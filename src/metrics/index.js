@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import { config } from '../config.js';
 import { recordMetric, syncIncidents } from '../database.js';
 import { notifyEvents, telegramState } from '../notifier.js';
+import { enabledNames } from '../discovery/store.js';
 import * as proc from './proc.js';
 import * as svc from './services.js';
 import { certificates } from './certs.js';
@@ -17,7 +18,7 @@ const snapshot = {
   startedAt: Date.now(), updatedAt: null,
   cpu: null, memory: null, load: null, uptime: 0, network: null, diskIo: null, kernel: null,
   filesystems: [], containers: null, pm2: null, systemd: null, fail2ban: null,
-  ssh: null, backups: [], certificates: [], dockerDisk: null, os: null,
+  ssh:null,databases:[],backups:[],certificates: [], dockerDisk: null, os: null,
   alerts: [], history, telegram: telegramState(),
 };
 
@@ -66,9 +67,12 @@ async function slowTick() {
   try {
     const [filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel] = await Promise.all([
       svc.filesystems(), svc.containers(), svc.pm2(), svc.systemd(), svc.fail2ban(),
-      svc.sshActivity(), svc.backups(), proc.kernel(),
+      svc.sshActivity(),svc.backups(),proc.kernel(),
     ]);
-    Object.assign(snapshot, { filesystems, containers, pm2, systemd, fail2ban, ssh, backups, kernel });
+    const containerNames=enabledNames('container'),pm2Names=enabledNames('service','pm2');
+    if(containerNames&&containers?.items){containers.items=containers.items.filter(item=>containerNames.has(item.name));containers.running=containers.items.filter(x=>x.state==='running').length;containers.stopped=containers.items.filter(x=>x.state!=='running').length;containers.unhealthy=containers.items.filter(x=>x.health==='unhealthy').length}
+    if(pm2Names&&pm2?.items){pm2.items=pm2.items.filter(item=>pm2Names.has(item.name));pm2.online=pm2.items.filter(x=>x.status==='online').length;pm2.down=pm2.items.filter(x=>x.status!=='online').length}
+    Object.assign(snapshot,{filesystems,containers,pm2,systemd,fail2ban,ssh,backups,kernel});
     snapshot.alerts = evaluate(snapshot);
     await reconcileIncidents();
   } catch (e) { console.error('[collector:slow]', e.message); }
@@ -76,8 +80,8 @@ async function slowTick() {
 
 async function rareTick() {
   try {
-    const [dockerDisk, os] = await Promise.all([svc.dockerDisk(), svc.osInfo()]);
-    Object.assign(snapshot, { dockerDisk, os });
+    const [dockerDisk,os,databases]=await Promise.all([svc.dockerDisk(),svc.osInfo(),svc.databases()]);
+    Object.assign(snapshot,{dockerDisk,os,databases});
     snapshot.alerts = evaluate(snapshot);
     await reconcileIncidents();
   } catch (e) { console.error('[collector:rare]', e.message); }
@@ -85,7 +89,7 @@ async function rareTick() {
 
 async function certTick() {
   try {
-    snapshot.certificates = await certificates();
+    snapshot.certificates=await certificates();const domains=enabledNames('domain');if(domains)snapshot.certificates=snapshot.certificates.filter(x=>domains.has(x.domain));
     snapshot.alerts = evaluate(snapshot);
     await reconcileIncidents();
   } catch (e) { console.error('[collector:cert]', e.message); }

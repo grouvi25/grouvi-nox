@@ -32,7 +32,6 @@ Runtime secrets live only in `/etc/vps-sentinel.env` (root, mode 0600). Telegram
 
 ## Remaining host-level trust
 
-Container visibility requires membership in the Docker group, which is root-equivalent on Linux. The web process therefore has Docker-socket read access and must be treated as sensitive. For high-assurance environments, place a read-only Docker socket proxy in front of the daemon and remove direct group membership.
 
 ## Incident response
 

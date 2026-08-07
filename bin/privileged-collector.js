@@ -9,19 +9,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { startDockerReadBroker } from './docker-read-broker.js';
+import { discoverHost } from '../src/discovery/scanner.js';
 
 const STATE_DIR = process.env.STATE_DIR || '/var/lib/vps-sentinel';
 const OUT = path.join(STATE_DIR, 'privileged.json');
 const FS_OUT = path.join(STATE_DIR, 'filesystem.json');
+const DISCOVERY_OUT=path.join(STATE_DIR,'discovery.json');
+const DISCOVERY_SETTINGS=path.join(STATE_DIR,'discovery-settings.json');
+const DISCOVERY_RESCAN=path.join(STATE_DIR,'discovery-rescan');
 const DOCKER_BROKER = process.env.DOCKER_BROKER_SOCKET || path.join(STATE_DIR, 'docker-read.sock');
 const INTERVAL = Number(process.env.PRIV_INTERVAL_MS || 15000);
 const FS_INTERVAL = Number(process.env.FS_INDEX_INTERVAL_MS || 600_000);
+const DISCOVERY_INTERVAL=Number(process.env.DISCOVERY_INTERVAL_MS||900_000);
 const FS_MAX_ENTRIES = Number(process.env.FS_MAX_ENTRIES || 60_000);
 const PM2_BIN = process.env.PM2_BIN || '/usr/bin/pm2';
 const F2B_BIN = process.env.FAIL2BAN_BIN || '/usr/bin/fail2ban-client';
-const DEPLOY_DIRS = (process.env.DEPLOY_DIRS ||
-  '/opt/mmo90s,/opt/reip,/opt/groovyhub,/opt/coursebot,/opt/vps-sentinel,/root/ijurist5modern')
-  .split(',').map(s => s.trim()).filter(Boolean);
+function discoverySettings(){try{return JSON.parse(fs.readFileSync(DISCOVERY_SETTINGS,'utf8'))}catch{return{enabledIds:[],disabledIds:[],roots:[]}}}
+function discoverySnapshot(){try{return JSON.parse(fs.readFileSync(DISCOVERY_OUT,'utf8'))}catch{return{items:[]}}}
+function deployDirs(){const explicit=String(process.env.DEPLOY_DIRS||'').split(',').map(x=>x.trim()).filter(Boolean),settings=discoverySettings(),on=new Set(settings.enabledIds||[]),off=new Set(settings.disabledIds||[]),discovered=discoverySnapshot().items.filter(x=>x.type==='project'&&x.path&&(on.has(x.id)||(!off.has(x.id)&&x.defaultEnabled&&x.confidence>=Number(settings.preferences?.autoEnableConfidence||.75)))).map(x=>x.path);return[...new Set([...explicit,...discovered])]}
+
 
 function run(cmd, args, timeout = 10000, cwd) {
   return new Promise((resolve) => {
@@ -102,7 +108,7 @@ async function fail2ban() {
 
 async function deployments() {
   const projects = [];
-  for (const dir of DEPLOY_DIRS) {
+  for (const dir of deployDirs()) {
     if (!fs.existsSync(path.join(dir, '.git'))) continue;
     // Unit separator and record separator avoid commit-message parsing bugs.
     // eslint-disable-next-line no-await-in-loop
@@ -119,16 +125,15 @@ async function deployments() {
   return projects;
 }
 
-const FS_ROOTS = ['/etc', '/opt', '/root', '/var', '/usr/local', '/home', '/boot', '/tmp'];
+function filesystemRoots(){const configured=discoverySettings().roots||[];const standard=['/etc','/opt','/srv','/var/www','/usr/local','/home','/root','/boot','/tmp'];return[...new Set([...standard,...configured])].filter(x=>fs.existsSync(x))}
 const EXCLUDED_NAMES = new Set(['node_modules', '.git', '__pycache__', '.cache']);
 const EXCLUDED_PREFIXES = [
-  '/var/lib/docker', '/var/lib/containerd', '/var/lib/snapd', '/root/quarantine-',
-  '/root/.ssh', '/home/coursebackup/.ssh', '/proc', '/sys', '/dev', '/run',
+  '/var/lib/docker','/var/lib/containerd','/var/lib/snapd','/proc','/sys','/dev','/run',
 ];
 const SECRET_NAME = /(^|[._-])(env|secret|credential|token|private|passwd|shadow|id_rsa|id_ed25519)([._-]|$)|\.pem$|\.key$/i;
 
 function excludedPath(full, name) {
-  return EXCLUDED_NAMES.has(name) || EXCLUDED_PREFIXES.some(prefix => full === prefix || full.startsWith(prefix));
+  return EXCLUDED_NAMES.has(name)||name==='.ssh'||/^quarantine(?:[-_.]|$)/i.test(name)||EXCLUDED_PREFIXES.some(prefix=>full===prefix||full.startsWith(`${prefix}/`));
 }
 
 function fsRisk(full, name, stat) {
@@ -148,7 +153,8 @@ function indexFilesystem() {
   const totals = { files: 0, directories: 0, symlinks: 0, bytes: 0, excluded: 0, truncated: false };
   const largest = [];
   const risks = [];
-  const stack = FS_ROOTS.map(root => ({ full: root, parent: '/', depth: 1 }));
+  const roots=filesystemRoots();
+  const stack=roots.map(root => ({ full: root, parent: '/', depth: 1 }));
 
   while (stack.length && entries.length < FS_MAX_ENTRIES) {
     const current = stack.pop();
@@ -188,7 +194,7 @@ function indexFilesystem() {
   largest.sort((a, b) => b.size - a.size);
   risks.sort((a, b) => b.mtime - a.mtime);
   return {
-    at: Date.now(), roots: FS_ROOTS, totals,
+    at:Date.now(),roots,totals,
     entries,
     largest: largest.slice(0, 100),
     risks: risks.slice(0, 300),
@@ -211,7 +217,9 @@ async function filesystemTick() {
   } catch (e) { console.error('[filesystem]', e.message); }
 }
 
-async function tick() {
+async function discoveryTick(){try{const configured=discoverySettings().roots||[];const snapshot=discoverHost({roots:configured.length?configured:undefined});const tmp=`${DISCOVERY_OUT}.tmp`;fs.writeFileSync(tmp,JSON.stringify(snapshot),{mode:0o644});fs.renameSync(tmp,DISCOVERY_OUT);fs.chmodSync(DISCOVERY_OUT,0o644);console.log(`[discovery] ${snapshot.items.length} targets`)}catch(error){console.error('[discovery]',error.message)}}
+
+async function tick(){if(fs.existsSync(DISCOVERY_RESCAN)){try{fs.unlinkSync(DISCOVERY_RESCAN)}catch{}await discoveryTick()}
   try {
     const [p, f, d] = await Promise.all([pm2(), fail2ban(), deployments()]);
     const payload = JSON.stringify({ at: Date.now(), pm2: p, fail2ban: f, deployments: d });
@@ -226,8 +234,9 @@ async function tick() {
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
 startDockerReadBroker({ socketPath: DOCKER_BROKER, dockerSocket: process.env.DOCKER_SOCKET || '/var/run/docker.sock', gid: fs.statSync(STATE_DIR).gid });
-await Promise.all([tick(), filesystemTick()]);
+await Promise.all([discoveryTick(),tick(),filesystemTick()]);
 setInterval(tick, INTERVAL);
-setInterval(filesystemTick, FS_INTERVAL);
+setInterval(filesystemTick,FS_INTERVAL);
+setInterval(discoveryTick,DISCOVERY_INTERVAL);
 console.log(`[privileged] writing ${OUT} every ${INTERVAL} ms`);
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => process.exit(0));
