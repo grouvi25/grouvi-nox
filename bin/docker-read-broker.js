@@ -31,8 +31,8 @@ export function startDockerReadBroker({ socketPath, dockerSocket = '/var/run/doc
     });
   });
   server.listen(socketPath, () => {
-    fs.chmodSync(socketPath, 0o660);
-    if (Number.isInteger(gid)) fs.chownSync(socketPath, 0, gid);
+    if(Number.isInteger(gid))fs.chownSync(socketPath,0,gid);
+    fs.chmodSync(socketPath,0o660);
     console.log(`[docker-broker] read-only socket ${socketPath}`);
   });
   return server;
