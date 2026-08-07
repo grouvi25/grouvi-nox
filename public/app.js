@@ -147,7 +147,10 @@ const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d
 /* ----------------------------- render ---------------------------- */
 let latest = null;
 let persistedHistory = null;
-let incidentFilter = 'all';
+let incidentFilter = 'active';
+let incidentPage = 1;
+const INCIDENT_PAGE_SIZE = 6;
+let notificationData = null;
 let filesystemPath = '/';
 let filesystemTimer = null;
 let filesystemOverview = { largest: [], risks: [] };
@@ -454,33 +457,20 @@ function incidentStatusPill(status) {
   return '<span class="pill warn">открыт</span>';
 }
 
-function renderIncidents(items) {
-  $('incidentCount').textContent = items.length;
-  const active = items.filter(i => i.status !== 'resolved');
-  $('nbIncidents').textContent = active.length;
-  $('nbIncidents').className = `n-badge${active.some(i => i.severity === 'critical') ? ' alert' : active.length ? ' warn' : ''}`;
-  if (!items.length) {
-    $('incidentList').innerHTML = '<div class="empty">В этом фильтре инцидентов нет.</div>';
-    return;
+function renderIncidents(items,counts={},pagination={}){
+  $('incidentCount').textContent=counts.total??items.length;$('icAll').textContent=counts.total||0;$('icActive').textContent=counts.active||0;$('icOpen').textContent=counts.open||0;$('icAck').textContent=counts.acknowledged||0;$('icResolved').textContent=counts.resolved||0;
+  $('incidentActive').textContent=counts.active||0;$('incidentCritical').textContent=counts.critical||0;$('incidentResolved').textContent=counts.resolved||0;$('incidentHint').textContent=counts.active?`${counts.active} требуют внимания, архив разбит на страницы`:'Всё спокойно, активных инцидентов нет';
+  $('nbIncidents').textContent=counts.active||0;$('nbIncidents').className=`n-badge${counts.critical?' alert':counts.active?' warn':''}`;
+  if(!items.length){$('incidentList').innerHTML='<div class="empty incident-empty">В этом фильтре всё чисто.</div>'}else{
+    $('incidentList').innerHTML=items.map(i=>`<article class="incident-row" data-incident-id="${i.id}"><span class="incident-mark ${i.severity}"></span><div class="incident-main"><div class="incident-title">${esc(i.title)}</div><div class="incident-detail">${esc(i.detail||i.incident_key)}</div><div class="incident-mobile-meta">${formatWhen(i.first_seen)} · ${i.occurrences} срабатываний</div></div><div class="incident-meta">${incidentStatusPill(i.status)}<span>${formatWhen(i.first_seen)}</span><span>${i.occurrences} срабатываний</span></div><div class="incident-actions">${i.severity==='critical'&&!i.investigation?`<button class="action-sm investigate" data-incident-action="investigate" data-id="${i.id}">AI-разбор</button>`:''}${i.investigation?`<button class="action-sm" data-incident-expand="${i.id}">Разбор готов</button>`:''}<label class="incident-status-control"><span>Статус</span><select data-incident-status data-id="${i.id}" data-previous="${i.status}"><option value="open" ${i.status==='open'?'selected':''}>Открыт</option><option value="acknowledged" ${i.status==='acknowledged'?'selected':''}>Принят</option><option value="resolved" ${i.status==='resolved'?'selected':''}>Закрыт</option></select></label></div>${i.investigation?`<div class="incident-ai" id="incidentAi${i.id}" hidden><div class="incident-ai-head"><span>Sentinel Forge</span><time>${formatWhen(i.investigated_at)}</time></div><pre>${esc(i.investigation)}</pre></div>`:''}</article>`).join('')
   }
-  $('incidentList').innerHTML = items.map(i => `
-    <article class="incident-row" data-incident-id="${i.id}">
-      <span class="incident-mark ${i.severity}"></span>
-      <div><div class="incident-title">${esc(i.title)}</div><div class="incident-detail">${esc(i.detail || i.incident_key)}</div></div>
-      <div class="incident-meta">${incidentStatusPill(i.status)}<br>${formatWhen(i.first_seen)} · ${i.occurrences} срабатываний</div>
-      <div class="incident-actions">
-        ${i.status === 'open' ? `<button class="action-sm" data-incident-action="ack" data-id="${i.id}">Принять</button>` : ''}
-        ${i.status !== 'resolved' ? `<button class="action-sm" data-incident-action="resolve" data-id="${i.id}">Закрыть</button>` : ''}
-      </div>
-    </article>`).join('');
+  const total=Number(pagination.total||0),pages=Math.max(1,Math.ceil(total/INCIDENT_PAGE_SIZE));
+  $('incidentPager').hidden=total<=INCIDENT_PAGE_SIZE;
+  $('incidentPageMeta').textContent=`${Math.min(incidentPage,pages)} / ${pages}`;
+  $('incidentPrev').disabled=incidentPage<=1;$('incidentNext').disabled=incidentPage>=pages;
 }
+async function loadIncidents(status=incidentFilter,page=incidentPage){try{const offset=(page-1)*INCIDENT_PAGE_SIZE;const data=await api(`/api/incidents?status=${encodeURIComponent(status)}&limit=${INCIDENT_PAGE_SIZE}&offset=${offset}`);const pages=Math.max(1,Math.ceil(Number(data.pagination?.total||0)/INCIDENT_PAGE_SIZE));if(page>pages){incidentPage=pages;return loadIncidents(status,pages)}renderIncidents(data.incidents||[],data.counts||{},data.pagination||{})}catch(e){$('incidentList').innerHTML=`<div class="empty">Ошибка загрузки: ${esc(e.message)}</div>`}}
 
-async function loadIncidents(status = incidentFilter) {
-  try {
-    const data = await api(`/api/incidents?status=${encodeURIComponent(status)}`);
-    renderIncidents(data.incidents || []);
-  } catch (e) { $('incidentList').innerHTML = `<div class="empty">Ошибка загрузки: ${esc(e.message)}</div>`; }
-}
 
 async function incidentAction(id, action, button) {
   button.disabled = true;
@@ -492,6 +482,17 @@ async function incidentAction(id, action, button) {
     await loadIncidents();
   } catch (e) { button.disabled = false; button.textContent = 'Ошибка'; }
 }
+
+async function changeIncidentStatus(id, status, select) {
+  const previous = select.dataset.previous || select.querySelector('option[selected]')?.value || '';
+  select.disabled = true;
+  try {
+    await api(`/api/incidents/${id}/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ status }) });
+    select.dataset.previous = status;
+    await loadIncidents(incidentFilter);
+  } catch (e) { if (previous) select.value = previous; select.disabled = false; }
+}
+
 
 function renderDeployments(projects) {
   const rows = [];
@@ -518,14 +519,50 @@ function detailStats(entries) {
   return `<div class="detail-grid">${entries.map(([k, v]) => `<div class="detail-stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 }
 
+const PANE_LIMITS = {
+  forge: { min: 420, max: 760, fallback: 560 },
+  notify: { min: 360, max: 580, fallback: 440 },
+  detail: { min: 400, max: 720, fallback: 540 },
+};
+function paneWidth(kind) {
+  const limits=PANE_LIMITS[kind], saved=Number(localStorage.getItem(`sentinelPaneWidth:${kind}`));
+  return clamp(saved || limits.fallback, limits.min, Math.min(limits.max, Math.max(limits.min, window.innerWidth - 640)));
+}
+function applyPaneWidth(pane, width) {
+  const kind=pane.dataset.paneKind, limits=PANE_LIMITS[kind]; if(!limits) return;
+  const max=Math.min(limits.max, Math.max(limits.min, window.innerWidth - 640));
+  const next=clamp(Number(width)||limits.fallback,limits.min,max);
+  pane.style.setProperty('--pane-width',`${next}px`);
+  pane.querySelector('[data-pane-resizer]')?.setAttribute('aria-valuenow',String(Math.round(next)));
+  return next;
+}
+function initPaneResizers(){
+  document.querySelectorAll('[data-pane-kind]').forEach(pane=>{
+    applyPaneWidth(pane,paneWidth(pane.dataset.paneKind));
+    const handle=pane.querySelector('[data-pane-resizer]'); if(!handle)return;
+    const begin=(clientX)=>{pane.classList.add('resizing');document.body.classList.add('pane-dragging');const move=(x)=>applyPaneWidth(pane,window.innerWidth-x);const onMove=e=>move(e.clientX);const stop=()=>{document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',stop);document.body.classList.remove('pane-dragging');pane.classList.remove('resizing');const value=parseInt(getComputedStyle(pane).getPropertyValue('--pane-width'),10);if(value)localStorage.setItem(`sentinelPaneWidth:${pane.dataset.paneKind}`,String(value));window.dispatchEvent(new Event('resize'))};document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',stop,{once:true});move(clientX)};
+    handle.addEventListener('pointerdown',e=>{if(window.innerWidth<=1100)return;e.preventDefault();handle.setPointerCapture?.(e.pointerId);begin(e.clientX)});
+    handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||window.innerWidth<=1100)return;e.preventDefault();const limits=PANE_LIMITS[pane.dataset.paneKind];let width=parseInt(getComputedStyle(pane).getPropertyValue('--pane-width'),10)||limits.fallback;if(e.key==='ArrowLeft')width+=24;if(e.key==='ArrowRight')width-=24;if(e.key==='Home')width=limits.min;if(e.key==='End')width=limits.max;const next=applyPaneWidth(pane,width);localStorage.setItem(`sentinelPaneWidth:${pane.dataset.paneKind}`,String(next));window.dispatchEvent(new Event('resize'))});
+  });
+}
+
+function setWorkspacePane(activeId = null) {
+  for (const id of ['forgePane', 'notifyPane', 'detailPane']) {
+    const pane = $(id); const open = id === activeId;
+    pane.classList.toggle('open', open);
+    pane.setAttribute('aria-hidden', String(!open));
+  }
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
+}
+
 function openDetailShell(type, name) {
   $('detailType').textContent = type === 'container' ? 'Docker container' : 'PM2 process';
   $('detailTitle').textContent = name;
   $('detailStatus').textContent = 'загрузка';
   $('detailStatus').className = 'pill idle';
   $('detailBody').innerHTML = '<div class="detail-skeleton"></div>';
-  $('detailPane').classList.add('open');
-  $('detailPane').setAttribute('aria-hidden', 'false');
+  setWorkspacePane('detailPane');
 }
 
 function renderContainerDetail(d) {
@@ -566,17 +603,18 @@ async function openServiceDetail(type, name) {
   }
 }
 
-function closeDetail() {
-  $('detailPane').classList.remove('open');
-  $('detailPane').setAttribute('aria-hidden', 'true');
-}
+function closeDetail() { setWorkspacePane(); }
 
-async function loadNotificationState() {
-  try {
-    const d = await api('/api/notifications');
-    $('telegramState').textContent = d.telegram.enabled ? `Telegram: включён ${d.telegram.chat}` : 'Telegram: не настроен';
-  } catch { $('telegramState').textContent = 'Telegram: ошибка статуса'; }
-}
+function hourOptions(){return Array.from({length:24},(_,h)=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('')}
+function notificationFormValue(){const data={};for(const el of $('notifyForm').elements){if(!el.name)continue;data[el.name]=el.type==='checkbox'?el.checked:(['quietStart','quietEnd','cooldownMin'].includes(el.name)?Number(el.value):el.value)}return data}
+function notificationDirty(){const current=notificationFormValue(),saved=notificationData?.telegram?.settings||{};return Object.keys(current).some(key=>current[key]!==saved[key])}
+function syncNotificationFooter(){const dirty=notificationDirty();$('notifyFooter').hidden=!dirty;$('notifySaveState').textContent=dirty?'Есть несохранённые изменения':''}
+function renderNotificationState(d){notificationData=d;const t=d.telegram,form=$('notifyForm');$('telegramState').textContent=t.configured?(t.enabled?'Telegram включён':'Telegram на паузе'):'Telegram не настроен';$('notifyDot').className=`notify-dot ${t.enabled?'online':t.configured?'paused':'offline'}`;$('notifyHealth').textContent=t.enabled?'работает':t.configured?'пауза':'не настроен';$('notifyHealth').className=`notify-health ${t.enabled?'ok':t.configured?'warn':'bad'}`;$('notifyDestination').textContent=t.configured?`Личный чат ${t.chat}, секреты скрыты`:'Добавьте bot token и chat ID на сервере';for(const [key,value] of Object.entries(t.settings||{})){const el=form.elements[key];if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=String(value)}$('notifyRecent').innerHTML=(d.recent||[]).length?d.recent.slice(0,8).map(n=>`<div class="notify-delivery"><span class="delivery-dot ${n.success?'ok':'bad'}"></span><div><b>${esc(n.event_type.replaceAll('_',' '))}</b><small>${formatWhen(n.ts)}${n.detail&&n.detail!=='sent'?` · ${esc(n.detail)}`:''}</small></div></div>`).join(''):'<div class="empty">Доставок пока не было.</div>';$('notifyFooter').hidden=true;$('notifySaveState').textContent=''}
+async function loadNotificationState(){try{renderNotificationState(await api('/api/notifications'))}catch{$('telegramState').textContent='Ошибка Telegram'}}
+function openNotifications(){setWorkspacePane('notifyPane');loadNotificationState()}
+function closeNotifications(){setWorkspacePane()}
+async function saveNotifications(e){e.preventDefault();const data=notificationFormValue();$('notifySave').disabled=true;$('notifySaveState').textContent='Сохраняю…';try{await api('/api/notifications/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});await loadNotificationState()}catch(err){$('notifySaveState').textContent=`Ошибка: ${err.message}`;$('notifyFooter').hidden=false}finally{$('notifySave').disabled=false}}
+async function testNotification(){const b=$('notifyTest');b.disabled=true;b.textContent='Отправляю…';try{await api('/api/notifications/test',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});b.textContent='Доставлено';await loadNotificationState()}catch{b.textContent='Ошибка доставки'}setTimeout(()=>{b.disabled=false;b.textContent='Отправить тест'},1800)}
 
 function fsIcon(type, excluded) {
   if (excluded) return '<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
@@ -658,6 +696,7 @@ function resetChartInspect(kind) {
   $(kind === 'cpu' ? 'cpuInspect' : 'netInspect').textContent = 'Наведи на график';
 }
 
+let activeMetricDetail=null;
 const METRICS = {
   cpu: { title: 'Процессор', keys: [['cpu','CPU',C.accent]], unit: '%', max: 100 },
   memory: { title: 'Оперативная память', keys: [['memory','RAM',C.blue]], unit: '%', max: 100 },
@@ -679,9 +718,21 @@ function metricValue(value, unit) {
   return Number(value).toFixed(2);
 }
 
+function drawMetricDetail(){
+  const metric=activeMetricDetail,spec=METRICS[metric],canvas=$('metricDetailCanvas');
+  if(!spec||!canvas||!$('detailPane').classList.contains('open'))return;
+  const rows=persistedHistory?.rows||[];
+  const rect=canvas.getBoundingClientRect();
+  if(rect.width<40||rect.height<40)return;
+  const sets=spec.keys.map(([key,,color])=>({data:rows.map(r=>spec.unit==='bytes'?Number(r[key]||0)/1024:Number(r[key]||0)),color}));
+  multiChart(canvas,sets,{max:spec.max,unit:spec.unit==='bytes'?'KB':spec.unit});
+}
+function scheduleMetricDetailDraw(){requestAnimationFrame(drawMetricDetail);setTimeout(drawMetricDetail,180);setTimeout(drawMetricDetail,360)}
+
 function openMetricDetail(metric) {
   const spec = METRICS[metric];
   if (!spec) return;
+  activeMetricDetail=metric;
   openDetailShell('metric', spec.title);
   $('detailType').textContent = 'Историческая метрика';
   $('detailStatus').textContent = persistedHistory?.range || '24h';
@@ -701,8 +752,7 @@ function openMetricDetail(metric) {
     <section class="detail-section"><h3>Детальный график</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="metric-detail-inspect" id="metricDetailInspect">Период: ${formatWhen(persistedHistory?.from)} → ${formatWhen(persistedHistory?.to)}</div></section>
     <section class="detail-section"><h3>Ряды</h3><div class="metric-series-list">${spec.keys.map(([,label])=>`<span>${esc(label)}</span>`).join('')}</div></section>`;
   const canvas = $('metricDetailCanvas');
-  const sets = spec.keys.map(([key,,color]) => ({ data: rows.map(r => spec.unit === 'bytes' ? Number(r[key]||0)/1024 : Number(r[key]||0)), color }));
-  requestAnimationFrame(() => multiChart(canvas, sets, { max: spec.max, unit: spec.unit === 'bytes' ? 'KB' : spec.unit }));
+  scheduleMetricDetailDraw();
   canvas.addEventListener('mousemove', (e) => {
     if (!rows.length) return;
     const rect=canvas.getBoundingClientRect(); const i=Math.min(rows.length-1,Math.round(clamp((e.clientX-rect.left)/rect.width,0,1)*(rows.length-1))); const row=rows[i];
@@ -736,8 +786,172 @@ function render(d) {
   }
 }
 
-/* -------------------------- connection --------------------------- */
-let ws = null;
+/* ------------------------- Sentinel Forge ------------------------ */
+const forgeMessages = [];
+const FORGE_CHATS_KEY='sentinelForgeChats:v1';
+let forgeChatId=crypto.randomUUID?.()||String(Date.now());
+let forgeChatStarted=Date.now();
+let forgeBusy = false;
+let forgeModel = localStorage.getItem('forgeModel') || 'Qwen3.6-35B-A3B';
+if (!['DeepSeek-V4-Pro','Qwen3.6-35B-A3B'].includes(forgeModel)) { forgeModel = 'DeepSeek-V4-Pro'; localStorage.setItem('forgeModel', forgeModel); }
+let forgeScope = localStorage.getItem('forgeScope') || 'vps';
+let forgeProjects = [{ id:'vps', name:'Весь VPS', detail:'Система и все сервисы' }];
+const forgeModels = [
+  { id:'DeepSeek-V4-Pro', name:'DeepSeek V4 Pro', detail:'Проверен с полным набором инструментов' },
+  { id:'Qwen3.6-35B-A3B', name:'Qwen 3.6', detail:'Проверен с полным набором инструментов' },
+];
+
+function readForgeChats(){try{const value=JSON.parse(localStorage.getItem(FORGE_CHATS_KEY)||'[]');return Array.isArray(value)?value.slice(0,20):[]}catch{return []}}
+function forgeChatTitle(messages){const first=messages.find(x=>x.role==='user')?.content||'Новый чат';return first.replace(/\s+/g,' ').trim().slice(0,54)}
+function saveForgeChat(){if(!forgeMessages.length)return;const chats=readForgeChats().filter(x=>x.id!==forgeChatId);chats.unshift({id:forgeChatId,title:forgeChatTitle(forgeMessages),updatedAt:Date.now(),startedAt:forgeChatStarted,model:forgeModel,scope:forgeScope,messages:forgeMessages.slice(-14)});localStorage.setItem(FORGE_CHATS_KEY,JSON.stringify(chats.slice(0,20)));renderForgeHistory()}
+function renderForgeConversation(){const transcript=$('forgeTranscript');transcript.innerHTML=forgeMessages.length?'':forgeWelcomeMarkup();for(const message of forgeMessages)appendForgeMessage(message.role,message.content,false,{model:message.model||''})}
+function renderForgeHistory(){const chats=readForgeChats();$('forgeHistoryList').innerHTML=chats.length?chats.map(chat=>`<button type="button" class="forge-history-item ${chat.id===forgeChatId?'active':''}" data-forge-chat="${esc(chat.id)}"><b>${esc(chat.title)}</b><span>${formatWhen(chat.updatedAt)} · ${esc(forgeProjects.find(x=>x.id===chat.scope)?.name||chat.scope||'VPS')}</span></button>`).join(''):'<div class="forge-history-empty">История появится после первого ответа.</div>'}
+function toggleForgeHistory(force){const panel=$('forgeHistory'),show=typeof force==='boolean'?force:panel.hidden;panel.hidden=!show;$('forgeHistoryToggle').setAttribute('aria-expanded',String(show));if(show)renderForgeHistory()}
+function loadForgeChat(id){const chat=readForgeChats().find(x=>x.id===id);if(!chat||forgeBusy)return;saveForgeChat();forgeChatId=chat.id;forgeChatStarted=chat.startedAt||chat.updatedAt;forgeMessages.splice(0,forgeMessages.length,...(chat.messages||[]));if(['DeepSeek-V4-Pro','Qwen3.6-35B-A3B'].includes(chat.model))forgeModel=chat.model;if(chat.scope)forgeScope=chat.scope;renderForgeMenus();renderForgeConversation();toggleForgeHistory(false)}
+
+function forgeTime() {
+  return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
+}
+
+function mdInline(raw) {
+  let value = esc(String(raw || ''));
+  value = value.replace(/`([^`]+)`/g, '<code>$1</code>');
+  value = value.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  value = value.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  value = value.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  value = value.replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, '$1<em>$2</em>');
+  return value;
+}
+
+function mdTextBlock(raw) {
+  const lines = String(raw || '').split('\n'); let html = '', list = '';
+  const closeList = () => { if (list) { html += `</${list}>`; list = ''; } };
+  const cells = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map(x => mdInline(x.trim()));
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i]; if (!line.trim()) { closeList(); continue; }
+    if (line.includes('|') && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
+      closeList(); const headers = cells(line); i += 2; const rows = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim()) { rows.push(cells(lines[i])); i += 1; }
+      i -= 1; html += `<div class="md-table-wrap"><table><thead><tr>${headers.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(x => `<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/); if (heading) { closeList(); const n = heading[1].length + 2; html += `<h${n}>${mdInline(heading[2])}</h${n}>`; continue; }
+    const quote = line.match(/^>\s?(.+)$/); if (quote) { closeList(); html += `<blockquote>${mdInline(quote[1])}</blockquote>`; continue; }
+    if (/^[-*_]{3,}$/.test(line.trim())) { closeList(); html += '<hr>'; continue; }
+    const ul = line.match(/^\s*[-*+]\s+(.+)$/); if (ul) { if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; } html += `<li>${mdInline(ul[1])}</li>`; continue; }
+    const ol = line.match(/^\s*\d+[.)]\s+(.+)$/); if (ol) { if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; } html += `<li>${mdInline(ol[1])}</li>`; continue; }
+    closeList(); html += `<p>${mdInline(line)}</p>`;
+  }
+  closeList(); return html;
+}
+function renderMarkdown(markdown) {
+  const source = String(markdown || '').replace(/\r\n?/g, '\n');
+  let html = '', cursor = 0;
+  const fence = /```([\w.+-]*)\n([\s\S]*?)```/g;
+  let match;
+  while ((match = fence.exec(source))) {
+    html += mdTextBlock(source.slice(cursor, match.index));
+    const language = esc(match[1] || 'code');
+    html += `<div class="md-code"><div class="md-code-head"><span>${language}</span><button type="button" data-copy-code>Копировать</button></div><pre><code>${esc(match[2].replace(/\n$/, ''))}</code></pre></div>`;
+    cursor = match.index + match[0].length;
+  }
+  html += mdTextBlock(source.slice(cursor));
+  return html || '<p>Пустой ответ.</p>';
+}
+
+function appendForgeMessage(role, text, loading = false, meta = {}) {
+  $('forgeWelcome')?.remove();
+  const article = document.createElement('article');
+  article.className = `forge-chat-message ${role}${loading ? ' loading' : ''}`;
+  const wrap = document.createElement('div'); wrap.className = 'forge-chat-content';
+  const top = document.createElement('div'); top.className = 'forge-chat-meta';
+  const name = document.createElement('b'); name.textContent = role === 'assistant' ? 'Sentinel Forge' : 'Вы';
+  const details = document.createElement('span'); details.textContent = meta.model ? `${meta.model} · ${forgeTime()}` : forgeTime();
+  top.append(name, details);
+  const content = document.createElement('div');
+  content.className = loading ? 'forge-thinking-v2' : 'forge-markdown';
+  if (loading) content.innerHTML = '<span></span><span></span><span></span><b>думает и проверяет</b>';
+  else if (role === 'assistant') content.innerHTML = renderMarkdown(text);
+  else content.textContent = text;
+  wrap.append(top, content); article.append(wrap); $('forgeTranscript').append(article);
+  $('forgeTranscript').scrollTo({ top: $('forgeTranscript').scrollHeight, behavior: 'smooth' });
+  return article;
+}
+
+function setForgeBusy(value) {
+  forgeBusy = value;
+  $('forgeSend').disabled = value; $('forgeInput').disabled = value;
+  $('forgeModelTrigger').disabled = value; $('forgeScopeTrigger').disabled = value;
+  $('forgePresence').textContent = value ? 'работает' : 'готов';
+  $('forgePane').classList.toggle('busy', value);
+}
+
+async function sendForge(text) {
+  if (forgeBusy) return;
+  const prompt = String(text || '').trim(); if (!prompt) return;
+  const model = forgeModel; const scope = forgeScope;
+  setForgeBusy(true); appendForgeMessage('user', prompt); forgeMessages.push({ role: 'user', content: prompt });
+  const pending = appendForgeMessage('assistant', '', true, { model });
+  $('forgeInput').value = ''; autoSizeForgeInput();
+  try {
+    const started = await api('/api/agent/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: forgeMessages.slice(-14), model, scope }),
+    });
+    let data = started;
+    const deadline = Date.now() + 170_000;
+    while (data.status === 'running' && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      data = await api(`/api/agent/chat/${encodeURIComponent(started.jobId)}`);
+    }
+    if (data.status === 'running') throw new Error('agent_timeout');
+    pending.remove(); appendForgeMessage('assistant', data.answer || 'Ответ пуст.', false, { model: data.model || model });
+    forgeMessages.push({ role: 'assistant', content: data.answer || '', model: data.model || model });
+    if (forgeMessages.length > 14) forgeMessages.splice(0, forgeMessages.length - 14);
+    saveForgeChat();
+  } catch (e) {
+    pending.remove();
+    const message = e.message === 'agent_busy' ? '**Агент занят.** Дождитесь завершения текущей задачи.'
+      : e.message === 'agent_timeout' ? '**Время вышло.** Разбейте задачу на более короткие шаги.'
+        : `**Связь с агентом прервалась.**\n\nОшибка: \`${e.message}\``;
+    appendForgeMessage('assistant', message, false, { model });
+  } finally { setForgeBusy(false); $('forgeInput').focus(); }
+}
+
+function forgeWelcomeMarkup() {
+  return `<div class="forge-welcome" id="forgeWelcome"><h3>Чем помочь?</h3><p>Диагностика VPS, расследование инцидентов и работа с кодом.</p><div class="forge-starters" id="forgeSuggestions"><button type="button" data-forge-prompt="Проверь состояние VPS и назови главный риск.">Проверить VPS</button><button type="button" data-forge-prompt="Разбери открытые инциденты и найди причины.">Инциденты</button><button type="button" data-forge-prompt="Проверь выбранный проект, git status и тесты.">Код и тесты</button></div></div>`;
+}
+
+function resetForge() { if (forgeBusy) return; saveForgeChat(); forgeChatId=crypto.randomUUID?.()||String(Date.now()); forgeChatStarted=Date.now(); forgeMessages.splice(0); $('forgeTranscript').innerHTML=forgeWelcomeMarkup(); toggleForgeHistory(false); renderForgeHistory(); }
+function openForge() { setWorkspacePane('forgePane'); sidebar.classList.remove('open'); setTimeout(() => $('forgeInput').focus(), 180); }
+function closeForge() { setWorkspacePane(); }
+function autoSizeForgeInput() { const el=$('forgeInput'); el.style.height='auto'; el.style.height=`${Math.min(el.scrollHeight,180)}px`; }
+function menuMarkup(items, selected, type) {
+  return items.map(item => `<button type="button" class="forge-menu-item ${item.id===selected?'selected':''}" role="option" aria-selected="${item.id===selected}" data-forge-choice="${esc(item.id)}" data-forge-type="${type}"><span class="forge-choice-mark">${item.id===selected?'✓':''}</span><span><b>${esc(item.name)}</b><small>${esc(item.detail || '')}</small></span></button>`).join('');
+}
+function closeForgeMenus() {
+  document.querySelectorAll('.forge-menu.open').forEach(x => x.classList.remove('open'));
+  $('forgeScopeTrigger').setAttribute('aria-expanded','false'); $('forgeModelTrigger').setAttribute('aria-expanded','false');
+}
+function renderForgeMenus() {
+  $('forgeScopeMenu').innerHTML = menuMarkup(forgeProjects, forgeScope, 'scope');
+  $('forgeModelMenu').innerHTML = menuMarkup(forgeModels, forgeModel, 'model');
+  $('forgeScopeLabel').textContent = forgeProjects.find(x=>x.id===forgeScope)?.name || 'Весь VPS';
+  $('forgeModelLabel').textContent = forgeModels.find(x=>x.id===forgeModel)?.name || 'GLM 5.2';
+}
+function toggleForgeMenu(name) {
+  const menu=$(name==='scope'?'forgeScopeMenu':'forgeModelMenu'); const trigger=$(name==='scope'?'forgeScopeTrigger':'forgeModelTrigger'); const opening=!menu.classList.contains('open');
+  closeForgeMenus(); if(opening){menu.classList.add('open');trigger.setAttribute('aria-expanded','true');}
+}
+function chooseForge(type, value) {
+  if(type==='scope'){forgeScope=value;localStorage.setItem('forgeScope',value);} else {forgeModel=value;localStorage.setItem('forgeModel',value);}
+  renderForgeMenus(); closeForgeMenus(); $('forgeInput').focus();
+}
+async function loadForgeProjects() {
+  try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects; } catch { /* keep VPS context */ }
+  if(!forgeProjects.some(x=>x.id===forgeScope)) forgeScope='vps'; renderForgeMenus();
+}
+
+/* -------------------------- connection --------------------------- */let ws = null;
 let retry = 0;
 
 function setConn(state, text) {
@@ -788,17 +1002,20 @@ const sidebar = $('sidebar');
 $('burger').addEventListener('click', () => sidebar.classList.toggle('open'));
 
 /* scroll spy */
-const navItems = [...document.querySelectorAll('.nav-item')];
+const navItems = [...document.querySelectorAll('a.nav-item')];
 const sections = navItems
   .map(a => document.querySelector(a.getAttribute('href')))
   .filter(Boolean);
 
 const content = $('content');
 let spyFrame = 0;
+let navLockUntil = 0;
+let navLockTarget = null;
 content.addEventListener('scroll', () => {
   if (spyFrame) return;
   spyFrame = requestAnimationFrame(() => {
     spyFrame = 0;
+    if (Date.now() < navLockUntil) { if (navLockTarget) navItems.forEach(a=>a.classList.toggle('active',a===navLockTarget)); return; }
     const contentTop = content.getBoundingClientRect().top;
     let active = 0;
     let best = Infinity;
@@ -815,10 +1032,12 @@ navItems.forEach((a) => a.addEventListener('click', (e) => {
   e.preventDefault();
   const target = document.querySelector(a.getAttribute('href'));
   if (target) {
+    navLockTarget = a; navLockUntil = Date.now() + 700;
     const top = content.scrollTop + target.getBoundingClientRect().top - content.getBoundingClientRect().top - 4;
     content.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     navItems.forEach(x => x.classList.toggle('active', x === a));
     history.replaceState(null, '', a.getAttribute('href'));
+    setTimeout(()=>{if(navLockTarget===a){navLockTarget=null;navLockUntil=0;content.dispatchEvent(new Event('scroll'))}},720);
   }
   sidebar.classList.remove('open');
 }));
@@ -835,18 +1054,23 @@ $('incidentFilters').addEventListener('click', (e) => {
   const button = e.target.closest('[data-status]');
   if (!button) return;
   incidentFilter = button.dataset.status;
+  incidentPage = 1;
   $('incidentFilters').querySelectorAll('.seg').forEach(x => x.classList.toggle('active', x === button));
-  loadIncidents(incidentFilter);
+  loadIncidents(incidentFilter, incidentPage);
 });
 
 $('content').addEventListener('click', (e) => {
   const action = e.target.closest('[data-incident-action]');
   if (action) { incidentAction(action.dataset.id, action.dataset.incidentAction, action); return; }
+  const expand=e.target.closest('[data-incident-expand]');
+  if(expand){const box=$(`incidentAi${expand.dataset.incidentExpand}`),show=box.hidden;box.hidden=!show;expand.textContent=show?'Скрыть разбор':'Разбор готов';return}
   const metric = e.target.closest('[data-metric]');
   if (metric) { openMetricDetail(metric.dataset.metric); return; }
   const service = e.target.closest('[data-service-type]');
   if (service) openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
 });
+
+$('content').addEventListener('change', (e) => { const select=e.target.closest('[data-incident-status]'); if(select) changeIncidentStatus(select.dataset.id, select.value, select); });
 
 $('content').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -862,7 +1086,7 @@ $('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
 $('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
 $('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDetail(); });
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeDetail(); closeForge(); closeNotifications(); } });
 $('fsEntries').addEventListener('click', (e) => { const row = e.target.closest('[data-fs-path]'); if (row) loadFilesystem(row.dataset.fsPath); });
 $('fsEntries').addEventListener('keydown', (e) => { if (e.key === 'Enter') { const row=e.target.closest('[data-fs-path]'); if(row) loadFilesystem(row.dataset.fsPath); } });
 $('fsBreadcrumb').addEventListener('click', (e) => { const c=e.target.closest('[data-fs-path]'); if(c) loadFilesystem(c.dataset.fsPath); });
@@ -872,13 +1096,41 @@ $('fsSearch').addEventListener('input', (e) => {
   const value=e.target.value.trim();
   filesystemTimer=setTimeout(() => loadFilesystem(value ? '/' : filesystemPath, value), 280);
 });
+$('incidentPrev').addEventListener('click',()=>{if(incidentPage>1){incidentPage-=1;loadIncidents(incidentFilter,incidentPage)}});
+$('incidentNext').addEventListener('click',()=>{incidentPage+=1;loadIncidents(incidentFilter,incidentPage)});
+$('notifyOpen').addEventListener('click',openNotifications);
+$('notifyClose').addEventListener('click',closeNotifications);
+$('notifyForm').addEventListener('submit',saveNotifications);
+$('notifyForm').addEventListener('input',syncNotificationFooter);
+$('notifyForm').addEventListener('change',syncNotificationFooter);
+$('notifyTest').addEventListener('click',testNotification);
+$('notifyForm').elements.quietStart.innerHTML=hourOptions();$('notifyForm').elements.quietEnd.innerHTML=hourOptions();
+$('forgeOpen').addEventListener('click', openForge);
+$('forgeClose').addEventListener('click', closeForge);
+$('forgeReset').addEventListener('click', resetForge);
+$('forgeHistoryToggle').addEventListener('click',()=>toggleForgeHistory());
+$('forgeHistoryClose').addEventListener('click',()=>toggleForgeHistory(false));
+$('forgeHistoryList').addEventListener('click',e=>{const item=e.target.closest('[data-forge-chat]');if(item)loadForgeChat(item.dataset.forgeChat)});
+$('forgeForm').addEventListener('submit', (e) => { e.preventDefault(); sendForge($('forgeInput').value); });
+$('forgeInput').addEventListener('input', autoSizeForgeInput);
+$('forgeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('forgeForm').requestSubmit(); } });
+$('forgeTranscript').addEventListener('click', (e) => {
+  const starter=e.target.closest('[data-forge-prompt]'); if(starter){sendForge(starter.dataset.forgePrompt);return;}
+  const copy=e.target.closest('[data-copy-code]'); if(copy){const code=copy.closest('.md-code').querySelector('code').textContent;navigator.clipboard.writeText(code).then(()=>{copy.textContent='Скопировано';setTimeout(()=>copy.textContent='Копировать',1400);});}
+});
+$('forgeScopeTrigger').addEventListener('click', () => toggleForgeMenu('scope'));
+$('forgeModelTrigger').addEventListener('click', () => toggleForgeMenu('model'));
+document.querySelectorAll('.forge-menu').forEach(menu => menu.addEventListener('click', (e) => { const choice=e.target.closest('[data-forge-choice]'); if(choice) chooseForge(choice.dataset.forgeType, choice.dataset.forgeChoice); }));
+document.addEventListener('click', (e) => { if(!e.target.closest('.forge-menu-wrap')) closeForgeMenus(); });
+renderForgeMenus(); renderForgeHistory(); initPaneResizers(); loadForgeProjects();
+
 setInterval(() => loadIncidents(), 30_000);
 setInterval(() => loadDeployments(), 5 * 60_000);
 
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (latest) { renderCharts(latest); renderKpis(latest); } }, 120);
+  resizeTimer = setTimeout(() => { if (latest) { renderCharts(latest); renderKpis(latest); } drawMetricDetail(); }, 120);
 });
 
 bootstrap();
