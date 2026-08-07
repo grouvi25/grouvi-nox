@@ -5,6 +5,7 @@ import { createNotificationController } from './js/notifications.js';
 import { createIncidentController } from './js/incidents.js';
 import { createFilesystemController } from './js/filesystem.js';
 import { createForgeController } from './js/forge.js';
+import {createDiscoveryController} from './js/discovery.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -305,6 +306,7 @@ function formatWhen(ts) {
 
 const { hourOptions, syncNotificationFooter, loadNotificationState, openNotifications, closeNotifications, saveNotifications, testNotification } = createNotificationController({ api, formatWhen, setWorkspacePane });
 const forge=createForgeController({api,formatWhen,setWorkspacePane});
+const discoveryController=createDiscoveryController({api});
 
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
@@ -539,12 +541,13 @@ function connect() {
 }
 
 async function bootstrap() {
+  try{const setup=await api('/api/setup');if(!setup.completed){location.href='/setup';return}}catch{}
   try {
     const r = await fetch('/api/snapshot', { credentials: 'same-origin' });
     if (r.status === 401) { location.href = '/login'; return; }
     render(await r.json());
   } catch { /* websocket will fill in */ }
-  await Promise.allSettled([loadHistory('24h'), loadIncidents('all'), loadDeployments(), loadNotificationState(), loadFilesystem('/')]);
+  await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load()]);
   connect();
 }
 
@@ -667,7 +670,8 @@ document.addEventListener('click',e=>{if(!e.target.closest('.forge-menu-wrap'))f
 forge.renderForgeMenus();forge.renderForgeHistory();initPaneResizers();forge.loadForgeProjects();
 
 setInterval(() => loadIncidents(), 30_000);
-setInterval(() => loadDeployments(), 5 * 60_000);
+setInterval(()=>loadDeployments(),5*60_000);
+setInterval(()=>discoveryController.load(),5*60_000);
 
 let resizeTimer;
 window.addEventListener('resize', () => {

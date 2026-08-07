@@ -96,3 +96,14 @@ sudo sentinelctl doctor
 - Does not alter SSH authentication, application containers or unrelated virtual hosts.
 
 A timestamped pre-install backup is created under `/root` before existing integration files are changed.
+
+## First-login setup wizard
+
+After enrolling the first passkey, the dashboard redirects to `/setup`. Discovery Engine scans standard Linux application roots, Docker, PM2, systemd and nginx, then proposes monitoring targets with confidence scores. Admins can change scan roots and disable any target. Empty `--backup-dirs` and `--deploy-dirs` values mean discovery-managed; explicit values remain pinned overrides.
+
+Secrets are deliberately outside the browser settings store:
+
+```bash
+sudo sentinelctl configure telegram
+sudo sentinelctl configure ai
+```

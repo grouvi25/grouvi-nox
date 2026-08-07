@@ -14,6 +14,7 @@ Usage: sentinelctl <command> [options]
 
 Commands:
   status                   Services, version, database and endpoint status
+  configure telegram|ai    Configure optional secret integrations safely
   doctor                   Full read-only installation diagnostic
   enroll [label]           Create a one-time passkey enrollment link
   recovery                 Rotate and print recovery codes
@@ -70,6 +71,7 @@ cmd_doctor(){
   CHECK_NAME='public HTTPS endpoint'; check curl -fsS --max-time 10 "https://${DOMAIN}/login" -o /dev/null
   CHECK_NAME='SQLite integrity'; check bash -c "[[ \$(sqlite3 '$STATE_DIR/sentinel.db' 'pragma integrity_check;') == ok ]]"
   CHECK_NAME='filesystem metadata index'; check bash -c "node -e \"const d=require('$STATE_DIR/filesystem.json');if(!d.policy?.metadataOnly||d.policy?.contentAccess)process.exit(1)\""
+  CHECK_NAME='Discovery Engine snapshot'; check bash -c "node -e \"const d=require('$STATE_DIR/discovery.json');if(d.schema!==1||!Array.isArray(d.items))process.exit(1)\""
   CHECK_NAME='SSH private paths excluded'; check bash -c "! grep -q '\"path\":\"/root/.ssh/' '$STATE_DIR/filesystem.json'"
   section 'Security posture'
   CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
@@ -83,6 +85,42 @@ cmd_doctor(){
   section 'Result'
   ((failed==0)) && { ok 'All checks passed'; return 0; }
   warn "$failed checks failed"; return 1
+}
+
+upsert_env(){
+  local key=$1 value=$2 tmp
+  tmp=$(mktemp)
+  awk -F= -v key="$key" '$1!=key{print}' "$SENTINEL_CONFIG" >"$tmp"
+  printf '%s=%s\n' "$key" "$value" >>"$tmp"
+  install -m 600 -o root -g root "$tmp" "$SENTINEL_CONFIG"
+  rm -f "$tmp"
+}
+cmd_configure(){
+  require_root; load_install_config
+  case ${1:-} in
+    telegram)
+      local token chat
+      read -rsp 'Telegram bot token: ' token; echo
+      read -rp 'Telegram chat ID: ' chat
+      [[ $token =~ ^[0-9]+:[A-Za-z0-9_-]{20,}$ ]] || die 'Invalid Telegram bot token format.'
+      [[ $chat =~ ^-?[0-9]+$ ]] || die 'Invalid Telegram chat ID.'
+      upsert_env SENTINEL_TELEGRAM_BOT_TOKEN "$token"
+      upsert_env SENTINEL_TELEGRAM_CHAT_ID "$chat"
+      systemctl restart "$SENTINEL_SERVICE"
+      ok 'Telegram credentials saved in root-only config. Use the dashboard test button when ready.'
+      ;;
+    ai)
+      if systemctl is-active --quiet sentinel-ai-bridge.service && [[ -S /run/sentinel-ai/bridge.sock ]]; then
+        ok 'Sentinel Forge bridge is already connected.'
+        info 'Provider credentials remain managed by the isolated sentinel-ai service.'
+      else
+        warn 'Sentinel Forge is optional and not bundled with the monitoring core.'
+        info 'Install an isolated OpenAI-compatible agent bridge, then expose /run/sentinel-ai/bridge.sock to group vpssentinel.'
+        info 'Never place provider API keys in the dashboard database or browser storage.'
+      fi
+      ;;
+    *) die 'Usage: sentinelctl configure telegram|ai' ;;
+  esac
 }
 
 cmd_enroll(){ require_root; cd "$APP_DIR"; node bin/enroll.js "${1:-sentinelctl}"; }

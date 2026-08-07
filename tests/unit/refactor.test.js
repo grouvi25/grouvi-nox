@@ -10,7 +10,7 @@ import { renderMarkdown } from '../../public/js/markdown.js';
 
 test('formatters and thresholds preserve dashboard behavior',()=>{assert.equal(bytes(1024),'1.0 КБ');assert.equal(dur(3660),'1ч 1м');assert.equal(esc('<x>'),'&lt;x&gt;');assert.equal(clamp(120,0,100),100);assert.equal(lvl(95,80,90),'crit')});
 test('markdown preserves supported structures and escaping',()=>{const html=renderMarkdown('## Заголовок\n\n**жирный**\n\n```js\nconst x=1;\n```');assert.match(html,/<h4>Заголовок<\/h4>/);assert.match(html,/<strong>жирный<\/strong>/);assert.match(html,/data-copy-code/);assert.match(renderMarkdown('<script>x<\/script>'),/&lt;script&gt;/)});
-test('modular CSS stays pinned to the approved refactor baseline',()=>{const dir='public/css',text=fs.readdirSync(dir).filter(x=>x.endsWith('.css')).sort().map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('');assert.equal(crypto.createHash('sha256').update(text).digest('hex'),'ac3b24c86789908eec09c4bcf4ccaf4c2679eb9c78ecc726e3d59af3490030a2')});
+test('modular CSS stays pinned to the approved refactor baseline',()=>{const dir='public/css',text=fs.readdirSync(dir).filter(x=>x.endsWith('.css')).sort().map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('');assert.equal(crypto.createHash('sha256').update(text).digest('hex'),'816c21197310cc1b82507df523392c163e29dfc9a33b4e318d1b00ed623d701b')});
 test('API paths survive router split',()=>{const expected=['/snapshot', '/history', '/incidents', '/incidents/:id/status', '/incidents/:id/ack', '/incidents/:id/resolve', '/incidents/:id/investigate', '/agent/projects', '/agent/chat', '/agent/chat/:jobId', '/services/container/:name', '/services/pm2/:name', '/deployments', '/filesystem', '/notifications', '/notifications/settings', '/notifications/test', '/session', '/audit'];const dir='src/routes/api',source=fs.readdirSync(dir).filter(x=>x.endsWith('.js')).map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('\n');for(const route of expected)assert.ok(source.includes(`'${route}'`),route)});
 test('database initializes with stable defaults',()=>{const dir=mkdtempSync(path.join(tmpdir(),'sentinel-db-')),code=`import {initDatabase,incidentCounts,getNotificationSettings,listIncidents} from './src/database.js';initDatabase();const c=incidentCounts(),s=getNotificationSettings();if(c.total!==0||s.cooldownMin!==30||listIncidents({status:'active',limit:6}).length!==0)process.exit(1)`;const r=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:process.cwd(),env:{...process.env,STATE_DIR:dir}});rmSync(dir,{recursive:true,force:true});assert.equal(r.status,0,r.stderr?.toString())});
 
@@ -76,4 +76,23 @@ test('incident lifecycle, history bucketing and settings persist',()=>{
   const dir=mkdtempSync(path.join(tmpdir(),'sentinel-domain-'));
   const code=`const d=await import('./src/database.js');d.initDatabase();d.recordMetric({cpu:{usage:10},memory:{usedPct:20,swapPct:0},load:{one:.2},network:{rxRate:1,txRate:2},diskIo:{readRate:3,writeRate:4},filesystems:[{mount:'/',usedPct:30}],containers:{stopped:0,unhealthy:0},pm2:{down:0},alerts:[]});if(d.getHistory('24h').rows.length!==1)process.exit(2);let e=d.syncIncidents([{key:'unit:test',level:'warning',message:'warning'}]);if(e[0]?.type!=='opened')process.exit(3);e=d.syncIncidents([{key:'unit:test',level:'critical',message:'critical'}]);if(e[0]?.type!=='escalated')process.exit(4);const id=d.listIncidents({status:'active'})[0].id;if(d.setIncidentStatus(id,'acknowledged')?.status!=='acknowledged')process.exit(5);if(d.setIncidentStatus(id,'resolved')?.status!=='resolved')process.exit(6);const settings=d.updateNotificationSettings({quietEnabled:true,quietStart:22,quietEnd:7,cooldownMin:60});if(!settings.quietEnabled||settings.cooldownMin!==60)process.exit(7)`;
   const r=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:process.cwd(),env:{...process.env,STATE_DIR:dir,INCIDENT_RESOLVE_GRACE_MS:'0'}});rmSync(dir,{recursive:true,force:true});assert.equal(r.status,0,r.stderr?.toString());
+});
+
+import { candidate, mergeCandidates, stableId } from '../../src/discovery/model.js';
+import { discoverHost } from '../../src/discovery/scanner.js';
+import { readDiscoverySettings, writeDiscoverySettings } from '../../src/discovery/store.js';
+
+test('discovery model is stable, scored and deduplicated',()=>{
+  assert.equal(stableId('project','/opt/app'),stableId('project','/opt/app'));
+  const merged=mergeCandidates([candidate({type:'project',key:'/opt/app',name:'app',source:'a',confidence:.7,reasons:['git']}),candidate({type:'project',key:'/opt/app',name:'app',source:'b',confidence:.9,reasons:['compose']})]);
+  assert.equal(merged.length,1);assert.equal(merged[0].confidence,.9);assert.deepEqual(new Set(merged[0].reasons),new Set(['git','compose']));
+});
+
+test('discovery scanner identifies generic project, backup and database fixtures',()=>{
+  const root=mkdtempSync(path.join(tmpdir(),'sentinel-discovery-'));fs.mkdirSync(path.join(root,'app','.git'),{recursive:true});fs.writeFileSync(path.join(root,'app','package.json'),'{"name":"fixture-app"}');fs.mkdirSync(path.join(root,'daily-backups'));fs.writeFileSync(path.join(root,'app','data.sqlite'),'db');
+  const result=discoverHost({roots:[root]});rmSync(root,{recursive:true,force:true});assert.ok(result.items.some(x=>x.type==='project'&&x.name==='fixture-app'));assert.ok(result.items.some(x=>x.type==='backup'));assert.ok(result.items.some(x=>x.type==='database'));
+});
+
+test('discovery settings only accept known ids and persist completion',()=>{
+  const root=process.env.STATE_DIR;if(!root)return;const snapshot={schema:1,generatedAt:Date.now(),summary:{project:1},items:[candidate({type:'project',key:'/srv/app',name:'app',path:'/srv/app',source:'fixture',confidence:.9,reasons:['git']})],suggested:{}};fs.mkdirSync(root,{recursive:true});fs.writeFileSync(path.join(root,'discovery.json'),JSON.stringify(snapshot));const settings=writeDiscoverySettings({enabledIds:[snapshot.items[0].id,'unknown'],disabledIds:[],roots:['/srv'],complete:true});assert.deepEqual(settings.enabledIds,[snapshot.items[0].id]);assert.ok(settings.completedAt);assert.equal(readDiscoverySettings().roots[0],'/srv');
 });

@@ -5,20 +5,7 @@ import { detailLimit,agentLimit } from './limits.js';
 import { callAgent } from '../../agent-client.js';
 const router=express.Router();
 
-router.get('/agent/projects', async (req, res) => {
-  const projects = [{ id: 'vps', name: 'Весь VPS', detail: 'Система и все сервисы', path: '/var/lib/sentinel-ai/workspace' }];
-  const known = [
-    { id: 'vps-sentinel', name: 'VPS Sentinel', detail: 'grouvi25/vps-sentinel' },
-    { id: 'browser-mmo-90s', name: 'MMO90', detail: 'grouvi25/browser-mmo-90s' },
-  ];
-  const fs = await import('node:fs');
-  for (const item of known) {
-    const path = `/var/lib/sentinel-ai/workspace/repos/${item.id}`;
-    if (fs.existsSync(`${path}/.git`)) projects.push({ ...item, path });
-  }
-  res.set('Cache-Control', 'no-store');
-  res.json({ projects });
-});
+router.get('/agent/projects',(req,res)=>{res.set('Cache-Control','no-store');res.json({projects:[{id:'vps',name:'Весь VPS',detail:'Система и обнаруженные сервисы',path:null}],discoveryManaged:true})});
 
 const agentJobs = new Map();
 setInterval(() => {
@@ -30,7 +17,7 @@ router.post('/agent/chat', requireSameOrigin, agentLimit, async (req, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
   if (!messages.length) return res.status(400).json({ error: 'bad_messages' });
   const allowedModels = new Set(['DeepSeek-V4-Pro', 'Qwen3.6-35B-A3B']);
-  const allowedScopes = new Set(['vps', 'vps-sentinel', 'browser-mmo-90s']);
+  const allowedScopes=new Set(['vps']);
   const model = allowedModels.has(String(req.body?.model)) ? String(req.body.model) : 'Qwen3.6-35B-A3B';
   const scope = allowedScopes.has(String(req.body?.scope)) ? String(req.body.scope) : 'vps';
   const id = crypto.randomUUID();

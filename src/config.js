@@ -7,7 +7,8 @@ export const config = {
   port: num(env.PORT, 3999),
   host: env.HOST || '127.0.0.1',
   stateDir: env.STATE_DIR || '/var/lib/vps-sentinel',
-  adminSocket: env.ADMIN_SOCKET || '/run/vps-sentinel/admin.sock',
+  adminSocket:env.ADMIN_SOCKET||'/run/vps-sentinel/admin.sock',
+  aiBridgeSocket:env.SENTINEL_AI_BRIDGE_SOCKET||'/run/sentinel-ai/bridge.sock',
 
   // WebAuthn relying party
   rpID: env.RP_ID || 'vps.grouvi.online',
@@ -45,8 +46,7 @@ export const config = {
     fail2ban: env.FAIL2BAN_BIN || '/usr/bin/fail2ban-client',
   },
 
-  backupDirs: (env.BACKUP_DIRS ||
-    '/opt/coursebot/backups,/opt/mmo90s/backups,/opt/reip/backups,/root/backups')
+  backupDirs: (env.BACKUP_DIRS || '')
     .split(',').map(s => s.trim()).filter(Boolean),
 
   thresholds: {

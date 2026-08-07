@@ -77,6 +77,8 @@ export function evaluate(snap) {
   if (snap.systemd && snap.systemd.nginx !== 'active') {
     out.push(mk('critical', 'nginx', `nginx: ${snap.systemd.nginx}`));
   }
+  for(const [unit,state] of Object.entries(snap.systemd?.monitored||{}))if(state!=='active')out.push(mk('critical',`unit:${unit}`,`systemd сервис ${unit}: ${state}`));
+  for(const database of snap.databases||[])if(!database.exists)out.push(mk('warning',`database:${database.path}`,`Файл базы данных недоступен: ${database.name}`));
 
   /* certificates */
   for (const c of snap.certificates || []) {

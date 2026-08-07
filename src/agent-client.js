@@ -1,6 +1,7 @@
 import http from 'node:http';
+import {config} from './config.js';
 
-const socketPath = '/run/sentinel-ai/bridge.sock';
+const socketPath=config.aiBridgeSocket;
 
 export function callAgent(messages, { model = 'glm-5.2', scope = 'vps', timeoutMs = 280_000 } = {}) {
   return new Promise((resolve, reject) => {

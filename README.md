@@ -105,3 +105,7 @@ vps-sentinel-agent (root, no listener, metadata only)
 ## License
 
 Apache-2.0
+
+## Universal discovery
+
+The first-login wizard builds a persistent inventory of Git projects, Docker/Compose workloads, PM2 and systemd services, nginx domains, runtimes, database files and backup directories. High-confidence targets are enabled automatically, manual exclusions survive rescans, and server-specific paths never live in source defaults.
