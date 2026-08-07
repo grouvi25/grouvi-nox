@@ -1,0 +1,189 @@
+
+/* Incident pagination, bounded by design rather than by a nested scroll trap. */
+.incident-list{max-height:none;overflow:visible}
+.incident-pager{min-height:44px;display:flex;align-items:center;justify-content:center;gap:12px;border-top:1px solid var(--border);background:var(--panel)}
+.incident-pager[hidden]{display:none}
+.incident-pager button{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--border2);border-radius:6px;background:transparent;color:var(--text2);cursor:pointer;transition:background 120ms cubic-bezier(.22,1,.36,1),color 120ms cubic-bezier(.22,1,.36,1)}
+.incident-pager button:hover:not(:disabled){background:var(--panel2);color:var(--accent)}
+.incident-pager button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.incident-pager button:disabled{opacity:.28;cursor:default}
+.incident-pager svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}
+.incident-pager span{min-width:54px;text-align:center;color:var(--text3);font:10px var(--mono);font-variant-numeric:tabular-nums}
+@media(max-width:760px){.incident-head .segmented{scrollbar-width:none}.incident-head .segmented::-webkit-scrollbar{display:none}.incident-overview{grid-template-columns:repeat(3,minmax(0,1fr))}.incident-pager{min-height:48px}}
+
+/* Desktop density: six operational metrics stay on one deliberate row. */
+.content{container-type:inline-size;container-name:sentinel-content}
+.kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+.kpi{min-width:0;overflow:hidden}
+.kpi .k-label,.kpi .k-val,.kpi .k-foot{min-width:0}
+.kpi .k-foot{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpi .k-val.val-sm{white-space:nowrap;font-size:clamp(14px,1.25vw,21px)}
+@container sentinel-content (max-width:1100px){
+  .kpis{gap:8px}
+  .kpi{min-height:126px;padding:13px 12px 10px}
+  .kpi .k-label{font-size:9px;letter-spacing:.075em}
+  .kpi .k-val{font-size:clamp(20px,2.05cqw,28px);margin-top:6px}
+  .kpi .k-val small{font-size:11px}
+  .kpi .k-foot{font-size:9px}
+  .kpi canvas{height:30px;margin-top:7px}
+  .kpi.expandable::after{right:9px;top:8px}
+}
+@container sentinel-content (max-width:860px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .kpi{min-height:132px;padding:14px}
+  .kpi .k-val{font-size:25px}
+  .kpi .k-foot{font-size:10px}
+}
+@media(max-width:900px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  .kpis{grid-template-columns:1fr}
+}
+
+
+/* Desktop split view: utility panes occupy layout space instead of covering it. */
+@media(min-width:1101px){
+  .main{flex:1 1 auto;width:auto}
+  .forge-pane,.notify-pane,.detail-pane{
+    position:relative;inset:auto;right:auto;top:auto;height:100dvh;
+    flex:0 0 0;width:0;max-width:none;min-width:0;overflow:hidden;
+    border-left:0;transform:translateX(22px);opacity:0;pointer-events:none;
+    transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1);
+  }
+  .forge-pane.open{flex-basis:clamp(480px,36vw,640px);width:clamp(480px,36vw,640px)}
+  .notify-pane.open{flex-basis:clamp(390px,29vw,470px);width:clamp(390px,29vw,470px)}
+  .detail-pane.open{flex-basis:clamp(440px,34vw,620px);width:clamp(440px,34vw,620px)}
+  .forge-pane.open,.notify-pane.open,.detail-pane.open{
+    transform:none;opacity:1;pointer-events:auto;border-left:1px solid var(--border2);
+  }
+  .forge-pane>*,.notify-pane>*,.detail-pane>*{min-width:0}
+}
+/* Narrow screens still use overlays, where shrinking the workspace would make it unusable. */
+@media(max-width:1100px){
+  .forge-pane,.notify-pane,.detail-pane{position:fixed}
+}
+
+/* Resizable split panes, aligned to the 52px dashboard header. */
+.forge-pane-head,.notify-pane-head,.detail-head{height:52px;min-height:52px;padding-top:7px;padding-bottom:7px}
+.forge-head-actions{display:flex;align-items:center;gap:3px}
+#forgeHistoryToggle,#forgeReset{width:32px;height:32px;padding:0;display:grid;place-items:center}
+.pane-resizer{display:none}
+@media(min-width:1101px){
+  .main{transition:flex-basis 340ms cubic-bezier(.16,1,.3,1),width 340ms cubic-bezier(.16,1,.3,1)}
+  .forge-pane,.notify-pane,.detail-pane{
+    flex-basis:0;width:0;
+    transition:flex-basis 340ms cubic-bezier(.16,1,.3,1),width 340ms cubic-bezier(.16,1,.3,1),transform 340ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1);
+  }
+  .forge-pane.open,.notify-pane.open,.detail-pane.open{flex-basis:var(--pane-width);width:var(--pane-width)}
+  .forge-pane.resizing,.notify-pane.resizing,.detail-pane.resizing,.pane-dragging .main{transition:none!important}
+  .pane-resizer{position:absolute;z-index:8;inset:0 auto 0 -5px;width:10px;display:block;cursor:col-resize;touch-action:none}
+  .pane-resizer::after{content:'';position:absolute;inset:0 auto 0 4px;width:1px;background:var(--border2);transition:background 120ms cubic-bezier(.22,1,.36,1),box-shadow 120ms cubic-bezier(.22,1,.36,1)}
+  .pane-resizer:hover::after,.pane-resizer:focus-visible::after,.resizing>.pane-resizer::after{background:var(--accent);box-shadow:0 0 0 2px oklch(91% .016 75 / .12)}
+  .pane-resizer:focus-visible{outline:0}
+  .pane-dragging{cursor:col-resize;user-select:none}
+  .pane-dragging *{cursor:col-resize!important}
+}
+.forge-history{position:absolute;z-index:7;top:52px;right:0;width:min(360px,100%);max-height:min(520px,calc(100dvh - 76px));overflow:auto;padding:8px;background:var(--bg2);border:1px solid var(--border2);border-top:0;border-right:0;box-shadow:0 18px 34px oklch(4% .004 75 / .38)}
+.forge-history[hidden]{display:none}
+.forge-history-head{height:34px;padding:0 7px 7px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.forge-history-head span{color:var(--text3);font:9px var(--mono);text-transform:uppercase;letter-spacing:.09em}
+.forge-history-head button{border:0;background:transparent;color:var(--text3);font:10px var(--sans);cursor:pointer}
+.forge-history-head button:hover{color:var(--accent)}
+.forge-history-item{width:100%;min-height:54px;padding:9px 8px;display:block;border:0;border-bottom:1px solid var(--border);background:transparent;text-align:left;cursor:pointer;color:var(--text2)}
+.forge-history-item:last-child{border-bottom:0}
+.forge-history-item:hover,.forge-history-item.active{background:var(--panel2);color:var(--accent)}
+.forge-history-item b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 11px var(--sans)}
+.forge-history-item span{display:block;margin-top:4px;color:var(--text3);font:9px var(--mono)}
+.forge-history-empty{padding:24px 12px;text-align:center;color:var(--text3);font:10px/1.5 var(--mono)}
+@media(max-width:1100px){.pane-resizer{display:none}.forge-history{width:min(360px,calc(100vw - 12px))}}
+@media(max-width:760px){
+  .forge-pane-head,.notify-pane-head,.detail-head{height:52px!important;min-height:52px!important}
+  .forge-head-actions{display:flex!important;position:absolute!important;right:max(8px,env(safe-area-inset-right))!important;top:50%!important;width:auto!important;min-width:0!important;max-width:none!important;height:34px!important;transform:translateY(-50%)!important}
+  #forgeHistoryToggle,#forgeReset{position:static!important;width:34px!important;min-width:34px!important;height:34px!important}
+  .forge-pane-head{padding-right:max(86px,calc(80px + env(safe-area-inset-right)))!important}
+}
+/* Forge header has room for both history and new-chat controls. */
+.forge-pane-head{grid-template-columns:34px minmax(0,1fr) 70px}
+.forge-head-actions{width:auto;min-width:70px;max-width:none;justify-self:end;overflow:visible}
+@media(max-width:760px){.forge-pane-head{display:flex!important}.forge-head-actions{width:auto!important;min-width:70px!important;max-width:none!important}}
+
+/* Workspace-aware responsive rules: split panes change content width without changing viewport. */
+@container sentinel-content (max-width:980px){
+  /* Operations */
+  #s-ops .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #s-ops .deploy-panel{grid-column:1/-1}
+  #s-ops .deploy-row{grid-template-columns:86px 62px minmax(0,1fr)}
+  #s-ops .deploy-time{display:none}
+
+  /* Filesystem */
+  #s-filesystem .filesystem-layout{grid-template-columns:1fr}
+  #s-filesystem .fs-aside{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  #s-filesystem .fs-toolbar{flex-wrap:wrap}
+  #s-filesystem .fs-breadcrumb{flex:1 1 calc(100% - 48px);min-width:0}
+  #s-filesystem .fs-search{width:100%;flex:1 0 100%}
+
+  /* Incidents */
+  #s-incidents .incident-head{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center}
+  #s-incidents .incident-head .segmented{grid-column:1/-1;grid-row:2;margin:4px 0 0;overflow-x:auto;scrollbar-width:none}
+  #s-incidents .incident-head .segmented::-webkit-scrollbar{display:none}
+  #s-incidents .notify-open{grid-column:4;grid-row:1;justify-self:end}
+  #s-incidents .incident-overview{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  #s-incidents .incident-overview>div{display:block}
+  #s-incidents .incident-overview span{display:block;font-size:8px}
+  #s-incidents .incident-overview p{display:none}
+  #s-incidents .incident-row{grid-template-columns:8px minmax(0,1fr);gap:8px 10px;padding:12px}
+  #s-incidents .incident-meta{display:none}
+  #s-incidents .incident-mobile-meta{display:block;margin-top:5px;color:var(--text3);font:9px var(--mono)}
+  #s-incidents .incident-actions{grid-column:2;justify-content:flex-start;flex-wrap:wrap}
+  #s-incidents .incident-ai{grid-column:2}
+}
+@container sentinel-content (max-width:680px){
+  .content{padding-inline:14px}
+  #s-ops .g3{grid-template-columns:1fr}
+  #s-ops .deploy-panel{grid-column:auto}
+  #s-ops .deploy-row{grid-template-columns:72px 56px minmax(0,1fr);gap:7px;padding-inline:11px}
+  #s-filesystem .sec-head .right{width:100%;margin-left:0}
+  #s-filesystem .fs-aside{grid-template-columns:1fr}
+  #s-filesystem .fs-head,#s-filesystem .fs-row{grid-template-columns:minmax(120px,1fr) 68px 58px}
+  #s-filesystem .fs-head span:last-child,#s-filesystem .fs-row>span:last-child{display:none}
+  #s-filesystem .fs-head,#s-filesystem .fs-row{gap:7px;padding-inline:11px}
+  #s-incidents .notify-open span:not(.notify-dot){display:none}
+  #s-incidents .notify-open{width:34px;padding:0;justify-content:center}
+  #s-incidents .incident-status-control span{display:none}
+}
+@container sentinel-content (max-width:500px){
+  #s-filesystem .fs-head,#s-filesystem .fs-row{grid-template-columns:minmax(110px,1fr) 62px}
+  #s-filesystem .fs-head span:nth-child(3),#s-filesystem .fs-row>span:nth-child(3){display:none}
+  #s-incidents .incident-overview{gap:6px}
+  #s-incidents .incident-actions{gap:5px}
+}
+
+/* One exact chrome rhythm. The old topbar used min-height, so two text lines made it taller. */
+:root{--chrome-header:56px}
+.topbar,.forge-pane-head,.notify-pane-head,.detail-head{
+  box-sizing:border-box;height:var(--chrome-header);min-height:var(--chrome-header);max-height:var(--chrome-header);
+  padding-top:7px;padding-bottom:7px;border-bottom:1px solid var(--border);flex:0 0 var(--chrome-header);
+}
+.topbar{padding-inline:24px}
+.forge-pane-head,.notify-pane-head,.detail-head{padding-inline:14px}
+.forge-history{top:var(--chrome-header)}
+
+/* Continue the same container-driven behavior when the split view gets very narrow. */
+@container sentinel-content (max-width:680px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g2{grid-template-columns:1fr}
+  #s-incidents .incident-head{grid-template-columns:auto auto minmax(0,1fr) 34px}
+  #s-incidents .incident-head h2{white-space:nowrap}
+  #s-incidents .incident-head .count{justify-self:start}
+  #s-incidents .segmented{max-width:100%}
+  #s-filesystem .fs-toolbar{padding:8px 10px}
+  #s-filesystem .fs-search{min-width:0}
+  #s-filesystem .fs-search input{min-width:0;width:100%}
+}
+@container sentinel-content (max-width:500px){
+  .kpis{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .topbar,.forge-pane-head,.notify-pane-head,.detail-head{height:var(--chrome-header)!important;min-height:var(--chrome-header)!important;max-height:var(--chrome-header)!important}
+}

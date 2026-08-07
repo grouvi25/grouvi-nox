@@ -1,0 +1,57 @@
+
+/* Notification workspace: same restrained cream-on-charcoal language as Sentinel. */
+.notify-pane{background:var(--bg2);color:var(--text)}
+.notify-pane-head{background:var(--bg);border-color:var(--border)}
+.notify-pane-head>div>span{color:var(--text3)}
+.notify-pane-head h2{color:var(--accent);font-size:14px;font-weight:600;letter-spacing:-.01em}
+.notify-health{margin-left:auto!important;padding:4px 7px;border:1px solid var(--border2);border-radius:5px;background:transparent!important;color:var(--text3)!important;font:9px var(--mono)!important;text-transform:none!important;letter-spacing:0!important}
+.notify-health::before{content:'';display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;background:var(--text3);vertical-align:1px}
+.notify-health.ok::before{background:var(--green)}
+.notify-health.warn::before{background:var(--code)}
+.notify-health.bad::before{background:var(--red)}
+.notify-body{padding:0 18px 76px;background:var(--bg2)}
+.notify-primary{min-height:78px;padding:16px 2px}
+.notify-primary h3{margin:0 0 4px;color:var(--accent);font-size:14px;font-weight:600;letter-spacing:-.01em}
+.notify-primary p{color:var(--text3);font:9.5px/1.45 var(--mono)}
+.notify-group{padding:16px 2px;border-color:var(--border)}
+.notify-group>h3,.notify-recent-head h3{margin-bottom:10px;color:var(--text3);font:600 9px var(--mono);letter-spacing:.09em}
+.notify-check-grid{gap:2px 14px}
+.notify-check-grid>label{min-height:48px;padding:7px 6px;border-radius:6px;transition:background 120ms cubic-bezier(.22,1,.36,1)}
+.notify-check-grid>label:hover{background:var(--panel2)}
+.notify-check-grid input{appearance:none;width:14px;height:14px;flex:0 0 14px;margin-top:2px;border:1px solid var(--border3);border-radius:4px;background:var(--panel);display:grid;place-items:center;cursor:pointer}
+.notify-check-grid input::after{content:'✓';color:var(--bg);font:700 10px/1 var(--sans);opacity:0;transform:scale(.7);transition:transform 120ms cubic-bezier(.22,1,.36,1),opacity 120ms cubic-bezier(.22,1,.36,1)}
+.notify-check-grid input:checked{border-color:var(--accent);background:var(--accent)}
+.notify-check-grid input:checked::after{opacity:1;transform:none}
+.notify-check-grid input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.notify-check-grid b,.notify-line b,.notify-select b{color:var(--text2);font-size:11px;font-weight:500}
+.notify-check-grid small,.notify-line small,.notify-select small{margin-top:2px;color:var(--text3);font:9px/1.35 var(--mono)}
+.switch span{width:34px;height:18px;border:1px solid var(--border3);background:var(--panel);box-sizing:border-box}
+.switch span:after{width:12px;height:12px;left:2px;top:2px;background:var(--text3)}
+.switch input:checked+span{border-color:var(--accent);background:var(--accent)}
+.switch input:checked+span:after{transform:translateX(16px);background:var(--bg)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.notify-line,.notify-select{min-height:46px}
+.notify-time{gap:8px;padding:6px 0 10px}
+.notify-time label{color:var(--text3);font-size:9px}
+.notify-time select,.notify-select select{height:30px;border-color:var(--border2);border-radius:6px;background:var(--panel);color:var(--text2);font:10px var(--mono);transition:border-color 120ms cubic-bezier(.22,1,.36,1),color 120ms cubic-bezier(.22,1,.36,1)}
+.notify-time select:hover,.notify-select select:hover{border-color:var(--border3);color:var(--accent)}
+.notify-time select:focus-visible,.notify-select select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.notify-recent-head button{min-height:30px;padding:5px 9px;border-color:var(--border2);background:transparent;color:var(--text2)}
+.notify-recent-head button:hover{background:var(--panel2);color:var(--accent)}
+.notify-delivery{padding:9px 5px;border-color:var(--border)}
+.notify-delivery b{color:var(--text2);font-size:10px}
+.notify-delivery small{font-size:9px}
+.notify-footer{min-height:64px;padding:10px 18px;background:var(--bg);border-color:var(--border)}
+.notify-footer button{min-height:34px;padding:6px 13px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:var(--bg);font:600 10.5px var(--sans);transition:background 120ms cubic-bezier(.22,1,.36,1),color 120ms cubic-bezier(.22,1,.36,1)}
+.notify-footer button:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
+.notify-footer button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:460px){.notify-check-grid{grid-template-columns:1fr}.notify-body{padding-inline:14px}.notify-footer{padding-inline:14px}}
+.notify-footer[hidden]{display:none}
+/* Keep the Telegram label visible when only the dashboard workspace narrows. */
+@container sentinel-content (max-width:680px){
+  #s-incidents .notify-open{width:auto;min-width:0;padding:5px 9px;justify-content:center;white-space:nowrap}
+  #s-incidents .notify-open span:not(.notify-dot){display:inline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+@container sentinel-content (max-width:680px){
+  #s-incidents .incident-head{grid-template-columns:auto auto minmax(0,1fr) 145px}
+}

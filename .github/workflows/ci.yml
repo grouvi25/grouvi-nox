@@ -23,6 +23,12 @@ jobs:
           node-version: '20'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - name: Install Chromium for visual contract
+        run: npx playwright install --with-deps chromium
+      - name: Unit, coverage and visual contract tests
+        env:
+          STATE_DIR: ${{ runner.temp }}/sentinel-test-state
+        run: npm run check
       - name: JavaScript syntax
         run: find src bin public -type f -name '*.js' -print0 | xargs -0 -n1 node --check
       - name: Shell syntax and ShellCheck

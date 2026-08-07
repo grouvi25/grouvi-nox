@@ -38,6 +38,7 @@ export const config = {
 
   paths: {
     dockerSocket: env.DOCKER_SOCKET || '/var/run/docker.sock',
+    dockerBroker: env.DOCKER_BROKER_SOCKET || path.join(env.STATE_DIR || '/var/lib/vps-sentinel', 'docker-read.sock'),
     authLog: env.AUTH_LOG || '/var/log/auth.log',
     nginxSitesEnabled: env.NGINX_SITES || '/etc/nginx/sites-enabled',
     pm2: env.PM2_BIN || '/usr/bin/pm2',
