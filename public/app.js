@@ -1,143 +1,8 @@
-const $ = (id) => document.getElementById(id);
-
-/* palette mirrors style.css */
-const C = {
-  accent: '#F4EDE4', blue: '#3b82f6', green: '#22c55e',
-  red: '#ef4444', amber: '#f59e0b', purple: '#a855f7',
-  grid: 'rgba(255,255,255,.045)', axis: '#666',
-};
-
-/* ----------------------------- utils ----------------------------- */
-const UNITS = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ'];
-function bytes(n, digits = 1) {
-  if (!Number.isFinite(n) || n <= 0) return '0 Б';
-  const i = Math.min(UNITS.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
-  return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : digits)} ${UNITS[i]}`;
-}
-const rate = (n) => `${bytes(n, 1)}/с`;
-function dur(sec) {
-  if (!Number.isFinite(sec) || sec <= 0) return '—';
-  const d = Math.floor(sec / 86400);
-  const h = Math.floor((sec % 86400) / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (d > 0) return `${d}д ${h}ч`;
-  if (h > 0) return `${h}ч ${m}м`;
-  return `${m}м`;
-}
-function ago(ms) {
-  if (!ms) return '—';
-  const s = Math.max(0, (Date.now() - ms) / 1000);
-  if (s < 60) return `${Math.floor(s)} с назад`;
-  if (s < 3600) return `${Math.floor(s / 60)} мин назад`;
-  if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
-  return `${Math.floor(s / 86400)} дн назад`;
-}
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const lvl = (v, w, c) => (v >= c ? 'crit' : v >= w ? 'warn' : 'ok');
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function setBar(el, pct, level) {
-  if (!el) return;
-  const step = Math.round(clamp(pct, 0, 100) / 5) * 5;
-  el.className = `w${step}${level === 'ok' ? '' : ` ${level}`}`;
-}
-
-/* ---------------------------- charts ----------------------------- */
-function prep(canvas) {
-  const dpr = window.devicePixelRatio || 1;
-  const r = canvas.getBoundingClientRect();
-  const w = Math.max(1, Math.floor(r.width));
-  const h = Math.max(1, Math.floor(r.height));
-  if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-    canvas.width = w * dpr; canvas.height = h * dpr;
-  }
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
-  return { ctx, w, h };
-}
-
-function spark(canvas, series, color, maxOverride) {
-  if (!canvas) return;
-  const { ctx, w, h } = prep(canvas);
-  if (!series || series.length < 2) return;
-  const max = maxOverride ?? Math.max(1, ...series);
-  const pad = 2;
-  const step = w / (series.length - 1);
-  const y = (v) => h - pad - (clamp(v, 0, max) / max) * (h - pad * 2);
-
-  const line = new Path2D();
-  line.moveTo(0, y(series[0]));
-  for (let i = 1; i < series.length; i += 1) line.lineTo(i * step, y(series[i]));
-
-  const area = new Path2D(line);
-  area.lineTo(w, h); area.lineTo(0, h); area.closePath();
-  const g = ctx.createLinearGradient(0, 0, 0, h);
-  g.addColorStop(0, `${color}2e`);
-  g.addColorStop(1, `${color}00`);
-  ctx.fillStyle = g; ctx.fill(area);
-
-  ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.lineJoin = 'round';
-  ctx.stroke(line);
-}
-
-function multiChart(canvas, sets, { max, unit = '' } = {}) {
-  if (!canvas) return;
-  const { ctx, w, h } = prep(canvas);
-  const padL = 44; const padR = 8; const padT = 9; const padB = 14;
-  const plotW = w - padL - padR;
-  const plotH = h - padT - padB;
-  const all = sets.flatMap(s => s.data || []);
-  const peak = max ?? Math.max(1, ...all);
-  const top = peak <= 1 ? 1 : peak * 1.14;
-
-  ctx.strokeStyle = C.grid;
-  ctx.fillStyle = C.axis;
-  ctx.font = '10px ui-monospace, monospace';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i += 1) {
-    const yy = Math.round(padT + (plotH / 4) * i) + 0.5;
-    ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(w - padR, yy); ctx.stroke();
-    const val = top * (1 - i / 4);
-    const label = unit === 'KB' ? bytes(val * 1024, 0) : `${val.toFixed(top > 10 ? 0 : 1)}${unit}`;
-    ctx.fillText(label, 4, yy + 3);
-  }
-
-  for (const s of sets) {
-    const d = s.data || [];
-    if (!d.length) continue;
-    const y = (v) => padT + plotH - (clamp(v, 0, top) / top) * plotH;
-    // A long range can legitimately contain one bucket shortly after first
-    // install. Draw a visible point instead of an empty chart.
-    if (d.length === 1) {
-      const x = padL + plotW;
-      ctx.beginPath(); ctx.arc(x, y(d[0]), 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = s.color; ctx.fill();
-      ctx.beginPath(); ctx.moveTo(padL, y(d[0])); ctx.lineTo(x, y(d[0]));
-      ctx.strokeStyle = `${s.color}55`; ctx.lineWidth = 1; ctx.setLineDash([4, 5]); ctx.stroke(); ctx.setLineDash([]);
-      continue;
-    }
-    const step = plotW / (d.length - 1);
-    const p = new Path2D();
-    p.moveTo(padL, y(d[0]));
-    for (let i = 1; i < d.length; i += 1) p.lineTo(padL + i * step, y(d[i]));
-
-    if (s.fill !== false) {
-      const area = new Path2D(p);
-      area.lineTo(padL + plotW, padT + plotH);
-      area.lineTo(padL, padT + plotH);
-      area.closePath();
-      const g = ctx.createLinearGradient(0, padT, 0, padT + plotH);
-      g.addColorStop(0, `${s.color}26`);
-      g.addColorStop(1, `${s.color}00`);
-      ctx.fillStyle = g; ctx.fill(area);
-    }
-    ctx.strokeStyle = s.color; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
-    ctx.stroke(p);
-  }
-}
+import { $, C, bytes, rate, dur, ago, clamp, lvl, esc, setBar } from './js/utils.js';
+import { spark, multiChart } from './js/charts.js';
+import { renderMarkdown } from './js/markdown.js';
+import { initPaneResizers, setWorkspacePane } from './js/panes.js';
+import { createNotificationController } from './js/notifications.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -150,7 +15,6 @@ let persistedHistory = null;
 let incidentFilter = 'active';
 let incidentPage = 1;
 const INCIDENT_PAGE_SIZE = 6;
-let notificationData = null;
 let filesystemPath = '/';
 let filesystemTimer = null;
 let filesystemOverview = { largest: [], risks: [] };
@@ -438,6 +302,8 @@ function formatWhen(ts) {
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(ts));
 }
 
+const { hourOptions, syncNotificationFooter, loadNotificationState, openNotifications, closeNotifications, saveNotifications, testNotification } = createNotificationController({ api, formatWhen, setWorkspacePane });
+
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
   try {
@@ -519,43 +385,6 @@ function detailStats(entries) {
   return `<div class="detail-grid">${entries.map(([k, v]) => `<div class="detail-stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 }
 
-const PANE_LIMITS = {
-  forge: { min: 420, max: 760, fallback: 560 },
-  notify: { min: 360, max: 580, fallback: 440 },
-  detail: { min: 400, max: 720, fallback: 540 },
-};
-function paneWidth(kind) {
-  const limits=PANE_LIMITS[kind], saved=Number(localStorage.getItem(`sentinelPaneWidth:${kind}`));
-  return clamp(saved || limits.fallback, limits.min, Math.min(limits.max, Math.max(limits.min, window.innerWidth - 640)));
-}
-function applyPaneWidth(pane, width) {
-  const kind=pane.dataset.paneKind, limits=PANE_LIMITS[kind]; if(!limits) return;
-  const max=Math.min(limits.max, Math.max(limits.min, window.innerWidth - 640));
-  const next=clamp(Number(width)||limits.fallback,limits.min,max);
-  pane.style.setProperty('--pane-width',`${next}px`);
-  pane.querySelector('[data-pane-resizer]')?.setAttribute('aria-valuenow',String(Math.round(next)));
-  return next;
-}
-function initPaneResizers(){
-  document.querySelectorAll('[data-pane-kind]').forEach(pane=>{
-    applyPaneWidth(pane,paneWidth(pane.dataset.paneKind));
-    const handle=pane.querySelector('[data-pane-resizer]'); if(!handle)return;
-    const begin=(clientX)=>{pane.classList.add('resizing');document.body.classList.add('pane-dragging');const move=(x)=>applyPaneWidth(pane,window.innerWidth-x);const onMove=e=>move(e.clientX);const stop=()=>{document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',stop);document.body.classList.remove('pane-dragging');pane.classList.remove('resizing');const value=parseInt(getComputedStyle(pane).getPropertyValue('--pane-width'),10);if(value)localStorage.setItem(`sentinelPaneWidth:${pane.dataset.paneKind}`,String(value));window.dispatchEvent(new Event('resize'))};document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',stop,{once:true});move(clientX)};
-    handle.addEventListener('pointerdown',e=>{if(window.innerWidth<=1100)return;e.preventDefault();handle.setPointerCapture?.(e.pointerId);begin(e.clientX)});
-    handle.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||window.innerWidth<=1100)return;e.preventDefault();const limits=PANE_LIMITS[pane.dataset.paneKind];let width=parseInt(getComputedStyle(pane).getPropertyValue('--pane-width'),10)||limits.fallback;if(e.key==='ArrowLeft')width+=24;if(e.key==='ArrowRight')width-=24;if(e.key==='Home')width=limits.min;if(e.key==='End')width=limits.max;const next=applyPaneWidth(pane,width);localStorage.setItem(`sentinelPaneWidth:${pane.dataset.paneKind}`,String(next));window.dispatchEvent(new Event('resize'))});
-  });
-}
-
-function setWorkspacePane(activeId = null) {
-  for (const id of ['forgePane', 'notifyPane', 'detailPane']) {
-    const pane = $(id); const open = id === activeId;
-    pane.classList.toggle('open', open);
-    pane.setAttribute('aria-hidden', String(!open));
-  }
-  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
-}
-
 function openDetailShell(type, name) {
   $('detailType').textContent = type === 'container' ? 'Docker container' : 'PM2 process';
   $('detailTitle').textContent = name;
@@ -604,17 +433,6 @@ async function openServiceDetail(type, name) {
 }
 
 function closeDetail() { setWorkspacePane(); }
-
-function hourOptions(){return Array.from({length:24},(_,h)=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('')}
-function notificationFormValue(){const data={};for(const el of $('notifyForm').elements){if(!el.name)continue;data[el.name]=el.type==='checkbox'?el.checked:(['quietStart','quietEnd','cooldownMin'].includes(el.name)?Number(el.value):el.value)}return data}
-function notificationDirty(){const current=notificationFormValue(),saved=notificationData?.telegram?.settings||{};return Object.keys(current).some(key=>current[key]!==saved[key])}
-function syncNotificationFooter(){const dirty=notificationDirty();$('notifyFooter').hidden=!dirty;$('notifySaveState').textContent=dirty?'Есть несохранённые изменения':''}
-function renderNotificationState(d){notificationData=d;const t=d.telegram,form=$('notifyForm');$('telegramState').textContent=t.configured?(t.enabled?'Telegram включён':'Telegram на паузе'):'Telegram не настроен';$('notifyDot').className=`notify-dot ${t.enabled?'online':t.configured?'paused':'offline'}`;$('notifyHealth').textContent=t.enabled?'работает':t.configured?'пауза':'не настроен';$('notifyHealth').className=`notify-health ${t.enabled?'ok':t.configured?'warn':'bad'}`;$('notifyDestination').textContent=t.configured?`Личный чат ${t.chat}, секреты скрыты`:'Добавьте bot token и chat ID на сервере';for(const [key,value] of Object.entries(t.settings||{})){const el=form.elements[key];if(!el)continue;if(el.type==='checkbox')el.checked=Boolean(value);else el.value=String(value)}$('notifyRecent').innerHTML=(d.recent||[]).length?d.recent.slice(0,8).map(n=>`<div class="notify-delivery"><span class="delivery-dot ${n.success?'ok':'bad'}"></span><div><b>${esc(n.event_type.replaceAll('_',' '))}</b><small>${formatWhen(n.ts)}${n.detail&&n.detail!=='sent'?` · ${esc(n.detail)}`:''}</small></div></div>`).join(''):'<div class="empty">Доставок пока не было.</div>';$('notifyFooter').hidden=true;$('notifySaveState').textContent=''}
-async function loadNotificationState(){try{renderNotificationState(await api('/api/notifications'))}catch{$('telegramState').textContent='Ошибка Telegram'}}
-function openNotifications(){setWorkspacePane('notifyPane');loadNotificationState()}
-function closeNotifications(){setWorkspacePane()}
-async function saveNotifications(e){e.preventDefault();const data=notificationFormValue();$('notifySave').disabled=true;$('notifySaveState').textContent='Сохраняю…';try{await api('/api/notifications/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});await loadNotificationState()}catch(err){$('notifySaveState').textContent=`Ошибка: ${err.message}`;$('notifyFooter').hidden=false}finally{$('notifySave').disabled=false}}
-async function testNotification(){const b=$('notifyTest');b.disabled=true;b.textContent='Отправляю…';try{await api('/api/notifications/test',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});b.textContent='Доставлено';await loadNotificationState()}catch{b.textContent='Ошибка доставки'}setTimeout(()=>{b.disabled=false;b.textContent='Отправить тест'},1800)}
 
 function fsIcon(type, excluded) {
   if (excluded) return '<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>';
@@ -811,51 +629,6 @@ function loadForgeChat(id){const chat=readForgeChats().find(x=>x.id===id);if(!ch
 
 function forgeTime() {
   return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
-}
-
-function mdInline(raw) {
-  let value = esc(String(raw || ''));
-  value = value.replace(/`([^`]+)`/g, '<code>$1</code>');
-  value = value.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-  value = value.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  value = value.replace(/__([^_]+)__/g, '<strong>$1</strong>');
-  value = value.replace(/(^|\s)\*([^*\n]+)\*(?=\s|$)/g, '$1<em>$2</em>');
-  return value;
-}
-
-function mdTextBlock(raw) {
-  const lines = String(raw || '').split('\n'); let html = '', list = '';
-  const closeList = () => { if (list) { html += `</${list}>`; list = ''; } };
-  const cells = (line) => line.trim().replace(/^\||\|$/g, '').split('|').map(x => mdInline(x.trim()));
-  for (let i = 0; i < lines.length; i += 1) {
-    const line = lines[i]; if (!line.trim()) { closeList(); continue; }
-    if (line.includes('|') && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}/.test(lines[i + 1])) {
-      closeList(); const headers = cells(line); i += 2; const rows = [];
-      while (i < lines.length && lines[i].includes('|') && lines[i].trim()) { rows.push(cells(lines[i])); i += 1; }
-      i -= 1; html += `<div class="md-table-wrap"><table><thead><tr>${headers.map(x => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(x => `<td>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; continue;
-    }
-    const heading = line.match(/^(#{1,3})\s+(.+)$/); if (heading) { closeList(); const n = heading[1].length + 2; html += `<h${n}>${mdInline(heading[2])}</h${n}>`; continue; }
-    const quote = line.match(/^>\s?(.+)$/); if (quote) { closeList(); html += `<blockquote>${mdInline(quote[1])}</blockquote>`; continue; }
-    if (/^[-*_]{3,}$/.test(line.trim())) { closeList(); html += '<hr>'; continue; }
-    const ul = line.match(/^\s*[-*+]\s+(.+)$/); if (ul) { if (list !== 'ul') { closeList(); html += '<ul>'; list = 'ul'; } html += `<li>${mdInline(ul[1])}</li>`; continue; }
-    const ol = line.match(/^\s*\d+[.)]\s+(.+)$/); if (ol) { if (list !== 'ol') { closeList(); html += '<ol>'; list = 'ol'; } html += `<li>${mdInline(ol[1])}</li>`; continue; }
-    closeList(); html += `<p>${mdInline(line)}</p>`;
-  }
-  closeList(); return html;
-}
-function renderMarkdown(markdown) {
-  const source = String(markdown || '').replace(/\r\n?/g, '\n');
-  let html = '', cursor = 0;
-  const fence = /```([\w.+-]*)\n([\s\S]*?)```/g;
-  let match;
-  while ((match = fence.exec(source))) {
-    html += mdTextBlock(source.slice(cursor, match.index));
-    const language = esc(match[1] || 'code');
-    html += `<div class="md-code"><div class="md-code-head"><span>${language}</span><button type="button" data-copy-code>Копировать</button></div><pre><code>${esc(match[2].replace(/\n$/, ''))}</code></pre></div>`;
-    cursor = match.index + match[0].length;
-  }
-  html += mdTextBlock(source.slice(cursor));
-  return html || '<p>Пустой ответ.</p>';
 }
 
 function appendForgeMessage(role, text, loading = false, meta = {}) {
