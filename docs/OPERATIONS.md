@@ -74,3 +74,7 @@ Let's Encrypt certificates are retained to avoid deleting certificates shared wi
 | Lifecycle CLI | `/usr/local/sbin/sentinelctl` |
 | nginx site | `/etc/nginx/sites-available/vps-sentinel` |
 | Services | `vps-sentinel.service`, `vps-sentinel-agent.service` |
+
+## Quality checks
+
+Run `npm test` for unit and HTTP integration tests, `npm run test:coverage` for the enforced coverage floor, and `npm run test:visual` on a host with Playwright Chromium. CI runs all three before merge. Database changes must be added as a numbered migration in `src/db/migrations.js`.

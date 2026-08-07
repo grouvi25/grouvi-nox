@@ -148,7 +148,8 @@ ok "Backup: $pre_backup"
 
 section 'Application'
 if ! id "$SENTINEL_USER" >/dev/null 2>&1; then useradd --system --no-create-home --shell /usr/sbin/nologin "$SENTINEL_USER"; fi
-for group in adm docker; do getent group "$group" >/dev/null && usermod -aG "$group" "$SENTINEL_USER"; done
+getent group adm >/dev/null && usermod -aG adm "$SENTINEL_USER"
+getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
 install -d -m 700 -o "$SENTINEL_USER" -g "$SENTINEL_USER" "$SENTINEL_STATE_DIR"
 if [[ $(readlink -f "$SOURCE_DIR") != $(readlink -f "$SENTINEL_APP_DIR" 2>/dev/null || echo missing) ]]; then
   install -d -m 755 -o root -g root "$SENTINEL_APP_DIR"

@@ -73,6 +73,8 @@ cmd_doctor(){
   CHECK_NAME='SSH private paths excluded'; check bash -c "! grep -q '\"path\":\"/root/.ssh/' '$STATE_DIR/filesystem.json'"
   section 'Security posture'
   CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
+  CHECK_NAME='web user is outside docker group'; check bash -c "! id -nG '$SENTINEL_USER' | tr ' ' '\\n' | grep -qx docker"
+  CHECK_NAME='read-only Docker broker socket'; check bash -c "[[ -S '$STATE_DIR/docker-read.sock' && \$(stat -c %G '$STATE_DIR/docker-read.sock') == '$SENTINEL_USER' ]]"
   CHECK_NAME='web listener is loopback only'; check bash -c "ss -H -lntp | grep -q '127.0.0.1:${PORT}' && ! ss -H -lntp | grep -qE '(0.0.0.0|\[::\]):${PORT}'"
   CHECK_NAME='API rejects unauthenticated history'; check bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/api/history) == 401 ]]"
   if [[ $PROXY_MODE == cloudflare ]]; then
@@ -134,6 +136,7 @@ cmd_update(){
     die "Update rolled back. Diagnostics: $app_backup"
   fi
   chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"
+  getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
     warn 'New version failed health check; restoring previous application.'

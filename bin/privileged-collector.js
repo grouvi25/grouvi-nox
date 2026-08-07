@@ -8,10 +8,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { startDockerReadBroker } from './docker-read-broker.js';
 
 const STATE_DIR = process.env.STATE_DIR || '/var/lib/vps-sentinel';
 const OUT = path.join(STATE_DIR, 'privileged.json');
 const FS_OUT = path.join(STATE_DIR, 'filesystem.json');
+const DOCKER_BROKER = process.env.DOCKER_BROKER_SOCKET || path.join(STATE_DIR, 'docker-read.sock');
 const INTERVAL = Number(process.env.PRIV_INTERVAL_MS || 15000);
 const FS_INTERVAL = Number(process.env.FS_INDEX_INTERVAL_MS || 600_000);
 const FS_MAX_ENTRIES = Number(process.env.FS_MAX_ENTRIES || 60_000);
@@ -223,6 +225,7 @@ async function tick() {
 }
 
 fs.mkdirSync(STATE_DIR, { recursive: true });
+startDockerReadBroker({ socketPath: DOCKER_BROKER, dockerSocket: process.env.DOCKER_SOCKET || '/var/run/docker.sock', gid: fs.statSync(STATE_DIR).gid });
 await Promise.all([tick(), filesystemTick()]);
 setInterval(tick, INTERVAL);
 setInterval(filesystemTick, FS_INTERVAL);

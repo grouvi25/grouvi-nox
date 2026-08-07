@@ -1,14 +1,14 @@
 [Unit]
 Description=VPS Sentinel - read-only realtime monitoring dashboard
 Documentation=https://github.com/grouvi25/vps-sentinel
-After=network-online.target docker.service
+After=network-online.target vps-sentinel-agent.service
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=vpssentinel
 Group=vpssentinel
-SupplementaryGroups=docker adm
+SupplementaryGroups=adm
 WorkingDirectory=/opt/vps-sentinel
 RuntimeDirectory=vps-sentinel
 RuntimeDirectoryMode=0700

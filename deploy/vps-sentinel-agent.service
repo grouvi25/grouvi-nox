@@ -1,5 +1,5 @@
 [Unit]
-Description=VPS Sentinel privileged collector (pm2 + fail2ban snapshot)
+Description=VPS Sentinel privileged read-only collector and Docker broker
 Documentation=https://github.com/grouvi25/vps-sentinel
 After=network.target
 Before=vps-sentinel.service
@@ -16,7 +16,7 @@ Restart=always
 RestartSec=5
 SyslogIdentifier=vps-sentinel-agent
 
-# Runs as root but touches nothing except its own state file.
+# Runs as root, writes state snapshots, and exposes an allowlisted read-only Docker socket.
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/vps-sentinel

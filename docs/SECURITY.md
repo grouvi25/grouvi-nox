@@ -37,3 +37,7 @@ Container visibility requires membership in the Docker group, which is root-equi
 ## Incident response
 
 A compromised host cannot be made trustworthy by reinstalling the dashboard. Rebuild the VPS from a clean image, rotate secrets and restore only verified application code plus database dumps.
+
+## Docker isolation
+
+The web process has no Docker group membership and cannot open `/var/run/docker.sock`. The root collector exposes a Unix socket owned by `vpssentinel` and accepts only a fixed set of Docker GET endpoints for list, disk usage, inspect, one-shot stats and redacted log tails. Mutation endpoints and path traversal are rejected. `sentinelctl doctor` verifies this boundary.
