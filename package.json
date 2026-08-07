@@ -1,24 +1,26 @@
-﻿{
-    "name":  "vps-sentinel",
-    "version":  "1.3.1",
-    "private":  true,
-    "license":  "Apache-2.0",
-    "type":  "module",
-    "description":  "Realtime VPS monitoring dashboard with WebAuthn passkey authentication",
-    "engines":  {
-                    "node":  "\u003e=20"
-                },
-    "scripts":  {
-                    "start":  "node src/server.js",
-                    "enroll":  "node bin/enroll.js",
-                    "recovery":  "node bin/enroll.js --recovery",
-                    "status":  "node bin/enroll.js --status"
-                },
-    "dependencies":  {
-                         "@simplewebauthn/server":  "^13.1.1",
-                         "better-sqlite3":  "^11.8.1",
-                         "cookie":  "^1.0.2",
-                         "express":  "^4.21.2",
-                         "ws":  "^8.18.0"
-                     }
+{
+  "name": "vps-sentinel",
+  "version": "1.3.1",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "Realtime VPS monitoring dashboard with WebAuthn passkey authentication",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "enroll": "node bin/enroll.js",
+    "recovery": "node bin/enroll.js --recovery",
+    "status": "node bin/enroll.js --status",
+    "test": "node --test tests/unit/*.test.js",
+    "check": "npm test && npm audit --omit=dev --audit-level=low"
+  },
+  "dependencies": {
+    "@simplewebauthn/server": "^13.1.1",
+    "better-sqlite3": "^11.8.1",
+    "cookie": "^1.0.2",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
 }

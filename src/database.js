@@ -75,7 +75,14 @@ export function initDatabase() {
       success INTEGER NOT NULL,
       detail TEXT
     );
+    CREATE TABLE IF NOT EXISTS notification_settings (
+      id INTEGER PRIMARY KEY CHECK(id=1), settings_json TEXT NOT NULL, updated_at INTEGER NOT NULL
+    );
   `);
+
+  const incidentColumns = new Set(db.prepare('PRAGMA table_info(incidents)').all().map((c) => c.name));
+  if (!incidentColumns.has('investigation')) db.exec('ALTER TABLE incidents ADD COLUMN investigation TEXT');
+  if (!incidentColumns.has('investigated_at')) db.exec('ALTER TABLE incidents ADD COLUMN investigated_at INTEGER');
 
   // Prevent unbounded growth. WAL checkpoint keeps the file compact over time.
   const cutoff = Date.now() - config.historyRetentionDays * 86400_000;
@@ -192,12 +199,15 @@ export function syncIncidents(alerts = []) {
   return events;
 }
 
-export function listIncidents({ status = 'all', limit = 100 } = {}) {
+export function listIncidents({ status = 'active', limit = 6, offset = 0 } = {}) {
   const database = initDatabase();
-  const max = Math.min(300, Math.max(1, Number(limit) || 100));
+  const max = Math.min(50, Math.max(1, Number(limit) || 6));
+  const skip = Math.max(0, Number(offset) || 0);
   const rows = status === 'all'
-    ? database.prepare('SELECT * FROM incidents ORDER BY first_seen DESC LIMIT ?').all(max)
-    : database.prepare('SELECT * FROM incidents WHERE status=? ORDER BY first_seen DESC LIMIT ?').all(status, max);
+    ? database.prepare('SELECT * FROM incidents ORDER BY first_seen DESC LIMIT ? OFFSET ?').all(max, skip)
+    : status === 'active'
+      ? database.prepare("SELECT * FROM incidents WHERE status!='resolved' ORDER BY CASE severity WHEN 'critical' THEN 0 ELSE 1 END, first_seen DESC LIMIT ? OFFSET ?").all(max, skip)
+      : database.prepare('SELECT * FROM incidents WHERE status=? ORDER BY first_seen DESC LIMIT ? OFFSET ?').all(status, max, skip);
   const events = database.prepare('SELECT * FROM incident_events WHERE incident_id=? ORDER BY ts DESC LIMIT 30');
   return rows.map(row => ({ ...row, events: events.all(row.id) }));
 }
@@ -234,7 +244,63 @@ export function recordNotification({ incidentId, eventType, success, detail = ''
   `).run(incidentId || null, Date.now(), eventType, success ? 1 : 0, String(detail).slice(0, 1000));
 }
 
+
+const NOTIFICATION_DEFAULTS = Object.freeze({ enabled:true,warning:true,critical:true,opened:true,escalated:true,resolved:true,dailyDigest:true,quietEnabled:false,quietStart:23,quietEnd:8,criticalDuringQuiet:true,cooldownMin:30 });
+export function getNotificationSettings(){
+  const row=initDatabase().prepare('SELECT settings_json FROM notification_settings WHERE id=1').get();
+  if(!row) return {...NOTIFICATION_DEFAULTS};
+  try{return {...NOTIFICATION_DEFAULTS,...JSON.parse(row.settings_json)}}catch{return {...NOTIFICATION_DEFAULTS}}
+}
+export function updateNotificationSettings(input={}){
+  const next={...getNotificationSettings()};
+  for(const key of ['enabled','warning','critical','opened','escalated','resolved','dailyDigest','quietEnabled','criticalDuringQuiet']) if(typeof input[key]==='boolean') next[key]=input[key];
+  for(const key of ['quietStart','quietEnd']){const value=Number(input[key]);if(Number.isInteger(value)&&value>=0&&value<=23)next[key]=value}
+  const cooldown=Number(input.cooldownMin);if([5,15,30,60,120].includes(cooldown))next.cooldownMin=cooldown;
+  initDatabase().prepare(`INSERT INTO notification_settings (id,settings_json,updated_at) VALUES (1,?,?) ON CONFLICT(id) DO UPDATE SET settings_json=excluded.settings_json,updated_at=excluded.updated_at`).run(JSON.stringify(next),Date.now());return next;
+}
+export function incidentCounts(){
+  const row=initDatabase().prepare(`SELECT COUNT(*) total,SUM(status='open') open,SUM(status='acknowledged') acknowledged,SUM(status='resolved') resolved,SUM(status!='resolved') active,SUM(status!='resolved' AND severity='critical') critical FROM incidents`).get();
+  return Object.fromEntries(Object.entries(row).map(([k,v])=>[k,Number(v||0)]));
+}
+
 export function notificationStatus() {
   const database = initDatabase();
   return database.prepare(`SELECT * FROM notifications ORDER BY ts DESC LIMIT 20`).all();
+}
+
+
+export function updateIncidentInvestigation(id, report) {
+  const database = initDatabase();
+  database.prepare('UPDATE incidents SET investigation=?, investigated_at=? WHERE id=?')
+    .run(String(report || '').slice(0, 12000), Date.now(), Number(id));
+  return database.prepare('SELECT * FROM incidents WHERE id=?').get(Number(id));
+}
+
+export function getIncident(id) {
+  return initDatabase().prepare('SELECT * FROM incidents WHERE id=?').get(Number(id));
+}
+
+export function incidentDigest(hours = 24) {
+  const database = initDatabase();
+  const since = Date.now() - Math.max(1, Number(hours) || 24) * 3600_000;
+  const opened = database.prepare('SELECT COUNT(*) n FROM incidents WHERE first_seen>=?').get(since).n;
+  const critical = database.prepare("SELECT COUNT(*) n FROM incidents WHERE first_seen>=? AND severity='critical'").get(since).n;
+  const resolved = database.prepare("SELECT COUNT(*) n FROM incidents WHERE resolved_at>=?").get(since).n;
+  const active = database.prepare("SELECT COUNT(*) n FROM incidents WHERE status!='resolved'").get().n;
+  const top = database.prepare('SELECT severity,title,first_seen FROM incidents WHERE first_seen>=? ORDER BY severity ASC, first_seen DESC LIMIT 5').all(since);
+  return { opened, critical, resolved, active, top };
+}
+
+export function setIncidentStatus(id, status, actor = 'admin', note = '') {
+  const database = initDatabase();
+  const allowed = new Set(['open', 'acknowledged', 'resolved']);
+  if (!allowed.has(status)) return null;
+  const row = database.prepare('SELECT * FROM incidents WHERE id=?').get(Number(id));
+  if (!row) return null;
+  const now = Date.now();
+  if (status === 'open') database.prepare(`UPDATE incidents SET status='open', acknowledged_at=NULL, acknowledged_by=NULL, resolved_at=NULL, resolution=NULL WHERE id=?`).run(row.id);
+  if (status === 'acknowledged') database.prepare(`UPDATE incidents SET status='acknowledged', acknowledged_at=?, acknowledged_by=?, resolved_at=NULL, resolution=NULL WHERE id=?`).run(now, actor, row.id);
+  if (status === 'resolved') database.prepare(`UPDATE incidents SET status='resolved', resolved_at=?, resolution=? WHERE id=?`).run(now, String(note || 'Closed manually').slice(0,500), row.id);
+  database.prepare(`INSERT INTO incident_events (incident_id,ts,event_type,actor,note) VALUES (?,?,?,?,?)`).run(row.id, now, status === 'open' ? 'reopened' : status, actor, String(note).slice(0,500));
+  return database.prepare('SELECT * FROM incidents WHERE id=?').get(row.id);
 }

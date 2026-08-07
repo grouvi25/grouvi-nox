@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=20260808-telegram-145">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -44,19 +44,24 @@
 
     <div class="side-label">Разделы</div>
     <nav class="nav" id="nav">
+      <button class="nav-item forge-open" id="forgeOpen" type="button">
+        <svg viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v7a2.5 2.5 0 01-2.5 2.5H11l-4 3v-3.2A2.5 2.5 0 015 13.5z"/><path d="M9 9h6M9 12h4"/></svg>
+        <span>Sentinel Forge</span><span class="n-badge forge-ai-badge">AI</span>
+      </button>
+      <div class="nav-separator"></div>
       <a class="nav-item" href="#s-overview">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         <span>Обзор</span>
         <span class="n-badge" id="nbAlerts">0</span>
       </a>
+      <a class="nav-item" href="#s-perf">
+        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
+        <span>История</span>
+      </a>
       <a class="nav-item" href="#s-incidents">
         <svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
         <span>Инциденты</span>
         <span class="n-badge" id="nbIncidents">0</span>
-      </a>
-      <a class="nav-item" href="#s-perf">
-        <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
-        <span>История</span>
       </a>
       <a class="nav-item" href="#s-hw">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
@@ -157,22 +162,6 @@
         </div>
       </section>
 
-      <section id="s-incidents">
-        <div class="sec-head">
-          <h2>Инциденты</h2><span class="count" id="incidentCount">0</span>
-          <div class="segmented" id="incidentFilters" aria-label="Фильтр инцидентов">
-            <button class="seg active" data-status="all">Все</button>
-            <button class="seg" data-status="open">Открытые</button>
-            <button class="seg" data-status="acknowledged">Принятые</button>
-            <button class="seg" data-status="resolved">Закрытые</button>
-          </div>
-          <span class="right" id="telegramState">Telegram: проверка…</span>
-        </div>
-        <div class="panel incident-shell">
-          <div id="incidentList" class="incident-list"><div class="empty">Загружаю журнал инцидентов…</div></div>
-        </div>
-      </section>
-
       <section id="s-perf">
         <div class="sec-head">
           <h2>История</h2>
@@ -213,6 +202,12 @@
           <div><span>Disk R/W</span><b id="ioRatio">—</b></div>
           <div><span>Инцидентные точки</span><b id="alertPoints">—</b></div>
         </div>
+      </section>
+
+      <section id="s-incidents">
+        <div class="sec-head incident-head"><h2>Инциденты</h2><span class="count" id="incidentCount">0</span><div class="segmented" id="incidentFilters" aria-label="Фильтр инцидентов"><button class="seg active" data-status="active">Активные <b id="icActive">0</b></button><button class="seg" data-status="open">Открытые <b id="icOpen">0</b></button><button class="seg" data-status="acknowledged">Принятые <b id="icAck">0</b></button><button class="seg" data-status="resolved">Закрытые <b id="icResolved">0</b></button><button class="seg" data-status="all">Все <b id="icAll">0</b></button></div><button class="notify-open" id="notifyOpen" type="button"><span class="notify-dot" id="notifyDot"></span><span id="telegramState">Telegram</span><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div>
+        <div class="incident-overview"><div><span>Требуют внимания</span><b id="incidentActive">0</b></div><div><span>Критические</span><b class="critical" id="incidentCritical">0</b></div><div><span>Закрыты</span><b id="incidentResolved">0</b></div><p id="incidentHint">Сначала показываем то, что требует реакции</p></div>
+        <div class="panel incident-shell"><div id="incidentList" class="incident-list"><div class="empty">Загружаю журнал инцидентов…</div></div><nav class="incident-pager" id="incidentPager" aria-label="Страницы инцидентов" hidden><button type="button" id="incidentPrev" aria-label="Предыдущая страница"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="incidentPageMeta">1 / 1</span><button type="button" id="incidentNext" aria-label="Следующая страница"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></nav></div>
       </section>
 
       <section id="s-hw">
@@ -312,7 +307,52 @@
     </div>
   </main>
 
-  <aside class="detail-pane" id="detailPane" aria-hidden="true">
+  <aside class="forge-pane" id="forgePane" data-pane-kind="forge" aria-hidden="true" aria-label="Sentinel Forge чат">
+    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
+    <header class="forge-pane-head">
+      <button class="btn-icon forge-back" id="forgeClose" aria-label="Закрыть чат"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="forge-head-identity"><div><h2>Sentinel Forge</h2><p><span id="forgePresence">готов</span> · DevOps и код</p></div></div>
+      <div class="forge-head-actions"><button class="btn-icon" id="forgeHistoryToggle" title="История чатов" aria-label="История чатов" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button class="btn-icon" id="forgeReset" title="Новый чат" aria-label="Новый чат"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+    </header>
+    <div class="forge-history" id="forgeHistory" hidden><div class="forge-history-head"><span>Недавние чаты</span><button type="button" id="forgeHistoryClose" aria-label="Закрыть историю">Закрыть</button></div><div id="forgeHistoryList"></div></div>
+    <div class="forge-chat-body" id="forgeTranscript" aria-live="polite">
+      <div class="forge-welcome" id="forgeWelcome">
+        <h3>Чем помочь?</h3>
+        <p>Диагностика VPS, расследование инцидентов и работа с кодом.</p>
+        <div class="forge-starters" id="forgeSuggestions">
+          <button type="button" data-forge-prompt="Проверь состояние VPS и назови главный риск.">Проверить VPS</button>
+          <button type="button" data-forge-prompt="Разбери открытые инциденты и найди причины.">Инциденты</button>
+          <button type="button" data-forge-prompt="Проверь выбранный проект, git status и тесты.">Код и тесты</button>
+        </div>
+      </div>
+    </div>
+    <div class="forge-composer-zone">
+      <form class="forge-composer-v2" id="forgeForm">
+        <textarea id="forgeInput" rows="1" maxlength="6000" placeholder="Сообщение Sentinel Forge" aria-label="Сообщение Sentinel Forge" required></textarea>
+        <div class="forge-compose-actions">
+          <div class="forge-tools">
+            <div class="forge-menu-wrap">
+              <button class="forge-tool" id="forgeScopeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span id="forgeScopeLabel">Весь VPS</span><svg class="chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg></button>
+              <div class="forge-menu" id="forgeScopeMenu" role="listbox" aria-label="Проект"></div>
+            </div>
+            <div class="forge-menu-wrap">
+              <button class="forge-tool" id="forgeModelTrigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="forge-model-dot"></span><span id="forgeModelLabel">GLM 5.2</span><svg class="chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg></button>
+              <div class="forge-menu" id="forgeModelMenu" role="listbox" aria-label="Модель"></div>
+            </div>
+          </div>
+          <span class="forge-hint">Enter отправить</span><button id="forgeSend" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+        </div>
+      </form>
+      <p class="forge-disclaimer">Контекст проекта берётся из изолированной рабочей копии. Production-ремонт идёт через журналируемый шлюз.</p>
+    </div>
+  </aside>
+  <aside class="notify-pane" id="notifyPane" data-pane-kind="notify" aria-hidden="true" aria-label="Настройки уведомлений"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div><header class="notify-pane-head"><button class="btn-icon" id="notifyClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Доставка событий</span><h2>Уведомления</h2></div><span class="notify-health" id="notifyHealth">проверка</span></header><form id="notifyForm" class="notify-body">
+  <section class="notify-primary"><div><h3>Telegram</h3><p id="notifyDestination">Подключение проверяется</p></div><label class="switch"><input type="checkbox" name="enabled"><span></span></label></section>
+  <section class="notify-group"><h3>Какие события отправлять</h3><div class="notify-check-grid"><label><input type="checkbox" name="critical"><span><b>Критические</b><small>Аварии и недоступность</small></span></label><label><input type="checkbox" name="warning"><span><b>Предупреждения</b><small>Пороговые значения</small></span></label><label><input type="checkbox" name="opened"><span><b>Открытие</b><small>Новый инцидент</small></span></label><label><input type="checkbox" name="escalated"><span><b>Ухудшение</b><small>Рост серьёзности</small></span></label><label><input type="checkbox" name="resolved"><span><b>Восстановление</b><small>Инцидент закрыт</small></span></label><label><input type="checkbox" name="dailyDigest"><span><b>Сводка в 09:00</b><small>Asia/Tomsk, раз в сутки</small></span></label></div></section>
+  <section class="notify-group"><h3>Тишина и повторы</h3><div class="notify-line"><span><b>Не беспокоить</b><small>В выбранные часы</small></span><label class="switch"><input type="checkbox" name="quietEnabled"><span></span></label></div><div class="notify-time"><label>с <select name="quietStart"></select></label><label>до <select name="quietEnd"></select></label></div><div class="notify-line"><span><b>Критические пропускать</b><small>Даже в тихие часы</small></span><label class="switch"><input type="checkbox" name="criticalDuringQuiet"><span></span></label></div><label class="notify-select"><span><b>Повтор одинакового события</b><small>Защита от спама</small></span><select name="cooldownMin"><option value="5">5 мин</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">1 час</option><option value="120">2 часа</option></select></label></section>
+  <section class="notify-group"><div class="notify-recent-head"><h3>Последние доставки</h3><button type="button" id="notifyTest">Отправить тест</button></div><div id="notifyRecent" class="notify-recent"><div class="empty">Загрузка…</div></div></section><footer class="notify-footer" id="notifyFooter" hidden><span id="notifySaveState"></span><button type="submit" id="notifySave">Сохранить</button></footer></form></aside>
+  <aside class="detail-pane" id="detailPane" data-pane-kind="detail" aria-hidden="true">
+    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
     <div class="detail-head">
       <button class="btn-icon" id="detailClose" aria-label="Закрыть детали">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
@@ -324,6 +364,6 @@
   </aside>
 </div>
 
-<script src="/app.js" type="module"></script>
+<script src="/app.js?v=20260808-nav-lock" type="module"></script>
 </body>
 </html>
