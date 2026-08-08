@@ -4,6 +4,7 @@ const PANE_LIMITS = {
   forge: { min: 420, max: 760, fallback: 560 },
   notify: { min: 360, max: 580, fallback: 440 },
   detail: { min: 400, max: 720, fallback: 540 },
+  settings: { min: 560, max: 920, fallback: 780 },
 };
 function paneWidth(kind) {
   const limits=PANE_LIMITS[kind], saved=Number(localStorage.getItem(`sentinelPaneWidth:${kind}`));

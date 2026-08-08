@@ -13,8 +13,9 @@ export function createSettingsController({api,setWorkspacePane}){
  function bind(){$('drawerTelegramForm').addEventListener('submit',e=>{e.preventDefault();const d=new FormData(e.currentTarget);configure({kind:'telegram',botToken:d.get('botToken').trim(),chatId:d.get('chatId').trim()}).catch(x=>feedback(x.message,true))});$('drawerAiForm').addEventListener('submit',e=>{e.preventDefault();const d=new FormData(e.currentTarget);configure({kind:'ai',providerLabel:d.get('providerLabel').trim(),baseUrl:d.get('baseUrl').trim(),model:d.get('model').trim(),apiKey:d.get('apiKey').trim(),backupKeys:d.get('backupKeys').split(',').map(x=>x.trim()).filter(Boolean)}).catch(x=>feedback(x.message,true))});$('drawerRescan').addEventListener('click',async e=>{e.currentTarget.disabled=true;feedback('Сканирование запущено');try{await api('/api/discovery/rescan',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});setTimeout(load,3000)}catch(x){feedback(x.message,true)}});$('drawerTelegramTest')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;feedback('Отправляю тест…');try{await api('/api/notifications/test',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});feedback('Тест доставлен')}catch(x){feedback(x.message,true)}finally{e.currentTarget.disabled=false}})}
  async function load(){[setup,discovery,integrations]=await Promise.all([api('/api/setup'),api('/api/discovery'),api('/api/integrations')]);loaded=true;render()}
  function highlight(id){document.querySelectorAll('[data-settings-nav]').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id))}
- function navigate(id){const target=$(`drawer-${id}`);target?.scrollIntoView({behavior:'smooth',block:'start'});highlight(id);$('settingsRail').classList.remove('open')}
- async function open(){setWorkspacePane('settingsPane');$('sidebar').classList.remove('open');$('navScrim').hidden=true;if(!loaded)await load().catch(x=>feedback(x.message,true))}
- function close(){setWorkspacePane();history.replaceState(null,'',location.pathname)}
- return{open,close,load,navigate};
+ function setRail(open){$('settingsRail').classList.toggle('open',open);$('settingsRail').setAttribute('aria-hidden',String(!open));$('settingsRailScrim').hidden=!open}
+ function navigate(id){const target=$(`drawer-${id}`);target?.scrollIntoView({behavior:'smooth',block:'start'});highlight(id);setRail(false)}
+ async function open(){setWorkspacePane('settingsPane');$('sidebar').classList.remove('open');$('navScrim').hidden=true;setRail(true);if(!loaded)await load().catch(x=>feedback(x.message,true))}
+ function close(){setRail(false);setWorkspacePane();history.replaceState(null,'',location.pathname)}
+ return{open,close,load,navigate,setRail};
 }

@@ -648,8 +648,9 @@ $('settingsOpen').addEventListener('click',()=>{history.replaceState(null,'','#s
 $('settingsClose').addEventListener('click',settings.close);
 $('settingsRefresh').addEventListener('click',()=>settings.load());
 $('settingsRail').addEventListener('click',e=>{const item=e.target.closest('[data-settings-nav]');if(item)settings.navigate(item.dataset.settingsNav)});
-$('settingsRailToggle').addEventListener('click',()=>{const rail=$('settingsRail'),open=!rail.classList.contains('open');rail.classList.toggle('open',open);$('settingsRailScrim').hidden=!open});
-$('settingsRailScrim').addEventListener('click',()=>{$('settingsRail').classList.remove('open');$('settingsRailScrim').hidden=true});
+$('settingsRailToggle').addEventListener('click',()=>settings.setRail(!$('settingsRail').classList.contains('open')));
+$('settingsRailClose').addEventListener('click',()=>settings.setRail(false));
+$('settingsRailScrim').addEventListener('click',()=>settings.setRail(false));
 $('deployProject').addEventListener('change',()=>{deployLimit=20;renderDeployments()});
 $('deploySearch').addEventListener('input',()=>{deployLimit=20;renderDeployments()});
 $('deployMore').addEventListener('click',()=>{deployLimit+=20;renderDeployments()});
