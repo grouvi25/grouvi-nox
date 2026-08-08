@@ -141,3 +141,8 @@ test('filesystem storage chart uses collector-backed distributions',()=>{const c
 
 
 test('filesystem desktop layout is balanced and avoids the old right-side stack',()=>{const html=fs.readFileSync('public/index.html','utf8'),css=fs.readFileSync('public/css/03-data.css','utf8');assert.doesNotMatch(html,/class="fs-aside"/);assert.match(html,/class="fs-support"/);assert.ok(html.indexOf('storage-panel')<html.indexOf('fs-browser-panel'));assert.match(css,/#s-filesystem \.storage-legend\{display:grid;grid-template-columns:repeat\(2/);assert.match(css,/#s-filesystem \.fs-support\{display:grid;grid-template-columns:/);assert.match(css,/#s-filesystem \.fs-browser-panel\{min-height:0\}/)});
+
+
+test('metric drawers merge websocket history and redraw on every live render',()=>{const app=fs.readFileSync('public/app.js','utf8');assert.match(app,/function liveMetricRows/);assert.match(app,/function metricDetailRows/);assert.match(app,/function refreshMetricDetail/);assert.match(app,/renderKpis\(d\);\n  refreshMetricDetail\(\)/);assert.match(app,/обновление каждые 2 секунды/)});
+
+test('filesystem indexing is low priority and no longer runs every ten minutes',()=>{const unit=fs.readFileSync('deploy/vps-sentinel-agent.service','utf8'),install=fs.readFileSync('deploy/install.sh','utf8');assert.match(unit,/Nice=10/);assert.match(unit,/IOSchedulingClass=idle/);assert.match(unit,/CPUWeight=10/);assert.match(unit,/IOWeight=10/);assert.match(install,/FS_INDEX_INTERVAL_MS=1800000/)});

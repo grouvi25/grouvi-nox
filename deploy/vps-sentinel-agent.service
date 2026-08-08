@@ -15,6 +15,10 @@ ExecStart=/usr/bin/node /opt/vps-sentinel/bin/privileged-collector.js
 Restart=always
 RestartSec=5
 SyslogIdentifier=vps-sentinel-agent
+Nice=10
+IOSchedulingClass=idle
+CPUWeight=10
+IOWeight=10
 
 # Runs as root, writes state snapshots, and exposes an allowlisted read-only Docker socket.
 PrivateTmp=true

@@ -401,7 +401,7 @@ function renderProjectDetail(payload){
 async function refreshProjectDetail(id,token){try{const payload=await api(`/api/projects/${encodeURIComponent(id)}`);if(token!==detailRequestToken)return;renderProjectDetail(payload);detailRefreshTimer=setTimeout(()=>refreshProjectDetail(id,token),payload.refreshMs||5000)}catch(e){if(token!==detailRequestToken)return;$('detailStatus').textContent='ошибка';$('detailStatus').className='pill crit';$('detailBody').innerHTML=`<div class="empty">Не удалось собрать проект: ${esc(e.message)}</div>`}}
 async function openProjectDetail(id){openDetailShell('project','Проект');const token=detailRequestToken;await refreshProjectDetail(id,token)}
 
-function closeDetail() { stopDetailRefresh();setWorkspacePane(); }
+function closeDetail() { stopDetailRefresh();activeMetricDetail=null;setWorkspacePane(); }
 
 function inspectChart(kind, event) {
   const rows = persistedHistory?.rows || [];
@@ -449,10 +449,14 @@ function metricValue(value, unit) {
   return Number(value).toFixed(2);
 }
 
+function liveMetricRows(){const h=latest?.history||{},at=h.at||[];return at.map((ts,index)=>({ts,cpu:Number(h.cpu?.[index]||0),memory:Number(h.mem?.[index]||0),swap:Number(h.swap?.[index]||0),load1:Number(h.load?.[index]||0),network_rx:Number(h.rx?.[index]||0)*1024,network_tx:Number(h.tx?.[index]||0)*1024,disk_read:Number(h.ioR?.[index]||0)*1024,disk_write:Number(h.ioW?.[index]||0)*1024}))}
+function metricDetailRows(){const merged=new Map();for(const row of persistedHistory?.rows||[])merged.set(Number(row.ts),row);for(const row of liveMetricRows())merged.set(Number(row.ts),row);return[...merged.values()].sort((a,b)=>a.ts-b.ts).slice(-2400)}
+function metricDetailStatsMarkup(spec,rows){const primary=rows.map(r=>Number(r[spec.keys[0][0]]||0));return detailStats([['Текущее',metricValue(primary.at(-1)||0,spec.unit)],['Среднее',metricValue(primary.reduce((a,b)=>a+b,0)/(primary.length||1),spec.unit)],['Минимум',metricValue(primary.length?Math.min(...primary):0,spec.unit)],['Максимум',metricValue(primary.length?Math.max(...primary):0,spec.unit)],['P95',metricValue(percentile(primary,.95),spec.unit)],['Точек',String(rows.length)]])}
+function refreshMetricDetail(){const metric=activeMetricDetail,spec=METRICS[metric],stats=$('metricDetailStats'),inspect=$('metricDetailInspect');if(!spec||!stats||!$('detailPane').classList.contains('open'))return;const rows=metricDetailRows();stats.innerHTML=metricDetailStatsMarkup(spec,rows);$('detailStatus').textContent=`live · ${persistedHistory?.range||'realtime'}`;if(inspect&&!inspect.matches(':hover'))inspect.textContent=rows.length?`Период: ${formatWhen(rows[0].ts)} → ${formatWhen(rows.at(-1).ts)} · обновлено сейчас`:'Ожидаю данные';drawMetricDetail()}
 function drawMetricDetail(){
   const metric=activeMetricDetail,spec=METRICS[metric],canvas=$('metricDetailCanvas');
   if(!spec||!canvas||!$('detailPane').classList.contains('open'))return;
-  const rows=persistedHistory?.rows||[];
+  const rows=metricDetailRows();
   const rect=canvas.getBoundingClientRect();
   if(rect.width<40||rect.height<40)return;
   const sets=spec.keys.map(([key,,color])=>({data:rows.map(r=>spec.unit==='bytes'?Number(r[key]||0)/1024:Number(r[key]||0)),color}));
@@ -463,29 +467,20 @@ function scheduleMetricDetailDraw(){requestAnimationFrame(drawMetricDetail);setT
 function openMetricDetail(metric) {
   const spec = METRICS[metric];
   if (!spec) return;
-  activeMetricDetail=metric;
   openDetailShell('metric', spec.title);
+  activeMetricDetail=metric;
   $('detailType').textContent = 'Историческая метрика';
   $('detailStatus').textContent = persistedHistory?.range || '24h';
   $('detailStatus').className = 'pill info';
-  const rows = persistedHistory?.rows || [];
-  const primary = rows.map(r => Number(r[spec.keys[0][0]] || 0));
-  const stats = [
-    ['Текущее', metricValue(primary.at(-1) || 0, spec.unit)],
-    ['Среднее', metricValue(primary.reduce((a,b)=>a+b,0)/(primary.length||1), spec.unit)],
-    ['Минимум', metricValue(primary.length ? Math.min(...primary) : 0, spec.unit)],
-    ['Максимум', metricValue(primary.length ? Math.max(...primary) : 0, spec.unit)],
-    ['P95', metricValue(percentile(primary,.95), spec.unit)],
-    ['Точек', String(rows.length)],
-  ];
+  const rows = metricDetailRows();
   $('detailBody').innerHTML = `
-    <section class="detail-section"><h3>${esc(persistedHistory?.range || '24h')} · статистика</h3>${detailStats(stats)}</section>
-    <section class="detail-section"><h3>Детальный график</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="metric-detail-inspect" id="metricDetailInspect">Период: ${formatWhen(persistedHistory?.from)} → ${formatWhen(persistedHistory?.to)}</div></section>
+    <section class="detail-section"><h3>${esc(persistedHistory?.range || 'realtime')} · live статистика</h3><div id="metricDetailStats">${metricDetailStatsMarkup(spec,rows)}</div></section>
+    <section class="detail-section"><h3>Детальный график · обновление каждые 2 секунды</h3><div class="metric-detail-chart"><canvas id="metricDetailCanvas"></canvas></div><div class="metric-detail-inspect" id="metricDetailInspect">${rows.length?`Период: ${formatWhen(rows[0].ts)} → ${formatWhen(rows.at(-1).ts)}`:'Ожидаю данные'}</div></section>
     <section class="detail-section"><h3>Ряды</h3><div class="metric-series-list">${spec.keys.map(([,label])=>`<span>${esc(label)}</span>`).join('')}</div></section>`;
   const canvas = $('metricDetailCanvas');
   scheduleMetricDetailDraw();
   canvas.addEventListener('mousemove', (e) => {
-    if (!rows.length) return;
+    const rows=metricDetailRows();if(!rows.length)return;
     const rect=canvas.getBoundingClientRect(); const i=Math.min(rows.length-1,Math.round(clamp((e.clientX-rect.left)/rect.width,0,1)*(rows.length-1))); const row=rows[i];
     $('metricDetailInspect').textContent=`${formatWhen(row.ts)} · ${spec.keys.map(([k,l])=>`${l}: ${metricValue(row[k]||0,spec.unit)}`).join(' · ')}`;
   });
@@ -506,6 +501,7 @@ function render(d) {
   renderHeader(d);
   renderAlerts(d.alerts);
   renderKpis(d);
+  refreshMetricDetail();
   renderCores(d);
 
   const now = Date.now();
