@@ -23,3 +23,16 @@ button:active:not(:disabled),a:active,[role="button"]:active,.target:active{tran
   .settings-pane{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
   .settings-rail{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
 }
+/* Exact sidebar parity: structural classes come from 01-foundation.css. */
+.settings-rail.sidebar{position:fixed;z-index:99;inset:0 auto 0 0;width:var(--sidebar);height:100dvh;padding:0;display:flex;flex-direction:column;overflow:hidden;background:var(--bg2);border-right:1px solid var(--border);transform:translateX(-102%);opacity:0;pointer-events:none}
+.settings-rail.sidebar.open{transform:none;opacity:1;pointer-events:auto}
+.settings-rail .settings-brand{height:auto}
+.settings-rail .nav{padding-top:0}
+.settings-rail .nav-item{width:100%;border:0;background:transparent;text-align:left;font-family:var(--sans)}
+.settings-rail .nav-item:hover{background:rgba(255,255,255,.04);color:var(--text)}
+.settings-rail .nav-item:hover svg{color:var(--text2)}
+.settings-rail .nav-item.active{color:var(--accent);background:rgba(244,237,228,.05)}
+.settings-rail .nav-item.active svg{color:var(--accent)}
+.settings-rail .nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--accent);border-radius:0 2px 2px 0}
+@media(min-width:1101px){.settings-rail.sidebar{transition:transform 340ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}}
+@media(max-width:1100px){.settings-rail.sidebar{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}}
