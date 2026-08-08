@@ -14,7 +14,7 @@ while IFS=$'\t' read -r live work; do
   elif [[ -z "$(git -C "$work" status --porcelain 2>/dev/null | head -1)" ]]; then git -C "$work" fetch --quiet --no-tags "$live" HEAD 2>/dev/null && git -C "$work" reset --quiet --hard FETCH_HEAD 2>/dev/null || true
   fi
   chown -R sentinel-ai:sentinel-ai "$work"
-done < <(node -e "for(const x of require(process.argv[1]))console.log(x.path+'\\t'+x.workspace)" "$PROJECTS.tmp")
+done < <(node -e "const fs=require('fs');for(const x of JSON.parse(fs.readFileSync(process.argv[1],'utf8')))console.log(x.path+'\\t'+x.workspace)" "$PROJECTS.tmp")
 install -m 640 -o sentinel-ai -g sentinel-ai "$PROJECTS.tmp" "$PROJECTS"; rm -f "$PROJECTS.tmp"
 TMP=$(mktemp);trap 'rm -f "$TMP"' EXIT
 {
@@ -25,7 +25,7 @@ TMP=$(mktemp);trap 'rm -f "$TMP"' EXIT
  echo '## Docker containers';docker ps -a --format '{{.Names}} | {{.Image}} | {{.Status}}' 2>/dev/null | sort || true;echo
  echo '## PM2 processes';HOME=/root pm2 jlist 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(f"{p.get(chr(110)+chr(97)+chr(109)+chr(101))} | {p.get(chr(112)+chr(109)+chr(50)+chr(95)+chr(101)+chr(110)+chr(118),{}).get(chr(115)+chr(116)+chr(97)+chr(116)+chr(117)+chr(115))}") for p in d]' || true;echo
  echo '## Open Sentinel incidents';sqlite3 "$STATE/sentinel.db" "select severity||' | '||incident_key||' | '||title from incidents where status!='resolved' order by first_seen desc limit 50;" 2>/dev/null || true;echo
- echo '## Discovered Git projects';node -e "for(const x of require(process.argv[1]))console.log(x.name+' | '+x.path+' | workspace='+x.workspace)" "$PROJECTS" 2>/dev/null || true;echo
+ echo '## Discovered Git projects';node -e "const fs=require('fs');for(const x of JSON.parse(fs.readFileSync(process.argv[1],'utf8')))console.log(x.name+' | '+x.path+' | workspace='+x.workspace)" "$PROJECTS" 2>/dev/null || true;echo
  echo '## Nginx hostnames';nginx -T 2>/dev/null | awk '/server_name/{for(i=2;i<=NF;i++) if($i!="_") print $i}' | tr -d ';' | sort -u;echo
  echo '## Network listeners';ss -H -lntup | sed -E 's/users:\(.*//';echo
  echo '## Safety boundaries';echo '- Operational metadata only. Secrets, environment files, credentials, and file contents are excluded.';echo '- Production repositories are not writable. Editable copies live under the isolated Forge workspace.';echo '- Production changes, package changes, restarts, firewall, SSH, and user management are prohibited.'
