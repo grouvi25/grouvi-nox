@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.9.0">
+<link rel="stylesheet" href="/style.css?v=1.10.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -245,6 +245,7 @@
             <div id="fsEntries" class="fs-entries"><div class="empty">Индексирую файловую систему…</div></div>
           </div>
           <div class="fs-aside">
+            <div class="panel storage-panel"><div class="storage-head"><div><h3>Распределение объёма</h3><span id="storageCoverage">известный объём</span></div><div class="storage-tabs" role="tablist"><button class="active" type="button" data-storage-mode="roots">Каталоги</button><button type="button" data-storage-mode="types">Типы</button></div></div><div class="storage-body"><div class="storage-donut" id="storageDonut" aria-label="Круговая диаграмма занятого места"><div class="storage-center"><b id="storageTotal">—</b><span>в индексе</span></div></div><div class="storage-legend" id="storageLegend"><div class="empty">Считаю распределение…</div></div></div><p class="storage-note">Исключённые безопасностью каталоги не учитываются.</p></div>
             <div class="panel"><h3>Сводка индекса</h3><div class="body" id="fsSummary"><div class="empty">Загрузка…</div></div></div>
             <div class="panel"><h3>Крупные файлы</h3><div class="body flush" id="fsLargest"><div class="empty">Загрузка…</div></div></div>
             <div class="panel"><h3>Риски доступа</h3><div class="body flush" id="fsRisks"><div class="empty">Загрузка…</div></div></div>
@@ -371,6 +372,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.9.0" type="module"></script>
+<script src="/app.js?v=1.10.0" type="module"></script>
 </body>
 </html>

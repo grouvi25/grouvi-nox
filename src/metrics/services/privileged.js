@@ -90,6 +90,7 @@ export async function filesystemBrowse(requestPath = '/', query = '') {
     // Heavy overview lists are sent once at root, not on every folder click.
     largest: clean === '/' && !q ? index.largest || [] : [],
     risks: clean === '/' && !q ? index.risks || [] : [],
+    distribution: clean === '/' && !q ? index.distribution || {roots:[],types:[]} : null,
     policy: index.policy,
   };
 }

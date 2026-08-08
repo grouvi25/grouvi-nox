@@ -167,11 +167,14 @@ function fsRisk(full, name, stat) {
   return flags;
 }
 
+function storageKind(name){const ext=path.extname(name).toLowerCase();if(/\.(?:zip|gz|tgz|bz2|xz|7z|rar|tar|zst|iso)$/.test(ext))return'Archives';if(/\.(?:jpg|jpeg|png|gif|webp|svg|ico|avif|bmp|tiff)$/.test(ext))return'Images';if(/\.(?:mp4|mkv|mov|avi|webm|m4v)$/.test(ext))return'Video';if(/\.(?:mp3|wav|ogg|flac|m4a|aac)$/.test(ext))return'Audio';if(/\.(?:js|mjs|cjs|ts|tsx|jsx|py|go|rs|java|php|rb|sh|css|scss|html|vue|svelte|c|cc|cpp|h|hpp)$/.test(ext))return'Code';if(/\.(?:db|sqlite|sqlite3|sql|dump|rdb|parquet|csv)$/.test(ext))return'Data';if(/\.(?:log|out|err)$/.test(ext))return'Logs';if(/\.(?:pdf|doc|docx|xls|xlsx|ppt|pptx|txt|md|rtf|odt)$/.test(ext))return'Documents';if(/\.(?:deb|rpm|apk|whl|jar|war)$/.test(ext))return'Packages';return'Other'}
+function distributionRows(map){return[...map.entries()].map(([name,value])=>({name,bytes:value.bytes,files:value.files})).sort((a,b)=>b.bytes-a.bytes)}
 function indexFilesystem() {
   const entries = [];
   const totals = { files: 0, directories: 0, symlinks: 0, bytes: 0, excluded: 0, truncated: false };
   const largest = [];
   const risks = [];
+  const rootUsage=new Map(),typeUsage=new Map();
   const roots=filesystemRoots();
   const stack=roots.map(root => ({ full: root, parent: '/', depth: 1 }));
 
@@ -194,7 +197,7 @@ function indexFilesystem() {
     entries.push(item);
     if (isDir) totals.directories += 1;
     else if (isLink) totals.symlinks += 1;
-    else if (stat.isFile()) { totals.files += 1; totals.bytes += stat.size; }
+    else if (stat.isFile()) { totals.files += 1; totals.bytes += stat.size;const root=roots.find(value=>current.full===value||current.full.startsWith(`${value}/`))||'/other',kind=storageKind(name);for(const [map,key] of [[rootUsage,root],[typeUsage,kind]]){const value=map.get(key)||{bytes:0,files:0};value.bytes+=stat.size;value.files+=1;map.set(key,value)} }
     if (excluded) totals.excluded += 1;
     if (risk.some(x => x !== 'recent' && x !== 'privileged-area')) risks.push(item);
     if (stat.isFile() && stat.size > 10 * 1024 * 1024) largest.push(item);
@@ -217,6 +220,7 @@ function indexFilesystem() {
     entries,
     largest: largest.slice(0, 100),
     risks: risks.slice(0, 300),
+    distribution:{roots:distributionRows(rootUsage),types:distributionRows(typeUsage)},
     policy: {
       metadataOnly: true,
       contentAccess: false,
