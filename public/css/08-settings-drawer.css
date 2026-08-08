@@ -12,3 +12,14 @@ button:active:not(:disabled),a:active,[role="button"]:active,.target:active{tran
 .settings-rail-scrim{display:none!important}.nav-scrim{background:transparent!important}.settings-rail nav button{display:grid;grid-template-columns:16px minmax(0,1fr);align-items:center;gap:10px}.settings-rail nav button svg{width:15px;height:15px;color:var(--text3)}.settings-rail nav button:hover svg,.settings-rail nav button.active svg{color:var(--accent)}.side-settings-icon{width:34px;height:34px;margin:7px 14px 7px auto;padding:8px;border:1px solid transparent;background:transparent}.side-settings-icon svg{width:16px;height:16px}.side-settings-icon:hover{background:rgba(255,255,255,.05);border-color:var(--border);color:var(--text)}
 /* Settings lockstep v3 */
 .settings-pane-head{grid-template-columns:34px minmax(0,1fr) auto}.settings-brand{height:72px}.settings-rail nav{padding-bottom:10px}.settings-rail nav button{min-height:35px;padding:8px 18px;font-size:12.5px}.settings-rail nav button svg{width:15px;height:15px}.side-settings-icon{box-sizing:border-box;width:29px;height:29px;margin:7px 14px 7px auto;padding:6px}.side-settings-icon svg{width:15px;height:15px}.side-settings-icon:active{background:rgba(255,255,255,.1)!important;color:var(--text)!important}
+/* Settings motion sync: exact same split-view contract as other panes. */
+@media(min-width:1101px){
+  .settings-pane{position:relative;flex:0 0 0;width:0;transform:translateX(100%);transition:flex-basis 340ms cubic-bezier(.16,1,.3,1),width 340ms cubic-bezier(.16,1,.3,1),transform 340ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
+  .settings-pane.open{flex-basis:var(--pane-width);width:var(--pane-width);transform:none}
+  .settings-rail{transition:transform 340ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
+  .settings-pane.resizing,.pane-dragging .settings-pane{transition:none!important}
+}
+@media(max-width:1100px){
+  .settings-pane{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
+  .settings-rail{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}
+}

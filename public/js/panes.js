@@ -34,6 +34,9 @@ export function setWorkspacePane(activeId = null) {
     pane.classList.toggle('open', open);
     pane.setAttribute('aria-hidden', String(!open));
   }
+  if(activeId!=='settingsPane'){
+    const rail=$('settingsRail');rail?.classList.remove('open');rail?.setAttribute('aria-hidden','true');
+  }
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
-  setTimeout(() => window.dispatchEvent(new Event('resize')), 320);
+  setTimeout(() => window.dispatchEvent(new Event('resize')), 360);
 }
