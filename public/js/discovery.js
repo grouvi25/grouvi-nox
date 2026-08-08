@@ -1,17 +1,10 @@
 import { $, esc } from './utils.js';
 const labels={project:'Проекты',service:'Сервисы',container:'Контейнеры',domain:'Домены',backup:'Бэкапы',database:'Базы',runtime:'Runtime',capability:'Возможности'};
-export function createDiscoveryController({api}) {
-  async function load() {
-    try {
-      const data=await api('/api/discovery');
-      const enabled=data.items.filter(item=>item.enabled);
-      $('discoveryCount').textContent=data.items.length;
-      $('nbDiscovery').textContent=enabled.length;
-      $('discoverySummary').innerHTML=Object.entries(data.summary||{}).map(([type,count])=>`<div><span>${esc(labels[type]||type)}</span><b>${count}</b></div>`).join('');
-      $('discoveryList').innerHTML=enabled.length
-        ? enabled.slice(0,30).map(item=>`<div class="inventory-row"><span class="inventory-kind">${esc(labels[item.type]||item.type)}</span><span><b>${esc(item.name)}</b><small>${esc(item.path||item.source)}</small></span><span class="inventory-confidence">${Math.round(item.confidence*100)}%</span></div>`).join('')
-        : '<div class="empty">Цели ещё не выбраны. Откройте мастер настройки.</div>';
-    } catch(error) { $('discoveryList').innerHTML=`<div class="empty">Discovery недоступен: ${esc(error.message)}</div>`; }
-  }
-  return {load};
+export function createDiscoveryController({api}){
+  let data={items:[],summary:{}};
+  function detail(item){const meta=Object.entries(item.meta||{}).filter(([,value])=>value!==null&&value!==''&&value!==false).map(([key,value])=>`<div><span>${esc(key)}</span><b>${esc(typeof value==='object'?JSON.stringify(value):value)}</b></div>`).join('');return `<div class="inventory-detail" hidden><p>${esc(item.reasons.join(' · ')||'Обнаружено автоматически')}</p><div>${meta||'<span>Дополнительных метаданных нет</span>'}</div><small>ID ${esc(item.id)} · источник ${esc(item.source)} · выбор ${esc(item.selection)}</small></div>`}
+  function renderList(){const q=$('inventorySearch')?.value.trim().toLowerCase()||'',type=$('inventoryType')?.value||'all',onlyEnabled=$('inventoryEnabled')?.checked??true;const items=data.items.filter(item=>(type==='all'||item.type===type)&&(!onlyEnabled||item.enabled)&&(!q||`${item.name} ${item.path||''} ${item.source}`.toLowerCase().includes(q)));$('discoveryList').innerHTML=items.length?items.map(item=>`<article class="inventory-item"><button class="inventory-row" type="button" data-inventory-id="${esc(item.id)}"><span class="inventory-kind">${esc(labels[item.type]||item.type)}</span><span><b>${esc(item.name)}</b><small>${esc(item.path||item.source)}</small></span><span class="inventory-confidence">${Math.round(item.confidence*100)}%</span></button>${detail(item)}</article>`).join(''):'<div class="empty">По этому фильтру целей нет.</div>'}
+  function bind(){for(const id of ['inventorySearch','inventoryType','inventoryEnabled'])$(id)?.addEventListener('input',renderList);$('discoveryList')?.addEventListener('click',event=>{const button=event.target.closest('[data-inventory-id]');if(!button)return;const detail=button.nextElementSibling;detail.hidden=!detail.hidden;button.classList.toggle('expanded',!detail.hidden)})}
+  async function load(){try{data=await api('/api/discovery');const enabled=data.items.filter(item=>item.enabled);$('discoveryCount').textContent=data.items.length;$('nbDiscovery').textContent=enabled.length;$('discoverySummary').innerHTML=Object.entries(data.summary||{}).map(([type,count])=>`<div><span>${esc(labels[type]||type)}</span><b>${count}</b></div>`).join('');const types=[...new Set(data.items.map(item=>item.type))];if($('inventoryType'))$('inventoryType').innerHTML='<option value="all">Все типы</option>'+types.map(type=>`<option value="${esc(type)}">${esc(labels[type]||type)}</option>`).join('');renderList();bind()}catch(error){$('discoveryList').innerHTML=`<div class="empty">Discovery недоступен: ${esc(error.message)}</div>`}}
+  return{load};
 }

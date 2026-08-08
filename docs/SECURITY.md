@@ -40,3 +40,7 @@ A compromised host cannot be made trustworthy by reinstalling the dashboard. Reb
 ## Docker isolation
 
 The web process has no Docker group membership and cannot open `/var/run/docker.sock`. The root collector exposes a Unix socket owned by `vpssentinel` and accepts only a fixed set of Docker GET endpoints for list, disk usage, inspect, one-shot stats and redacted log tails. Mutation endpoints and path traversal are rejected. `sentinelctl doctor` verifies this boundary.
+
+## Settings and secret integrations
+
+`/settings` sends Telegram and AI credentials over authenticated same-origin HTTPS to a schema-limited Unix-socket broker. The unprivileged web process never writes system configuration. The root sidecar validates formats, updates only the allowlisted env/YAML fields, preserves ownership and file modes, then restarts only the affected service. API responses return masks and counts, never secret values.

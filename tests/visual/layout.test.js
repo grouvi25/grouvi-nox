@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
 import { chromium } from 'playwright';
 import { createApp } from '../../src/app.js';
-import { writeDiscoverySettings } from '../../src/discovery/store.js';
+import {discoveryPath,writeDiscoverySettings} from '../../src/discovery/store.js';
+import {candidate} from '../../src/discovery/model.js';
 
-writeDiscoverySettings({complete:true});
+const fixture=candidate({type:'project',key:'/srv/example',name:'example',path:'/srv/example',source:'fixture',confidence:.95,reasons:['git repository']});fs.mkdirSync(process.env.STATE_DIR,{recursive:true});fs.writeFileSync(discoveryPath,JSON.stringify({schema:1,generatedAt:Date.now(),summary:{project:1},items:[fixture],suggested:{},diagnostics:{itemCount:1}}));writeDiscoverySettings({complete:true,enabledIds:[fixture.id]});
 const app=createApp({sessionResolver:()=>({sid:'visual'}),apiAuth:(req,res,next)=>{req.session={sid:'visual',exp:Date.now()+3600000};next()}});
 const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base=`http://127.0.0.1:${server.address().port}`;
@@ -15,8 +17,8 @@ try {
   const chrome=await page.evaluate(()=>['.topbar','.forge-pane-head','.notify-pane-head','.detail-head'].map(selector=>document.querySelector(selector).getBoundingClientRect().height));
   assert.deepEqual(chrome,[56,56,56,56]);
   const kpis=await page.locator('.kpi').evaluateAll(items=>items.map(x=>Math.round(x.getBoundingClientRect().top)));
-  assert.equal(new Set(kpis).size,1,'six KPI blocks must share one desktop row');assert.equal(await page.locator('#s-discovery').count(),1);
-  await page.goto(`${base}/setup`,{waitUntil:'networkidle'});assert.equal(await page.locator('.setup-shell').count(),1);assert.match(await page.locator('h1').textContent(),/Настроим наблюдение/);await page.goto(base,{waitUntil:'networkidle'});await page.click('#forgeOpen');await page.waitForTimeout(420);
+  assert.equal(new Set(kpis).size,1,'six KPI blocks must share one desktop row');assert.equal(await page.locator('#s-discovery').count(),1);assert.ok(await page.locator('.inventory-item').count()>0);await page.locator('[data-inventory-id]').first().click();assert.equal(await page.locator('.inventory-detail').first().getAttribute('hidden'),null);
+  await page.goto(`${base}/setup`,{waitUntil:'networkidle'});assert.equal(await page.locator('.setup-app').count(),1);await page.click('#nextBtn');await page.click('#nextBtn');assert.equal(await page.locator('#confidenceSelect').count(),1);assert.equal(await page.locator('#monitorNew').count(),1);await page.goto(`${base}/settings`,{waitUntil:'networkidle'});assert.equal(await page.locator('.settings-section').count(),5);await page.goto(base,{waitUntil:'networkidle'});await page.click('#forgeOpen');await page.waitForTimeout(420);
   assert.equal(await page.locator('#forgePane').evaluate(x=>x.classList.contains('open')),true);
   await context.close();
 

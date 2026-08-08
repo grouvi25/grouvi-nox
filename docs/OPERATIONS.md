@@ -78,3 +78,7 @@ Let's Encrypt certificates are retained to avoid deleting certificates shared wi
 ## Quality checks
 
 Run `npm test` for unit and HTTP integration tests, `npm run test:coverage` for the enforced coverage floor, and `npm run test:visual` on a host with Playwright Chromium. CI runs all three before merge. Database changes must be added as a numbered migration in `src/db/migrations.js`.
+
+## Settings UI
+
+Use `/settings` for Discovery, Telegram and the optional OpenAI-compatible Sentinel Forge provider. Blank secret fields preserve existing configuration. Telegram test delivery happens only when the admin presses the explicit test button. CLI configuration remains available as a recovery path.

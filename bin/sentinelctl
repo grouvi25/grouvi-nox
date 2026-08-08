@@ -77,6 +77,7 @@ cmd_doctor(){
   CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
   CHECK_NAME='web user is outside docker group'; check bash -c "! id -nG '$SENTINEL_USER' | tr ' ' '\\n' | grep -qx docker"
   CHECK_NAME='read-only Docker broker socket'; check bash -c "[[ -S '$STATE_DIR/docker-read.sock' && \$(stat -c %G '$STATE_DIR/docker-read.sock') == '$SENTINEL_USER' ]]"
+  CHECK_NAME='integration configuration broker socket'; check bash -c "[[ -S '$STATE_DIR/integration-config.sock' && \$(stat -c %G '$STATE_DIR/integration-config.sock') == '$SENTINEL_USER' ]]"
   CHECK_NAME='web listener is loopback only'; check bash -c "ss -H -lntp | grep -q '127.0.0.1:${PORT}' && ! ss -H -lntp | grep -qE '(0.0.0.0|\[::\]):${PORT}'"
   CHECK_NAME='API rejects unauthenticated history'; check bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/api/history) == 401 ]]"
   if [[ $PROXY_MODE == cloudflare ]]; then
