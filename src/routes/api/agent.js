@@ -8,7 +8,7 @@ import { buildProjectGraph } from '../../discovery/graph.js';
 import { integrationStatus } from '../../integration-client.js';
 const router=express.Router();
 
-function forgeProjects(){const graph=buildProjectGraph(resolvedDiscovery());return[{id:'vps',name:'Весь VPS',detail:'Система и обнаруженные сервисы',path:null},...graph.projects.filter(project=>project.path).map(project=>({id:project.id,name:project.name,detail:`${project.health.runtimeCount} runtime · ${project.components.length} components`,path:project.path}))]}
+function forgeProjects(){const graph=buildProjectGraph(resolvedDiscovery());return[{id:'vps',name:'Весь VPS',detail:'Система и обнаруженные сервисы',path:null},...graph.projects.filter(project=>project.path&&project.components.length).map(project=>({id:project.id,name:project.name,detail:`${project.health.runtimeCount} runtime · ${project.components.length} components`,path:project.path}))]}
 router.get('/agent/projects',async(req,res)=>{let models=['Qwen3.6-35B-A3B','DeepSeek-V4-Pro'];try{models=(await integrationStatus()).ai?.models||models}catch{}res.set('Cache-Control','no-store');res.json({projects:forgeProjects(),models,discoveryManaged:true})});
 
 const agentJobs = new Map();
