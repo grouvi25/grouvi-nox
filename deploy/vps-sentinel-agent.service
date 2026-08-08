@@ -19,7 +19,7 @@ SyslogIdentifier=vps-sentinel-agent
 # Runs as root, writes state snapshots, and exposes an allowlisted read-only Docker socket.
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/vps-sentinel
+ReadWritePaths=/var/lib/vps-sentinel /etc/vps-sentinel.env -/etc/sentinel-ai.env -/var/lib/sentinel-ai/.hermes/config.yaml
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
