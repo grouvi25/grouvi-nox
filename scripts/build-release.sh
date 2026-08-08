@@ -12,7 +12,7 @@ rm -rf "$OUT"; mkdir -p "$OUT/stage"
 
 # Explicit allowlist: release contents cannot accidentally absorb .env, keys,
 # coverage, local state, node_modules or forensic artifacts.
-for item in package.json package-lock.json README.md LICENSE RELEASE-MANIFEST.json .env.example bin deploy docs public scripts src tests; do
+for item in package.json package-lock.json README.md design.md LICENSE RELEASE-MANIFEST.json .env.example bin deploy docs public scripts src tests; do
   [[ -e $ROOT/$item ]] || { echo "Required release item missing: $item" >&2; exit 1; }
   cp -a "$ROOT/$item" "$OUT/stage/"
 done

@@ -6,6 +6,7 @@ import { createIncidentController } from './js/incidents.js';
 import { createFilesystemController } from './js/filesystem.js';
 import { createForgeController } from './js/forge.js';
 import {createDiscoveryController} from './js/discovery.js';
+import {createSettingsController} from './js/settings-pane.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -307,6 +308,7 @@ function formatWhen(ts) {
 const { hourOptions, syncNotificationFooter, loadNotificationState, openNotifications, closeNotifications, saveNotifications, testNotification } = createNotificationController({ api, formatWhen, setWorkspacePane });
 const forge=createForgeController({api,formatWhen,setWorkspacePane});
 const discoveryController=createDiscoveryController({api,openProject:openProjectDetail,openTarget:openServiceDetail});
+const settings=createSettingsController({api,setWorkspacePane});
 
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
@@ -553,6 +555,7 @@ async function bootstrap() {
   } catch { /* websocket will fill in */ }
   await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load()]);
   connect();
+  if(location.hash==='#settings')settings.open();
 }
 
 /* ------------------------------ ui ------------------------------- */
@@ -561,8 +564,10 @@ $('logout').addEventListener('click', async () => {
   location.href = '/login';
 });
 
-const sidebar = $('sidebar');
-$('burger').addEventListener('click', () => sidebar.classList.toggle('open'));
+const sidebar=$('sidebar'),navScrim=$('navScrim');
+function setNavigation(open){sidebar.classList.toggle('open',open);navScrim.hidden=!open}
+$('burger').addEventListener('click',()=>setNavigation(!sidebar.classList.contains('open')));
+navScrim.addEventListener('click',()=>setNavigation(false));
 
 /* scroll spy */
 const navItems = [...document.querySelectorAll('a.nav-item')];
@@ -602,7 +607,7 @@ navItems.forEach((a) => a.addEventListener('click', (e) => {
     history.replaceState(null, '', a.getAttribute('href'));
     setTimeout(()=>{if(navLockTarget===a){navLockTarget=null;navLockUntil=0;content.dispatchEvent(new Event('scroll'))}},720);
   }
-  sidebar.classList.remove('open');
+  setNavigation(false);
 }));
 navItems[0]?.classList.add('active');
 
@@ -639,13 +644,19 @@ $('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
 $('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
 $('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
+$('settingsOpen').addEventListener('click',()=>{history.replaceState(null,'','#settings');settings.open()});
+$('settingsClose').addEventListener('click',settings.close);
+$('settingsRefresh').addEventListener('click',()=>settings.load());
+$('settingsRail').addEventListener('click',e=>{const item=e.target.closest('[data-settings-nav]');if(item)settings.navigate(item.dataset.settingsNav)});
+$('settingsRailToggle').addEventListener('click',()=>{const rail=$('settingsRail'),open=!rail.classList.contains('open');rail.classList.toggle('open',open);$('settingsRailScrim').hidden=!open});
+$('settingsRailScrim').addEventListener('click',()=>{$('settingsRail').classList.remove('open');$('settingsRailScrim').hidden=true});
 $('deployProject').addEventListener('change',()=>{deployLimit=20;renderDeployments()});
 $('deploySearch').addEventListener('input',()=>{deployLimit=20;renderDeployments()});
 $('deployMore').addEventListener('click',()=>{deployLimit+=20;renderDeployments()});
 $('deployments').addEventListener('click',e=>{const row=e.target.closest('[data-deploy-sha]');if(row)openCommitDetail(row.dataset.deployDir,row.dataset.deploySha)});
 $('detailBody').addEventListener('click',e=>{const copy=e.target.closest('[data-copy-sha]');if(copy)navigator.clipboard.writeText(copy.dataset.copySha).then(()=>{copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy SHA',1200)})});
 $('detailBody').addEventListener('click',e=>{const service=e.target.closest('[data-service-type]');if(service)openServiceDetail(service.dataset.serviceType,service.dataset.serviceName)});
-window.addEventListener('keydown', (e) => { if(e.key==='Escape'){closeDetail();forge.closeForge();closeNotifications()} });
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){setNavigation(false);settings.close();closeDetail();forge.closeForge();closeNotifications()}});
 $('fsEntries').addEventListener('click',filesystem.onEntriesClick);
 $('fsEntries').addEventListener('keydown',filesystem.onEntriesKeydown);
 $('fsBreadcrumb').addEventListener('click',filesystem.onBreadcrumbClick);

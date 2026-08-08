@@ -17,7 +17,7 @@ export function createApp({sessionResolver=currentSession,apiAuth}={}) {
   const sendPage=file=>(req,res)=>{res.set('Cache-Control','no-store');res.sendFile(path.join(publicDir,file))};
   app.get('/',(req,res,next)=>sessionResolver(req)?sendPage('index.html')(req,res,next):res.redirect(302,'/login'));
   app.get('/setup',(req,res,next)=>sessionResolver(req)?sendPage('setup.html')(req,res,next):res.redirect(302,'/login'));
-  app.get('/settings',(req,res,next)=>sessionResolver(req)?sendPage('settings.html')(req,res,next):res.redirect(302,'/login'));
+  app.get('/settings',(req,res)=>sessionResolver(req)?res.redirect(302,'/#settings'):res.redirect(302,'/login'));
   app.get('/login',sendPage('login.html'));app.get('/enroll',sendPage('enroll.html'));
   app.use(express.static(publicDir,{index:false,dotfiles:'deny',etag:true,lastModified:true,maxAge:0,setHeaders(res,filePath){res.setHeader('Cache-Control',filePath.endsWith('.html')?'no-store':'no-cache')}}));
   app.use((req,res)=>res.status(404).json({error:'not_found'}));
