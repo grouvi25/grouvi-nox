@@ -123,23 +123,25 @@ async function fail2ban() {
   };
 }
 
+function cleanRemote(value){return String(value||'').replace(/^(https?:\/\/)[^/@]+@/,'$1').replace(/^(ssh:\/\/)[^/@]+@/,'$1').slice(0,500)}
 async function deployments() {
   const projects = [];
   for (const dir of deployDirs()) {
     if (!fs.existsSync(path.join(dir, '.git'))) continue;
-    // Unit separator and record separator avoid commit-message parsing bugs.
-    // eslint-disable-next-line no-await-in-loop
-    const result = await run('git', ['log', '-12', '--date=iso-strict', '--pretty=format:%H%x1f%h%x1f%ad%x1f%an%x1f%s%x1e'], 8000, dir);
+    const result = await run('git', ['log', '-30', '--date=iso-strict', '--pretty=format:%H%x1f%h%x1f%aI%x1f%an%x1f%ae%x1f%cI%x1f%cn%x1f%P%x1f%D%x1f%s%x1f%b%x1e'], 10_000, dir);
     if (!result.ok) continue;
     const commits = result.stdout.split('\x1e').map(x => x.trim()).filter(Boolean).map(row => {
-      const [sha, short, at, author, subject] = row.split('\x1f');
-      return { sha, short, at, author, subject };
+      const [sha, short, at, author, authorEmail, committedAt, committer, parents, refs, subject, ...body] = row.split('\x1f');
+      return { sha, short, at, author, authorEmail, committedAt, committer, parents:parents?parents.split(' '):[], refs:refs?refs.split(',').map(x=>x.trim()).filter(Boolean):[], subject, body:body.join('\x1f').trim().slice(0,8000) };
     });
-    const branch = (await run('git', ['branch', '--show-current'], 3000, dir)).stdout.trim();
-    const dirty = Boolean((await run('git', ['status', '--porcelain'], 3000, dir)).stdout.trim());
-    projects.push({ project: path.basename(dir), dir, branch, dirty, commits });
+    const [branchResult,statusResult,upstreamResult,remoteResult]=await Promise.all([
+      run('git',['branch','--show-current'],3000,dir),run('git',['status','--porcelain=v1'],5000,dir),run('git',['rev-parse','--abbrev-ref','--symbolic-full-name','@{upstream}'],3000,dir),run('git',['remote','get-url','origin'],3000,dir),
+    ]);
+    const branch=branchResult.stdout.trim()||'detached',statusLines=statusResult.stdout.split('\n').filter(Boolean),upstream=upstreamResult.ok?upstreamResult.stdout.trim():null;
+    let ahead=0,behind=0;if(upstream){const sync=await run('git',['rev-list','--left-right','--count',`HEAD...${upstream}`],5000,dir),parts=sync.stdout.trim().split(/\s+/).map(Number);ahead=parts[0]||0;behind=parts[1]||0}
+    projects.push({project:path.basename(dir),dir,branch,upstream,remote:cleanRemote(remoteResult.stdout.trim()),dirty:statusLines.length>0,dirtyCount:statusLines.length,ahead,behind,head:commits[0]?.sha||null,commits});
   }
-  return projects;
+  return projects.sort((a,b)=>new Date(b.commits[0]?.at||0)-new Date(a.commits[0]?.at||0));
 }
 
 function filesystemRoots(){const configured=discoverySettings().roots||[];const standard=['/etc','/opt','/srv','/var/www','/usr/local','/home','/root','/boot','/tmp'];return[...new Set([...standard,...configured])].filter(x=>fs.existsSync(x))}

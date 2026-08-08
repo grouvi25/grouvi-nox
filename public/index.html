@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.7.0">
+<link rel="stylesheet" href="/style.css?v=1.9.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -302,8 +302,11 @@
             <div class="body" id="dockerDisk"></div>
           </div>
           <div class="panel deploy-panel">
-            <h3>Последние деплои <span class="right" id="deployMeta">git</span></h3>
-            <div class="body flush" id="deployments"><div class="empty">Загружаю историю…</div></div>
+            <div class="git-head"><div><h3>Git activity</h3><span id="deployMeta">собираю репозитории</span></div><div class="git-actions"><label><span>Проект</span><select id="deployProject"><option value="all">Все проекты</option></select></label><label class="git-search"><span>Поиск</span><input id="deploySearch" type="search" placeholder="commit, автор, SHA"></label></div></div>
+            <div class="git-overview" id="deployOverview"><div class="empty">Загружаю историю…</div></div>
+            <div class="git-columns"><span>Репозиторий</span><span>Commit</span><span>Сообщение</span><span>Автор</span><span>Время</span></div>
+            <div class="body flush git-timeline" id="deployments"><div class="empty">Загружаю историю…</div></div>
+            <footer class="git-footer"><span id="deployShown">0 коммитов</span><button type="button" id="deployMore">Показать ещё</button></footer>
           </div>
         </div>
       </section>
@@ -368,6 +371,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.7.0" type="module"></script>
+<script src="/app.js?v=1.9.0" type="module"></script>
 </body>
 </html>

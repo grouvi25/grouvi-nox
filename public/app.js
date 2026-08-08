@@ -321,26 +321,20 @@ async function loadHistory(range = '24h') {
   } catch (e) { $('historyMeta').textContent = `Ошибка: ${e.message}`; }
 }
 
-function renderDeployments(projects) {
-  const rows = [];
-  for (const project of projects || []) {
-    for (const c of (project.commits || []).slice(0, 3)) rows.push({ ...c, project: project.project, dirty: project.dirty });
-  }
-  rows.sort((a, b) => new Date(b.at) - new Date(a.at));
-  $('deployMeta').textContent = `${projects?.length || 0} проектов`;
-  $('deployments').innerHTML = rows.length ? rows.slice(0, 14).map(c => `
-    <div class="deploy-row">
-      <span class="deploy-project">${esc(c.project)}${c.dirty ? '*' : ''}</span>
-      <span class="deploy-sha">${esc(c.short)}</span>
-      <span class="deploy-subject">${esc(c.subject)}</span>
-      <span class="deploy-time">${formatWhen(new Date(c.at).getTime())}</span>
-    </div>`).join('') : '<div class="empty">Git-репозитории не найдены.</div>';
+let deploymentProjects=[],deployLimit=20;
+const githubCommitUrl=(remote,sha)=>{const match=/github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/.exec(String(remote||''));return match?`https://github.com/${match[1]}/${match[2]}/commit/${sha}`:null};
+function renderDeployments(projects=deploymentProjects) {
+  deploymentProjects=projects||[];const selected=$('deployProject')?.value||'all',q=$('deploySearch')?.value.trim().toLowerCase()||'',rows=[];
+  for(const project of deploymentProjects){if(selected!=='all'&&project.dir!==selected)continue;for(const commit of project.commits||[]){const haystack=`${project.project} ${commit.sha} ${commit.subject} ${commit.body||''} ${commit.author} ${commit.authorEmail||''} ${(commit.refs||[]).join(' ')}`.toLowerCase();if(!q||haystack.includes(q))rows.push({...commit,project})}}
+  rows.sort((a,b)=>new Date(b.at)-new Date(a.at));const visible=rows.slice(0,deployLimit),dirty=deploymentProjects.filter(x=>x.dirty).length,ahead=deploymentProjects.reduce((n,x)=>n+(x.ahead||0),0),behind=deploymentProjects.reduce((n,x)=>n+(x.behind||0),0);
+  $('deployMeta').textContent=`${deploymentProjects.length} репозиториев · ${rows.length} коммитов`;
+  $('deployOverview').innerHTML=`<div><span>Репозитории</span><b>${deploymentProjects.length}</b></div><div><span>Изменения локально</span><b class="${dirty?'warn':''}">${dirty}</b></div><div><span>Ahead</span><b>${ahead}</b></div><div><span>Behind</span><b class="${behind?'warn':''}">${behind}</b></div>`;
+  $('deployments').innerHTML=visible.length?visible.map(({project,...c})=>{const sync=project.dirty?`${project.dirtyCount} изм.`:project.behind?`↓${project.behind}`:project.ahead?`↑${project.ahead}`:'clean';return `<button class="deploy-row" type="button" data-deploy-dir="${esc(project.dir)}" data-deploy-sha="${esc(c.sha)}"><span class="deploy-project"><b>${esc(project.project)}</b><small>${esc(project.branch)} · ${esc(sync)}</small></span><span class="deploy-sha">${esc(c.short)}</span><span class="deploy-message"><b>${esc(c.subject)}</b>${c.refs?.length?`<small>${c.refs.slice(0,3).map(ref=>`<i>${esc(ref)}</i>`).join('')}</small>`:''}</span><span class="deploy-author"><b>${esc(c.author)}</b><small>${esc(c.authorEmail||'')}</small></span><span class="deploy-time">${formatWhen(new Date(c.at).getTime())}</span></button>`}).join(''):'<div class="empty">По этому фильтру коммитов нет.</div>';
+  $('deployShown').textContent=`Показано ${visible.length} из ${rows.length}`;$('deployMore').hidden=visible.length>=rows.length;
 }
-
-async function loadDeployments() {
-  try { renderDeployments((await api('/api/deployments')).projects); }
-  catch (e) { $('deployments').innerHTML = `<div class="empty">Ошибка: ${esc(e.message)}</div>`; }
-}
+function renderDeployProjectOptions(){const select=$('deployProject'),value=select.value;select.innerHTML='<option value="all">Все проекты</option>'+deploymentProjects.map(p=>`<option value="${esc(p.dir)}">${esc(p.project)} · ${esc(p.branch)}</option>`).join('');select.value=deploymentProjects.some(p=>p.dir===value)?value:'all'}
+async function loadDeployments() {try{deploymentProjects=(await api('/api/deployments')).projects||[];renderDeployProjectOptions();renderDeployments()}catch(e){$('deployments').innerHTML=`<div class="empty">Ошибка: ${esc(e.message)}</div>`}}
+function openCommitDetail(dir,sha){const project=deploymentProjects.find(x=>x.dir===dir),commit=project?.commits?.find(x=>x.sha===sha);if(!project||!commit)return;openDetailShell('commit',commit.short);$('detailType').textContent='Git commit';$('detailTitle').textContent=commit.subject;$('detailStatus').textContent=project.branch;$('detailStatus').className=`pill ${project.dirty?'warn':'ok'}`;const url=githubCommitUrl(project.remote,commit.sha),refs=(commit.refs||[]).map(x=>`<i>${esc(x)}</i>`).join('');$('detailBody').innerHTML=`<section class="detail-section"><h3>Commit</h3>${detailStats([['Repository',project.project],['SHA',commit.sha],['Branch',project.branch],['Upstream',project.upstream||'not configured'],['Author',`${commit.author} <${commit.authorEmail||'—'}>`],['Committed by',commit.committer||commit.author],['Authored',new Date(commit.at).toLocaleString('ru-RU')],['Committed',new Date(commit.committedAt||commit.at).toLocaleString('ru-RU')],['Parents',commit.parents?.length?commit.parents.map(x=>x.slice(0,10)).join(' · '):'root commit'],['Working tree',project.dirty?`${project.dirtyCount} local changes`:'clean']])}</section>${refs?`<section class="detail-section"><h3>Refs</h3><div class="commit-refs">${refs}</div></section>`:''}<section class="detail-section"><h3>Message</h3><div class="commit-message"><b>${esc(commit.subject)}</b>${commit.body?`<p>${esc(commit.body)}</p>`:''}</div></section><section class="detail-section"><h3>Repository</h3>${detailStats([['Path',project.dir],['Remote',project.remote||'not configured'],['Sync',`ahead ${project.ahead||0} · behind ${project.behind||0}`]])}<div class="commit-actions"><button type="button" data-copy-sha="${esc(commit.sha)}">Copy SHA</button>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Open on GitHub</a>`:''}</div></section>`}
 
 function detailStats(entries) {
   return `<div class="detail-grid">${entries.map(([k, v]) => `<div class="detail-stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
@@ -350,7 +344,7 @@ let detailRefreshTimer=null,detailRequestToken=0;
 function stopDetailRefresh(){clearTimeout(detailRefreshTimer);detailRefreshTimer=null;detailRequestToken+=1}
 function openDetailShell(type, name) {
   stopDetailRefresh();
-  const labels={container:'Docker container',pm2:'PM2 process',systemd:'systemd service',project:'Project workspace'};
+  const labels={container:'Docker container',pm2:'PM2 process',systemd:'systemd service',project:'Project workspace',commit:'Git commit'};
   $('detailType').textContent = labels[type]||'Service';
   $('detailTitle').textContent = name;
   $('detailStatus').textContent = 'загрузка';
@@ -649,6 +643,11 @@ $('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
 $('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
 $('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
+$('deployProject').addEventListener('change',()=>{deployLimit=20;renderDeployments()});
+$('deploySearch').addEventListener('input',()=>{deployLimit=20;renderDeployments()});
+$('deployMore').addEventListener('click',()=>{deployLimit+=20;renderDeployments()});
+$('deployments').addEventListener('click',e=>{const row=e.target.closest('[data-deploy-sha]');if(row)openCommitDetail(row.dataset.deployDir,row.dataset.deploySha)});
+$('detailBody').addEventListener('click',e=>{const copy=e.target.closest('[data-copy-sha]');if(copy)navigator.clipboard.writeText(copy.dataset.copySha).then(()=>{copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy SHA',1200)})});
 $('detailBody').addEventListener('click',e=>{const service=e.target.closest('[data-service-type]');if(service)openServiceDetail(service.dataset.serviceType,service.dataset.serviceName)});
 window.addEventListener('keydown', (e) => { if(e.key==='Escape'){closeDetail();forge.closeForge();closeNotifications()} });
 $('fsEntries').addEventListener('click',filesystem.onEntriesClick);
