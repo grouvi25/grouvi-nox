@@ -227,3 +227,10 @@
 .deploy-row:active{transform:translateY(1px);background:var(--border)}
 .storage-row:active{background:var(--border)}
 .project-row:active,.project-component:active,.target-row:active{background:var(--border)}
+/* Non-shifting interaction states and Security composition */
+@container sentinel-content (max-width:980px){#s-sec .g3{grid-template-columns:repeat(2,minmax(0,1fr))}#s-sec .security-wide{grid-column:1/-1}}
+@container sentinel-content (max-width:680px){#s-sec .g3{grid-template-columns:1fr}#s-sec .security-wide{grid-column:1}}
+button:active:not(:disabled),a:active,[role="button"]:active{transform:none!important;filter:none!important}
+button:active:not(:disabled),[role="button"]:active{background-color:var(--border)!important;box-shadow:inset 0 0 0 1px var(--accent)!important;color:var(--accent)!important}
+a:active{background-color:var(--border)!important;color:var(--accent)!important;box-shadow:inset 0 0 0 1px var(--accent)!important}
+input:active,select:active,textarea:active{transform:none!important;border-color:var(--accent)!important}
