@@ -96,6 +96,20 @@ async function pm2() {
   };
 }
 
+async function systemdDetails() {
+  const settings=discoverySettings(),on=new Set(settings.enabledIds||[]),off=new Set(settings.disabledIds||[]),threshold=Number(settings.preferences?.autoEnableConfidence||.75);const units=discoverySnapshot().items.filter(item=>item.type==='service'&&item.source==='systemd'&&item.meta?.custom&&(on.has(item.id)||(!off.has(item.id)&&item.defaultEnabled&&item.confidence>=threshold))).map(item=>item.name).filter(name=>/^[A-Za-z0-9_.@-]+\.service$/.test(name)).slice(0,40);
+  const items=await Promise.all(units.map(async unit=>{
+    const [show,journal]=await Promise.all([
+      run('systemctl',['show',unit,'--no-pager','--property=ActiveState,SubState,MainPID,MemoryCurrent,CPUUsageNSec,ActiveEnterTimestamp,WorkingDirectory,ExecStart,FragmentPath'],5000),
+      run('journalctl',['-u',unit,'-n','140','--no-pager','--output=short-iso'],7000),
+    ]);
+    const detail={unit,name:unit};
+    for(const line of show.stdout.split('\n')){const i=line.indexOf('=');if(i<1)continue;const key=line.slice(0,i),value=line.slice(i+1);if(key==='ActiveState')detail.status=value;else if(key==='SubState')detail.subState=value;else if(key==='MainPID')detail.pid=Number(value)||null;else if(key==='MemoryCurrent')detail.memory=Number(value)||0;else if(key==='CPUUsageNSec')detail.cpuNs=Number(value)||0;else if(key==='ActiveEnterTimestamp')detail.startedAt=value||null;else if(key==='WorkingDirectory')detail.cwd=value||null;else if(key==='ExecStart')detail.execStart=value.slice(0,700);else if(key==='FragmentPath')detail.fragmentPath=value}
+    detail.logs=redact(journal.stdout||journal.stderr).split('\n').slice(-140).join('\n');return detail;
+  }));
+  return{available:true,items};
+}
+
 async function fail2ban() {
   const result = await run(F2B_BIN, ['status', 'sshd']);
   if (!result.ok) return { available: false };
@@ -224,8 +238,8 @@ async function discoveryTick(){try{const configured=discoverySettings().roots||[
 
 async function tick(){if(fs.existsSync(DISCOVERY_RESCAN)){try{fs.unlinkSync(DISCOVERY_RESCAN)}catch{}await discoveryTick()}
   try {
-    const [p, f, d] = await Promise.all([pm2(), fail2ban(), deployments()]);
-    const payload = JSON.stringify({ at: Date.now(), pm2: p, fail2ban: f, deployments: d });
+    const [p, f, d, units] = await Promise.all([pm2(), fail2ban(), deployments(), systemdDetails()]);
+    const payload = JSON.stringify({ at: Date.now(), pm2: p, fail2ban: f, deployments: d, systemdDetails: units });
     const tmp = `${OUT}.tmp`;
     fs.writeFileSync(tmp, payload, { mode: 0o644 });
     fs.renameSync(tmp, OUT);

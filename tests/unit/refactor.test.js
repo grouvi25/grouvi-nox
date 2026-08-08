@@ -10,8 +10,8 @@ import { renderMarkdown } from '../../public/js/markdown.js';
 
 test('formatters and thresholds preserve dashboard behavior',()=>{assert.equal(bytes(1024),'1.0 КБ');assert.equal(dur(3660),'1ч 1м');assert.equal(esc('<x>'),'&lt;x&gt;');assert.equal(clamp(120,0,100),100);assert.equal(lvl(95,80,90),'crit')});
 test('markdown preserves supported structures and escaping',()=>{const html=renderMarkdown('## Заголовок\n\n**жирный**\n\n```js\nconst x=1;\n```');assert.match(html,/<h4>Заголовок<\/h4>/);assert.match(html,/<strong>жирный<\/strong>/);assert.match(html,/data-copy-code/);assert.match(renderMarkdown('<script>x<\/script>'),/&lt;script&gt;/)});
-test('modular CSS stays pinned to the approved refactor baseline',()=>{const dir='public/css',text=fs.readdirSync(dir).filter(x=>x.endsWith('.css')).sort().map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('');assert.equal(crypto.createHash('sha256').update(text).digest('hex'),'75d47bb5d59a2c7d5552691c64aad2db06b7c13f11e95e6c3a4f9312f64984b7')});
-test('API paths survive router split',()=>{const expected=['/snapshot', '/history', '/incidents', '/incidents/:id/status', '/incidents/:id/ack', '/incidents/:id/resolve', '/incidents/:id/investigate', '/agent/projects', '/agent/chat', '/agent/chat/:jobId', '/services/container/:name', '/services/pm2/:name', '/deployments', '/filesystem', '/notifications', '/notifications/settings', '/notifications/test', '/session', '/audit'];const dir='src/routes/api',source=fs.readdirSync(dir).filter(x=>x.endsWith('.js')).map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('\n');for(const route of expected)assert.ok(source.includes(`'${route}'`),route)});
+test('modular CSS stays pinned to the approved refactor baseline',()=>{const dir='public/css',text=fs.readdirSync(dir).filter(x=>x.endsWith('.css')).sort().map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('');assert.equal(crypto.createHash('sha256').update(text).digest('hex'),'7dceb616dd11dfa22febc02bb6cd47b0d95fbd0a574a77d6ddf5710b5f331000')});
+test('API paths survive router split',()=>{const expected=['/snapshot', '/history', '/incidents', '/incidents/:id/status', '/incidents/:id/ack', '/incidents/:id/resolve', '/incidents/:id/investigate', '/agent/projects', '/agent/chat', '/agent/chat/:jobId', '/services/container/:name', '/services/pm2/:name', '/services/systemd/:name', '/projects/:id', '/projects', '/deployments', '/filesystem', '/notifications', '/notifications/settings', '/notifications/test', '/session', '/audit'];const dir='src/routes/api',source=fs.readdirSync(dir).filter(x=>x.endsWith('.js')).map(x=>fs.readFileSync(path.join(dir,x),'utf8')).join('\n');for(const route of expected)assert.ok(source.includes(`'${route}'`),route)});
 test('database initializes with stable defaults',()=>{const dir=mkdtempSync(path.join(tmpdir(),'sentinel-db-')),code=`import {initDatabase,incidentCounts,getNotificationSettings,listIncidents} from './src/database.js';initDatabase();const c=incidentCounts(),s=getNotificationSettings();if(c.total!==0||s.cooldownMin!==30||listIncidents({status:'active',limit:6}).length!==0)process.exit(1)`;const r=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:process.cwd(),env:{...process.env,STATE_DIR:dir}});rmSync(dir,{recursive:true,force:true});assert.equal(r.status,0,r.stderr?.toString())});
 
 import http from 'node:http';
@@ -80,6 +80,7 @@ test('incident lifecycle, history bucketing and settings persist',()=>{
 
 import { candidate, mergeCandidates, stableId } from '../../src/discovery/model.js';
 import { discoverHost } from '../../src/discovery/scanner.js';
+import { buildProjectGraph } from '../../src/discovery/graph.js';
 import { readDiscoverySettings, writeDiscoverySettings } from '../../src/discovery/store.js';
 
 test('discovery model is stable, scored and deduplicated',()=>{
@@ -91,6 +92,12 @@ test('discovery model is stable, scored and deduplicated',()=>{
 test('discovery scanner identifies generic project, backup and database fixtures',()=>{
   const root=mkdtempSync(path.join(tmpdir(),'sentinel-discovery-'));fs.mkdirSync(path.join(root,'app','.git'),{recursive:true});fs.writeFileSync(path.join(root,'app','package.json'),'{"name":"fixture-app"}');fs.mkdirSync(path.join(root,'daily-backups'));fs.writeFileSync(path.join(root,'app','data.sqlite'),'db');
   const result=discoverHost({roots:[root]});rmSync(root,{recursive:true,force:true});assert.ok(result.items.some(x=>x.type==='project'&&x.name==='fixture-app'));assert.ok(result.items.some(x=>x.type==='backup'));assert.ok(result.items.some(x=>x.type==='database'));
+});
+
+test('project graph links Compose, PM2, systemd and nested assets automatically',()=>{
+  const project=candidate({type:'project',key:'/opt/app',name:'app',path:'/opt/app',source:'filesystem',confidence:.95,reasons:['git']});
+  const items=[project,candidate({type:'container',key:'web',name:'app-web',source:'docker',confidence:.99,reasons:['docker'],meta:{workingDir:'/opt/app',project:'app'}}),candidate({type:'service',key:'pm2:web',name:'web',source:'pm2',confidence:.97,reasons:['pm2'],meta:{cwd:'/opt/app',status:'online'}}),candidate({type:'service',key:'app.service',name:'app.service',source:'systemd',confidence:.95,reasons:['unit'],meta:{workingDirectory:'/opt/app',status:'active'}}),candidate({type:'database',key:'/opt/app/data.db',name:'data.db',path:'/opt/app/data.db',source:'filesystem',confidence:.8,reasons:['db']})].map(item=>({...item,enabled:true}));
+  const graph=buildProjectGraph({items,generatedAt:1});assert.equal(graph.projects.length,1);assert.equal(graph.projects[0].health.runtimeCount,3);assert.equal(graph.projects[0].components.length,4);assert.equal(graph.unassigned.length,0);
 });
 
 test('discovery settings only accept known ids and persist completion',()=>{

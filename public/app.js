@@ -306,7 +306,7 @@ function formatWhen(ts) {
 
 const { hourOptions, syncNotificationFooter, loadNotificationState, openNotifications, closeNotifications, saveNotifications, testNotification } = createNotificationController({ api, formatWhen, setWorkspacePane });
 const forge=createForgeController({api,formatWhen,setWorkspacePane});
-const discoveryController=createDiscoveryController({api});
+const discoveryController=createDiscoveryController({api,openProject:openProjectDetail,openTarget:openServiceDetail});
 
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
@@ -346,8 +346,12 @@ function detailStats(entries) {
   return `<div class="detail-grid">${entries.map(([k, v]) => `<div class="detail-stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>`;
 }
 
+let detailRefreshTimer=null,detailRequestToken=0;
+function stopDetailRefresh(){clearTimeout(detailRefreshTimer);detailRefreshTimer=null;detailRequestToken+=1}
 function openDetailShell(type, name) {
-  $('detailType').textContent = type === 'container' ? 'Docker container' : 'PM2 process';
+  stopDetailRefresh();
+  const labels={container:'Docker container',pm2:'PM2 process',systemd:'systemd service',project:'Project workspace'};
+  $('detailType').textContent = labels[type]||'Service';
   $('detailTitle').textContent = name;
   $('detailStatus').textContent = 'загрузка';
   $('detailStatus').className = 'pill idle';
@@ -369,6 +373,11 @@ function renderContainerDetail(d) {
     <section class="detail-section"><h3>Последние логи · секреты редактируются</h3><pre class="log-view">${esc(d.logs || 'Логи пусты.')}</pre></section>`;
 }
 
+function renderSystemdDetail(d) {
+  const active=d.status==='active';$('detailStatus').textContent=d.subState||d.status||'unknown';$('detailStatus').className=`pill ${active?'ok':'crit'}`;
+  $('detailBody').innerHTML=`<section class="detail-section"><h3>Состояние</h3>${detailStats([['Unit',d.unit],['PID',String(d.pid||'—')],['Memory',bytes(d.memory||0)],['Started',d.startedAt||'—'],['CWD',d.cwd||'—'],['Unit file',d.fragmentPath||'—']])}</section><section class="detail-section"><h3>journalctl · обновляется автоматически</h3><pre class="log-view">${esc(d.logs||'Журнал пуст.')}</pre></section>`;
+}
+
 function renderPm2Detail(d) {
   $('detailStatus').textContent = d.status;
   $('detailStatus').className = `pill ${d.status === 'online' ? 'ok' : 'crit'}`;
@@ -382,18 +391,23 @@ function renderPm2Detail(d) {
     <section class="detail-section"><h3>stderr</h3><pre class="log-view">${esc(d.errorLog || 'stderr пуст.')}</pre></section>`;
 }
 
-async function openServiceDetail(type, name) {
-  openDetailShell(type, name);
-  try {
-    const data = await api(`/api/services/${type}/${encodeURIComponent(name)}`);
-    if (type === 'container') renderContainerDetail(data.detail); else renderPm2Detail(data.detail);
-  } catch (e) {
-    $('detailStatus').textContent = 'ошибка'; $('detailStatus').className = 'pill crit';
-    $('detailBody').innerHTML = `<div class="empty">Не удалось загрузить: ${esc(e.message)}</div>`;
-  }
-}
+async function refreshServiceDetail(type,name,token){
+  try{const data=await api(`/api/services/${type}/${encodeURIComponent(name)}`);if(token!==detailRequestToken)return;if(type==='container')renderContainerDetail(data.detail);else if(type==='pm2')renderPm2Detail(data.detail);else renderSystemdDetail(data.detail);detailRefreshTimer=setTimeout(()=>refreshServiceDetail(type,name,token),5000)}catch(e){if(token!==detailRequestToken)return;$('detailStatus').textContent='ошибка';$('detailStatus').className='pill crit';$('detailBody').innerHTML=`<div class="empty">Не удалось загрузить: ${esc(e.message)}</div>`}}
+async function openServiceDetail(type,name){openDetailShell(type,name);const token=detailRequestToken;await refreshServiceDetail(type,name,token)}
 
-function closeDetail() { setWorkspacePane(); }
+const componentStatus=component=>{const d=component.detail||{},raw=d.state?.Health?.Status||d.state?.Status||d.status||d.subState||component.meta?.status||'detected';const ok=/running|healthy|online|active/i.test(String(raw));return{raw,ok}};
+const componentLogs=component=>{const d=component.detail||{};if(component.adapter==='pm2')return[`stdout\n${d.outLog||''}`,`stderr\n${d.errorLog||''}`].join('\n');return d.logs||''};
+function renderProjectDetail(payload){
+  const p=payload.project,body=$('detailBody'),scroll=body.scrollTop,runtimes=p.components.filter(x=>x.adapter),attention=runtimes.filter(x=>!componentStatus(x).ok).length;
+  $('detailTitle').textContent=p.name;$('detailStatus').textContent=attention?`${attention} требуют внимания`:'healthy';$('detailStatus').className=`pill ${attention?'warn':'ok'}`;
+  const components=p.components.map(c=>{const status=componentStatus(c);return `<button class="project-component" type="button" ${c.adapter?`data-service-type="${esc(c.adapter)}" data-service-name="${esc(c.name)}"`:''}><span>${esc(c.adapter||c.type)}</span><span><b>${esc(c.name)}</b><small>${esc(c.relation||c.source)}</small></span><i class="pill ${status.ok?'ok':'idle'}">${esc(status.raw)}</i></button>`}).join('');
+  const logs=runtimes.map(c=>`<details class="runtime-log" open><summary>${esc(c.adapter)} · ${esc(c.name)}<span>live</span></summary><pre class="log-view">${esc(componentLogs(c)||'Логи пока пусты.')}</pre></details>`).join('');
+  body.innerHTML=`<div class="project-livebar"><span><i></i>live refresh</span><small>${new Date(payload.refreshedAt).toLocaleTimeString('ru-RU')}</small></div><section class="detail-section"><h3>Проект</h3>${detailStats([['Path',p.path||'—'],['Runtime',String(runtimes.length)],['Components',String(p.components.length)],['Stack',p.stack.join(' · ')||'metadata']])}<p class="detail-subtle">Связи собраны автоматически по рабочим каталогам, Compose labels и конфигурации сервисов.</p></section><section class="detail-section"><h3>Компоненты</h3><div class="project-components">${components||'<div class="empty">Связанные компоненты пока не найдены.</div>'}</div></section><section class="detail-section"><h3>Логи runtime · секреты редактируются</h3>${logs||'<div class="empty">У проекта нет активного runtime с доступным журналом.</div>'}</section>`;body.scrollTop=scroll;
+}
+async function refreshProjectDetail(id,token){try{const payload=await api(`/api/projects/${encodeURIComponent(id)}`);if(token!==detailRequestToken)return;renderProjectDetail(payload);detailRefreshTimer=setTimeout(()=>refreshProjectDetail(id,token),payload.refreshMs||5000)}catch(e){if(token!==detailRequestToken)return;$('detailStatus').textContent='ошибка';$('detailStatus').className='pill crit';$('detailBody').innerHTML=`<div class="empty">Не удалось собрать проект: ${esc(e.message)}</div>`}}
+async function openProjectDetail(id){openDetailShell('project','Проект');const token=detailRequestToken;await refreshProjectDetail(id,token)}
+
+function closeDetail() { stopDetailRefresh();setWorkspacePane(); }
 
 function inspectChart(kind, event) {
   const rows = persistedHistory?.rows || [];
@@ -635,6 +649,7 @@ $('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
 $('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
 $('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
+$('detailBody').addEventListener('click',e=>{const service=e.target.closest('[data-service-type]');if(service)openServiceDetail(service.dataset.serviceType,service.dataset.serviceName)});
 window.addEventListener('keydown', (e) => { if(e.key==='Escape'){closeDetail();forge.closeForge();closeNotifications()} });
 $('fsEntries').addEventListener('click',filesystem.onEntriesClick);
 $('fsEntries').addEventListener('keydown',filesystem.onEntriesKeydown);

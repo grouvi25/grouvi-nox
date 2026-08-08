@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=20260808-telegram-145">
+<link rel="stylesheet" href="/style.css?v=1.7.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -71,7 +71,7 @@
         <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 10h18"/></svg>
         <span>Файловая система</span>
       </a>
-      <a class="nav-item" href="#s-discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Инвентарь</span><span class="n-badge" id="nbDiscovery">0</span></a>
+      <a class="nav-item" href="#s-discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Проекты</span><span class="n-badge" id="nbDiscovery">0</span></a>
       <a class="nav-item" href="#s-docker">
         <svg viewBox="0 0 24 24"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 15c3 4 12 5 17-1 2 0 3-1 3-2"/></svg>
         <span>Docker</span>
@@ -252,7 +252,7 @@
         </div>
       </section>
 
-      <section id="s-discovery"><div class="sec-head"><h2>Инвентарь VPS</h2><span class="count" id="discoveryCount">0</span><a class="inventory-config right" href="/setup">Настроить</a></div><div class="inventory-summary" id="discoverySummary"><div class="empty">Загружаю Discovery Engine…</div></div><div class="inventory-toolbar"><input id="inventorySearch" type="search" placeholder="Поиск по имени, пути или источнику"><select id="inventoryType"><option value="all">Все типы</option></select><label><input id="inventoryEnabled" type="checkbox" checked> только включённые</label></div><div class="panel"><div class="inventory-list" id="discoveryList"><div class="empty">Подготавливаю цели…</div></div></div></section>
+      <section id="s-discovery"><div class="sec-head"><h2>Проекты VPS</h2><span class="count" id="discoveryCount">0</span><span class="right project-auto">связи обновляются автоматически</span><a class="inventory-config" href="/setup">Настроить Discovery</a></div><div class="inventory-summary" id="discoverySummary"><div class="empty">Собираю карту проектов…</div></div><div class="inventory-toolbar"><input id="inventorySearch" type="search" placeholder="Найти проект, путь или runtime"><select id="inventoryType"><option value="all">Любой стек</option></select></div><div class="panel project-panel"><div class="project-list" id="projectList"><div class="empty">Связываю проекты и runtime…</div></div></div><details class="unassigned"><summary>Системные цели без проекта <span id="unassignedCount">0</span></summary><div class="unassigned-list" id="unassignedList"></div></details></section>
 
       <section id="s-docker">
         <div class="sec-head"><h2>Docker</h2><span class="count" id="ctnCount">0</span><span class="right" id="ctnSummary"></span></div>
@@ -368,6 +368,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.6.0" type="module"></script>
+<script src="/app.js?v=1.7.0" type="module"></script>
 </body>
 </html>

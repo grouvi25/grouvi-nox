@@ -42,6 +42,12 @@ export async function pm2Detail(name) {
   return p?.pm2?.items?.find(item => item.name === name) || null;
 }
 
+export async function systemdDetail(name) {
+  if (!/^[A-Za-z0-9_.@-]{1,120}\.service$/.test(name)) return null;
+  const p = await privileged();
+  return p?.systemdDetails?.items?.find(item => item.name === name) || null;
+}
+
 const FS_INDEX_FILE = `${config.stateDir}/filesystem.json`;
 let fsIndexCache = null;
 let fsIndexMtime = 0;
