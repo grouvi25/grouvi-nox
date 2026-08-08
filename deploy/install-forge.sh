@@ -58,6 +58,7 @@ cat >/etc/sentinel-ai.env <<EOF
 HOME=/var/lib/sentinel-ai
 HERMES_HOME=/var/lib/sentinel-ai/.hermes
 SENTINEL_AI_API_KEY=$AI_API_KEY
+SENTINEL_AI_PROVIDER=sentinel
 SENTINEL_AI_MODEL=$AI_MODEL
 SENTINEL_AI_FALLBACK_MODEL=$AI_FALLBACK_MODEL
 EOF
