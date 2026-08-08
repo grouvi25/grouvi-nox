@@ -14,7 +14,7 @@ export function createSettingsController({api,setWorkspacePane}){
  async function load(){[setup,discovery,integrations]=await Promise.all([api('/api/setup'),api('/api/discovery'),api('/api/integrations')]);loaded=true;render()}
  function highlight(id){document.querySelectorAll('[data-settings-nav]').forEach(x=>x.classList.toggle('active',x.dataset.settingsNav===id))}
  function setRail(open){$('settingsRail').classList.toggle('open',open);$('settingsRail').setAttribute('aria-hidden',String(!open));$('settingsRailScrim').hidden=!open}
- function navigate(id){const target=$(`drawer-${id}`);target?.scrollIntoView({behavior:'smooth',block:'start'});highlight(id);setRail(false)}
+ function navigate(id){const target=$(`drawer-${id}`);target?.scrollIntoView({behavior:'smooth',block:'start'});highlight(id)}
  async function open(){setWorkspacePane('settingsPane');$('sidebar').classList.remove('open');$('navScrim').hidden=true;setRail(true);if(!loaded)await load().catch(x=>feedback(x.message,true))}
  function close(){setRail(false);setWorkspacePane();history.replaceState(null,'',location.pathname)}
  return{open,close,load,navigate,setRail};

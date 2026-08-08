@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.16.0">
+<link rel="stylesheet" href="/style.css?v=1.17.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -92,7 +92,7 @@
       </a>
     </nav>
 
-    <button class="side-setup-link" id="settingsOpen" type="button">Настройки</button>
+    <button class="btn-icon side-settings-icon" id="settingsOpen" type="button" title="Настройки" aria-label="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.2h-4v-.2a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.2a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9L4.4 7 7.2 4.2l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.2a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.2v4h-.2a1.7 1.7 0 00-1.8.8z"/></svg></button>
     <div class="side-foot">
       <div>Режим: только чтение</div>
       <div id="sideUpdated">—</div>
@@ -352,8 +352,8 @@
   <section class="notify-group"><h3>Какие события отправлять</h3><div class="notify-check-grid"><label><input type="checkbox" name="critical"><span><b>Критические</b><small>Аварии и недоступность</small></span></label><label><input type="checkbox" name="warning"><span><b>Предупреждения</b><small>Пороговые значения</small></span></label><label><input type="checkbox" name="opened"><span><b>Открытие</b><small>Новый инцидент</small></span></label><label><input type="checkbox" name="escalated"><span><b>Ухудшение</b><small>Рост серьёзности</small></span></label><label><input type="checkbox" name="resolved"><span><b>Восстановление</b><small>Инцидент закрыт</small></span></label><label><input type="checkbox" name="dailyDigest"><span><b>Сводка в 09:00</b><small>Asia/Tomsk, раз в сутки</small></span></label></div></section>
   <section class="notify-group"><h3>Тишина и повторы</h3><div class="notify-line"><span><b>Не беспокоить</b><small>В выбранные часы</small></span><label class="switch"><input type="checkbox" name="quietEnabled"><span></span></label></div><div class="notify-time"><label>с <select name="quietStart"></select></label><label>до <select name="quietEnd"></select></label></div><div class="notify-line"><span><b>Критические пропускать</b><small>Даже в тихие часы</small></span><label class="switch"><input type="checkbox" name="criticalDuringQuiet"><span></span></label></div><label class="notify-select"><span><b>Повтор одинакового события</b><small>Защита от спама</small></span><select name="cooldownMin"><option value="5">5 мин</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">1 час</option><option value="120">2 часа</option></select></label></section>
   <section class="notify-group"><div class="notify-recent-head"><h3>Последние доставки</h3><button type="button" id="notifyTest">Отправить тест</button></div><div id="notifyRecent" class="notify-recent"><div class="empty">Загрузка…</div></div></section><footer class="notify-footer" id="notifyFooter" hidden><span id="notifySaveState"></span><button type="submit" id="notifySave">Сохранить</button></footer></form></aside>
-  <button class="settings-rail-scrim" id="settingsRailScrim" type="button" aria-label="Закрыть разделы настроек" hidden></button>
-  <aside class="settings-rail" id="settingsRail" aria-hidden="true" aria-label="Разделы настроек"><div class="settings-rail-head"><img src="/favicon.svg" alt=""><span><b>Настройки</b><small id="settingsDrawerMeta">загрузка</small></span><button class="btn-icon" id="settingsRailClose" aria-label="Закрыть разделы"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div><nav><button class="active" type="button" data-settings-nav="general">Система</button><button type="button" data-settings-nav="discovery">Discovery</button><button type="button" data-settings-nav="telegram">Telegram</button><button type="button" data-settings-nav="ai">AI provider</button><button type="button" data-settings-nav="security">Безопасность</button></nav></aside>
+  <span id="settingsRailScrim" hidden></span>
+  <aside class="settings-rail" id="settingsRail" aria-hidden="true" aria-label="Разделы настроек"><div class="settings-rail-head"><img src="/favicon.svg" alt=""><span><b>Настройки</b><small id="settingsDrawerMeta">загрузка</small></span><button class="btn-icon" id="settingsRailClose" aria-label="Закрыть разделы"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div><nav><button class="active" type="button" data-settings-nav="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg><span>Система</span></button><button type="button" data-settings-nav="discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Discovery</span></button><button type="button" data-settings-nav="telegram"><svg viewBox="0 0 24 24"><path d="M21 3L3.8 10.2c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.5 1.4.3 1.6-.8L22 4.2c.3-1.4-.5-2-1-1.2z"/></svg><span>Telegram</span></button><button type="button" data-settings-nav="ai"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 3v3"/></svg><span>AI provider</span></button><button type="button" data-settings-nav="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-2.9 8.2-7 10-4.1-1.8-7-5.2-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Безопасность</span></button></nav></aside>
   <aside class="settings-pane" id="settingsPane" data-pane-kind="settings" aria-hidden="true" aria-label="Настройки Sentinel"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину настроек" tabindex="0"></div>
     <header class="settings-pane-head"><button class="btn-icon" id="settingsClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><button class="btn-icon settings-rail-toggle" id="settingsRailToggle" aria-label="Разделы настроек"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div><span>Управление</span><h2>Настройки Sentinel</h2></div><i class="pill idle" id="settingsDrawerHealth">проверка</i></header>
     <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">Обновить</button></footer></main>
@@ -371,6 +371,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.16.0" type="module"></script>
+<script src="/app.js?v=1.17.0" type="module"></script>
 </body>
 </html>
