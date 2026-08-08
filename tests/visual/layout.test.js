@@ -11,7 +11,7 @@ const app=createApp({sessionResolver:()=>({sid:'visual'}),apiAuth:(req,res,next)
 const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base=`http://127.0.0.1:${server.address().port}`;
 const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH||undefined});
-async function pageAt(width=1440,height=900){const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto(base,{waitUntil:'networkidle'});await page.waitForTimeout(350);assert.deepEqual(errors,[]);assert.ok(!(await page.locator('#incidentList').textContent()).includes('Ошибка загрузки'));return{page,context}}
+async function pageAt(width=1440,height=900){const context=await browser.newContext({viewport:{width,height}});const page=await context.newPage();const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error'&&message.text().includes('Content Security Policy'))errors.push(message.text())});await page.goto(base,{waitUntil:'networkidle'});await page.waitForTimeout(350);assert.deepEqual(errors,[]);assert.ok(!(await page.locator('#incidentList').textContent()).includes('Ошибка загрузки'));return{page,context}}
 try {
   const {page,context}=await pageAt();
   const chrome=await page.evaluate(()=>['.topbar','.forge-pane-head','.notify-pane-head','.detail-head'].map(selector=>document.querySelector(selector).getBoundingClientRect().height));

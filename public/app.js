@@ -515,8 +515,10 @@ function render(d) {
   }
 }
 
-/* -------------------------- connection --------------------------- */let ws = null;
-let retry = 0;
+/* -------------------------- connection --------------------------- */let ws=null,retry=0,pollTimer=null,reconnectTimer=null;
+function stopSnapshotPolling(){clearInterval(pollTimer);pollTimer=null}
+async function pollSnapshot(){try{render(await api('/api/snapshot'));setConn('live','live · polling')}catch{setConn('down','переподключение…')}}
+function startSnapshotPolling(){if(pollTimer)return;pollSnapshot();pollTimer=setInterval(pollSnapshot,2000)}
 
 function setConn(state, text) {
   $('dot').className = `dot ${state}`;
@@ -527,7 +529,7 @@ function connect() {
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`;
   ws = new WebSocket(url);
 
-  ws.onopen = () => { retry = 0; setConn('live', 'live'); };
+  ws.onopen=()=>{retry=0;clearTimeout(reconnectTimer);stopSnapshotPolling();setConn('live','live')};
 
   ws.onmessage = (ev) => {
     let msg;
@@ -538,9 +540,8 @@ function connect() {
 
   ws.onclose = (ev) => {
     if (ev.code === 4001 || ev.code === 1008) { location.href = '/login'; return; }
-    setConn('down', 'переподключение…');
-    retry += 1;
-    setTimeout(connect, Math.min(15000, 800 * retry));
+    retry+=1;startSnapshotPolling();
+    if(retry<=3){setConn('down','переподключение…');reconnectTimer=setTimeout(connect,Math.min(8000,1200*retry))}else setConn('live','live · polling');
   };
 
   ws.onerror = () => { try { ws.close(); } catch { /* noop */ } };

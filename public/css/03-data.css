@@ -190,3 +190,5 @@ input.code:focus{outline:none;border-color:var(--accent)}
   #s-filesystem .fs-support{grid-template-columns:1fr}
   #s-filesystem .fs-support>.panel:first-child{grid-column:auto}
 }
+/* CSP-safe storage chart */
+.storage-donut{background:none!important}.storage-donut::after{display:none!important}.storage-donut canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.storage-row>i{background:var(--text3)}.storage-row>i.storage-color-0{background:oklch(78% .11 72)}.storage-row>i.storage-color-1{background:oklch(68% .11 235)}.storage-row>i.storage-color-2{background:oklch(66% .10 150)}.storage-row>i.storage-color-3{background:oklch(72% .12 45)}.storage-row>i.storage-color-4{background:oklch(64% .10 300)}.storage-row>i.storage-color-5{background:oklch(76% .08 205)}.storage-row>i.storage-color-6{background:oklch(62% .08 25)}.storage-row>i.storage-color-7{background:oklch(55% .025 75)}
