@@ -10,10 +10,10 @@ let forgeChatId=crypto.randomUUID?.()||String(Date.now());
 let forgeChatStarted=Date.now();
 let forgeBusy = false;
 let forgeModel = localStorage.getItem('forgeModel') || 'Qwen3.6-35B-A3B';
-if (!['DeepSeek-V4-Pro','Qwen3.6-35B-A3B'].includes(forgeModel)) { forgeModel = 'DeepSeek-V4-Pro'; localStorage.setItem('forgeModel', forgeModel); }
+
 let forgeScope = localStorage.getItem('forgeScope') || 'vps';
 let forgeProjects = [{ id:'vps', name:'Весь VPS', detail:'Система и все сервисы' }];
-const forgeModels = [
+let forgeModels = [
   { id:'DeepSeek-V4-Pro', name:'DeepSeek V4 Pro', detail:'Проверен с полным набором инструментов' },
   { id:'Qwen3.6-35B-A3B', name:'Qwen 3.6', detail:'Проверен с полным набором инструментов' },
 ];
@@ -24,7 +24,7 @@ function saveForgeChat(){if(!forgeMessages.length)return;const chats=readForgeCh
 function renderForgeConversation(){const transcript=$('forgeTranscript');transcript.innerHTML=forgeMessages.length?'':forgeWelcomeMarkup();for(const message of forgeMessages)appendForgeMessage(message.role,message.content,false,{model:message.model||''})}
 function renderForgeHistory(){const chats=readForgeChats();$('forgeHistoryList').innerHTML=chats.length?chats.map(chat=>`<button type="button" class="forge-history-item ${chat.id===forgeChatId?'active':''}" data-forge-chat="${esc(chat.id)}"><b>${esc(chat.title)}</b><span>${formatWhen(chat.updatedAt)} · ${esc(forgeProjects.find(x=>x.id===chat.scope)?.name||chat.scope||'VPS')}</span></button>`).join(''):'<div class="forge-history-empty">История появится после первого ответа.</div>'}
 function toggleForgeHistory(force){const panel=$('forgeHistory'),show=typeof force==='boolean'?force:panel.hidden;panel.hidden=!show;$('forgeHistoryToggle').setAttribute('aria-expanded',String(show));if(show)renderForgeHistory()}
-function loadForgeChat(id){const chat=readForgeChats().find(x=>x.id===id);if(!chat||forgeBusy)return;saveForgeChat();forgeChatId=chat.id;forgeChatStarted=chat.startedAt||chat.updatedAt;forgeMessages.splice(0,forgeMessages.length,...(chat.messages||[]));if(['DeepSeek-V4-Pro','Qwen3.6-35B-A3B'].includes(chat.model))forgeModel=chat.model;if(chat.scope)forgeScope=chat.scope;renderForgeMenus();renderForgeConversation();toggleForgeHistory(false)}
+function loadForgeChat(id){const chat=readForgeChats().find(x=>x.id===id);if(!chat||forgeBusy)return;saveForgeChat();forgeChatId=chat.id;forgeChatStarted=chat.startedAt||chat.updatedAt;forgeMessages.splice(0,forgeMessages.length,...(chat.messages||[]));if(forgeModels.some(x=>x.id===chat.model))forgeModel=chat.model;if(chat.scope)forgeScope=chat.scope;renderForgeMenus();renderForgeConversation();toggleForgeHistory(false)}
 
 function forgeTime() {
   return new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit' }).format(new Date());
@@ -119,8 +119,8 @@ function chooseForge(type, value) {
   renderForgeMenus(); closeForgeMenus(); $('forgeInput').focus();
 }
 async function loadForgeProjects() {
-  try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects; } catch { /* keep VPS context */ }
-  if(!forgeProjects.some(x=>x.id===forgeScope)) forgeScope='vps'; renderForgeMenus();
+  try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects;if(Array.isArray(data.models)&&data.models.length)forgeModels=data.models.map(id=>({id,name:id,detail:'Настроено установщиком'})); } catch { /* keep VPS context */ }
+  if(!forgeProjects.some(x=>x.id===forgeScope))forgeScope='vps';if(!forgeModels.some(x=>x.id===forgeModel))forgeModel=forgeModels[0].id;renderForgeMenus();
 }
 
 

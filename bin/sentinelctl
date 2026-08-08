@@ -44,6 +44,7 @@ cmd_status(){
     state=$(systemctl is-active "$service" 2>/dev/null || true)
     [[ $state == active ]] && ok "$service: active" || warn "$service: ${state:-missing}"
   done
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then state=$(systemctl is-active sentinel-ai-bridge 2>/dev/null||true);[[ $state == active ]]&&ok 'sentinel-ai-bridge: active'||warn "sentinel-ai-bridge: $state";fi
   section 'Endpoints'
   wait_http "http://127.0.0.1:${PORT}/healthz" 1 0 && ok 'local health endpoint' || warn 'local health endpoint failed'
   curl -fsS --max-time 8 "https://${DOMAIN}/login" >/dev/null 2>&1 && ok 'public HTTPS endpoint' || warn 'public HTTPS endpoint failed'
@@ -72,6 +73,12 @@ cmd_doctor(){
   CHECK_NAME='SQLite integrity'; check bash -c "[[ \$(sqlite3 '$STATE_DIR/sentinel.db' 'pragma integrity_check;') == ok ]]"
   CHECK_NAME='filesystem metadata index'; check bash -c "node -e \"const d=require('$STATE_DIR/filesystem.json');if(!d.policy?.metadataOnly||d.policy?.contentAccess)process.exit(1)\""
   CHECK_NAME='Discovery Engine snapshot'; check bash -c "node -e \"const d=require('$STATE_DIR/discovery.json');if(d.schema!==1||!Array.isArray(d.items))process.exit(1)\""
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then
+    CHECK_NAME='Sentinel Forge bridge active'; check service_active sentinel-ai-bridge
+    CHECK_NAME='Sentinel Forge local socket'; check test -S /run/sentinel-ai/bridge.sock
+    CHECK_NAME='Sentinel Forge sanitized context'; check test -s /var/lib/sentinel-ai/context/VPS.md
+    CHECK_NAME='Hermes isolated runtime'; check test -x /opt/sentinel-ai/venv/bin/hermes
+  fi
   CHECK_NAME='SSH private paths excluded'; check bash -c "! grep -q '\"path\":\"/root/.ssh/' '$STATE_DIR/filesystem.json'"
   section 'Security posture'
   CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
@@ -135,6 +142,8 @@ cmd_backup(){
   sqlite3 "$STATE_DIR/sentinel.db" ".backup '$staging/state/sentinel.db'" 2>/dev/null || true
   cp -a "$STATE_DIR/state.json" "$staging/state/" 2>/dev/null || true
   cp -a "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" "$staging/etc/"
+  [[ -f /etc/sentinel-ai.env ]] && cp -a /etc/sentinel-ai.env "$staging/etc/"
+  [[ -f /var/lib/sentinel-ai/.hermes/config.yaml ]] && { mkdir -p "$staging/ai";cp -a /var/lib/sentinel-ai/.hermes/config.yaml "$staging/ai/"; }
   cp -a /etc/nginx/sites-available/vps-sentinel "$staging/nginx/" 2>/dev/null || true
   cat > "$staging/MANIFEST" <<EOF
 created=$(date -u +%FT%TZ)
@@ -171,10 +180,11 @@ cmd_update(){
     || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"; then
     warn 'Update staging failed; restoring previous application.'
     rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
-    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE";[[ ${INSTALL_FORGE:-0} == 1 ]] && systemctl restart sentinel-ai-context.service sentinel-ai-bridge.service || true
     die "Update rolled back. Diagnostics: $app_backup"
   fi
   chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then install -m 644 deploy/forge/bridge.service /etc/systemd/system/sentinel-ai-bridge.service;install -m 644 deploy/forge/context.service /etc/systemd/system/sentinel-ai-context.service;install -m 644 deploy/forge/context.timer /etc/systemd/system/sentinel-ai-context.timer;install -m 755 deploy/forge/sentinel-hermes /usr/local/bin/sentinel-hermes;fi
   getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
@@ -218,8 +228,10 @@ cmd_uninstall(){
   rm -f /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf /etc/nginx/conf.d/vps-sentinel-http.conf
   rm -f /etc/nginx/snippets/vps-sentinel-cloudflare-realip.conf /etc/nginx/snippets/sentinel-proxy.conf
   nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
+  systemctl disable --now sentinel-ai-bridge.service sentinel-ai-context.timer >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/sentinel-ai-bridge.service /etc/systemd/system/sentinel-ai-context.service /etc/systemd/system/sentinel-ai-context.timer /usr/local/bin/sentinel-hermes
   rm -rf "${APP_DIR:?}"; rm -f /usr/local/sbin/sentinelctl
-  if ((purge)); then rm -rf "${STATE_DIR:?}"; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG"; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
+  if ((purge)); then rm -rf "${STATE_DIR:?}" /var/lib/sentinel-ai /opt/sentinel-ai; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" /etc/sentinel-ai.env; userdel sentinel-ai 2>/dev/null || true; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
   systemctl daemon-reload
   if ((purge)); then ok 'Uninstalled; application data purged.'; else ok "Uninstalled; data kept in $STATE_DIR."; fi
 }

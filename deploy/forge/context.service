@@ -1,0 +1,13 @@
+[Unit]
+Description=Build sanitized VPS context for Sentinel Forge
+After=vps-sentinel-agent.service
+[Service]
+Type=oneshot
+ExecStart=/opt/vps-sentinel/deploy/forge/context.sh
+User=root
+Group=root
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/sentinel-ai
+ProtectHome=read-only
+NoNewPrivileges=true

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+export HOME=/var/lib/sentinel-ai
+export HERMES_HOME=/var/lib/sentinel-ai/.hermes
+cd /var/lib/sentinel-ai/workspace
+exec /opt/sentinel-ai/venv/bin/hermes "$@"

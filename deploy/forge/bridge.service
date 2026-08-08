@@ -1,0 +1,40 @@
+[Unit]
+Description=Sentinel Forge isolated AI bridge
+After=network-online.target sentinel-ai-context.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=sentinel-ai
+Group=vpssentinel
+WorkingDirectory=/var/lib/sentinel-ai/workspace
+RuntimeDirectory=sentinel-ai
+RuntimeDirectoryMode=0750
+EnvironmentFile=/etc/sentinel-ai.env
+ExecStart=/usr/bin/node /opt/vps-sentinel/deploy/forge/server.mjs
+Restart=on-failure
+RestartSec=4
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/sentinel-ai /run/sentinel-ai
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+MemoryMax=768M
+TasksMax=160
+CPUQuota=80%
+[Install]
+WantedBy=multi-user.target

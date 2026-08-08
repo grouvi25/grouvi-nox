@@ -123,3 +123,12 @@ test('discovery calibration auto-enables app services but not distribution servi
   const root=mkdtempSync(path.join(tmpdir(),'sentinel-calibration-'));fs.mkdirSync(path.join(root,'app','.git'),{recursive:true});fs.mkdirSync(path.join(root,'app','backups'));fs.mkdirSync(path.join(root,'config-archive'));const result=discoverHost({roots:[root]});rmSync(root,{recursive:true,force:true});const backup=result.items.find(x=>x.path?.endsWith('/backups')),archive=result.items.find(x=>x.path?.endsWith('/config-archive'));assert.equal(backup.defaultEnabled,true);assert.equal(archive.defaultEnabled,false);assert.ok(backup.confidence>archive.confidence)});
 
 test('settings and setup pages are authenticated application surfaces',async()=>{await withServer(createApp({sessionResolver:()=>({sid:'test'})}),async base=>{assert.equal((await fetch(`${base}/setup`)).status,200);assert.equal((await fetch(`${base}/settings`)).status,200)})});
+
+
+test('full installer bundles pinned isolated Forge automation',()=>{
+  const install=fs.readFileSync('deploy/install.sh','utf8'),forge=fs.readFileSync('deploy/install-forge.sh','utf8'),bridge=fs.readFileSync('deploy/forge/server.mjs','utf8'),context=fs.readFileSync('deploy/forge/context.sh','utf8');
+  assert.match(install,/INSTALL_FORGE=1/);assert.match(install,/\.\/deploy\/install-forge\.sh/);assert.match(install,/--without-forge/);assert.match(forge,/v2026\.7\.30/);assert.match(forge,/cc4cab2f592e60a197e796506de9168f74baf3ea/);assert.match(forge,/sentinel-ai-bridge\.service/);assert.match(bridge,/projectFile/);assert.match(context,/discovery-settings\.json/);
+  for(const file of ['deploy/install.sh','deploy/install-forge.sh','deploy/forge/context.sh','deploy/forge/sentinel-hermes'])assert.equal(spawnSync('bash',['-n',file]).status,0,file);
+});
+
+test('Forge project API is Discovery-managed instead of hardcoded',()=>{const source=fs.readFileSync('src/routes/api/agent.js','utf8');assert.match(source,/buildProjectGraph/);assert.match(source,/allowedScopes=new Set\(forgeProjects/);assert.doesNotMatch(source,/browser-mmo-90s/)});

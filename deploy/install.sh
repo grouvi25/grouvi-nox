@@ -22,6 +22,13 @@ ASSUME_YES=0
 SKIP_DNS_CHECK=0
 CONFIGURE_UFW=0
 NO_RECOVERY_CODES=0
+INSTALL_FORGE=1
+AI_BASE_URL=${AI_BASE_URL:-https://api.example.com/v1}
+AI_MODEL=${AI_MODEL:-Qwen3.6-35B-A3B}
+AI_FALLBACK_MODEL=${AI_FALLBACK_MODEL:-DeepSeek-V4-Pro}
+AI_PROVIDER_LABEL=${AI_PROVIDER_LABEL:-OpenAI compatible}
+AI_API_KEY=${AI_API_KEY:-}
+AI_BACKUP_KEYS=${AI_BACKUP_KEYS:-}
 DRY_RUN=0
 
 usage(){ cat <<'EOF'
@@ -41,6 +48,13 @@ Options:
   --deploy-dirs CSV         Git repositories shown in deployment timeline
   --telegram-token TOKEN    Optional Telegram bot token
   --telegram-chat-id ID     Optional Telegram destination
+  --without-forge           Skip isolated Hermes/Sentinel Forge installation
+  --ai-base-url URL         OpenAI-compatible HTTPS endpoint
+  --ai-model NAME           Primary Forge model
+  --ai-fallback-model NAME  Fallback Forge model
+  --ai-provider-label NAME  Provider label shown in settings
+  --ai-key KEY              Optional primary provider key (or configure later)
+  --ai-backup-keys CSV      Optional provider fallback keys
   --configure-ufw           Allow SSH, HTTP and HTTPS if UFW is installed
   --skip-dns-check          Continue if DNS validation cannot be completed
   --no-recovery-codes       Do not print recovery codes during install
@@ -62,6 +76,8 @@ while (($#)); do
     --proxy) PROXY_MODE=${2:-}; shift 2;; --port) PORT=${2:-}; shift 2;;
     --backup-dirs) BACKUP_DIRS=${2:-}; shift 2;; --deploy-dirs) DEPLOY_DIRS=${2:-}; shift 2;;
     --telegram-token) TELEGRAM_TOKEN=${2:-}; shift 2;; --telegram-chat-id) TELEGRAM_CHAT_ID=${2:-}; shift 2;;
+    --without-forge) INSTALL_FORGE=0; shift;; --ai-base-url) AI_BASE_URL=${2:-}; shift 2;; --ai-model) AI_MODEL=${2:-}; shift 2;;
+    --ai-fallback-model) AI_FALLBACK_MODEL=${2:-}; shift 2;; --ai-provider-label) AI_PROVIDER_LABEL=${2:-}; shift 2;; --ai-key) AI_API_KEY=${2:-}; shift 2;; --ai-backup-keys) AI_BACKUP_KEYS=${2:-}; shift 2;;
     --configure-ufw) CONFIGURE_UFW=1; shift;; --skip-dns-check) SKIP_DNS_CHECK=1; shift;;
     --no-recovery-codes) NO_RECOVERY_CODES=1; shift;; --dry-run) DRY_RUN=1; shift;; --non-interactive) NON_INTERACTIVE=1; shift;;
     -y|--yes) ASSUME_YES=1; shift;; -h|--help) usage; exit 0;; *) usage; die "Unknown option: $1";;
@@ -85,6 +101,7 @@ valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"
 [[ $LE_EMAIL =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || die 'Invalid email address.'
 valid_port "$PORT" || die "Invalid port: $PORT"
 [[ $PROXY_MODE == public || $PROXY_MODE == cloudflare ]] || die '--proxy must be public or cloudflare.'
+((INSTALL_FORGE==0)) || [[ $AI_BASE_URL == https://* ]] || die '--ai-base-url must use HTTPS.'
 [[ -f $SOURCE_DIR/package.json && -f $SOURCE_DIR/RELEASE-MANIFEST.json ]] || die 'Run installer from an extracted VPS Sentinel release.'
 
 section 'Preflight'
@@ -107,9 +124,10 @@ fi
 # Empty backup/deploy lists are intentional: Discovery Engine manages them after first login.
 
 section 'Installation plan'
-printf '  Domain:          %s\n  Proxy mode:      %s\n  Internal port:   %s\n  Install path:    %s\n  State path:      %s\n  Backup folders:  %s\n  Git repositories:%s\n  Telegram:        %s\n' \
+printf '  Domain:          %s\n  Proxy mode:      %s\n  Internal port:   %s\n  Install path:    %s\n  State path:      %s\n  Backup folders:  %s\n  Git repositories:%s\n  Telegram:        %s\n  Sentinel Forge:  %s\n  AI provider:     %s\n' \
   "$DOMAIN" "$PROXY_MODE" "$PORT" "$SENTINEL_APP_DIR" "$SENTINEL_STATE_DIR" \
-  "${BACKUP_DIRS:- none}" "${DEPLOY_DIRS:+ }${DEPLOY_DIRS:- none}" "$([[ -n $TELEGRAM_TOKEN && -n $TELEGRAM_CHAT_ID ]] && echo enabled || echo disabled)"
+  "${BACKUP_DIRS:- none}" "${DEPLOY_DIRS:+ }${DEPLOY_DIRS:- none}" "$([[ -n $TELEGRAM_TOKEN && -n $TELEGRAM_CHAT_ID ]] && echo enabled || echo disabled)" \
+  "$([[ $INSTALL_FORGE -eq 1 ]] && echo installed || echo skipped)" "$([[ -n $AI_API_KEY ]] && echo configured || echo dashboard-setup)"
 if ((DRY_RUN)); then
   ok 'Dry-run complete. Host and configuration are valid; no changes made.'
   exit 0
@@ -119,7 +137,7 @@ confirm 'Proceed with this plan?' || die 'Cancelled.'
 section 'System packages'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 >/dev/null
+apt-get install -y -qq ca-certificates curl gnupg git nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 python3-venv python3-pip >/dev/null
 node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
 if ((node_major < 20)); then
   info 'Installing signed Node.js 20 apt repository (no remote shell execution).'
@@ -197,6 +215,7 @@ APP_DIR='$SENTINEL_APP_DIR'
 STATE_DIR='$SENTINEL_STATE_DIR'
 BACKUP_DIRS='$BACKUP_DIRS'
 DEPLOY_DIRS='$DEPLOY_DIRS'
+INSTALL_FORGE='$INSTALL_FORGE'
 INSTALLED_AT='$(date -u +%FT%TZ)'
 EOF
 chmod 600 "$SENTINEL_INSTALL_CONFIG"; chown root:root "$SENTINEL_INSTALL_CONFIG"
@@ -273,6 +292,13 @@ for _ in {1..30}; do [[ -s $SENTINEL_STATE_DIR/discovery.json ]] && break; sleep
 [[ -s $SENTINEL_STATE_DIR/discovery.json ]] || warn 'Initial discovery is still running; the setup wizard can rescan.'
 wait_http "http://127.0.0.1:${PORT}/healthz" 40 2 || { journalctl -u "$SENTINEL_SERVICE" -n 100 --no-pager; die 'Service failed health check.'; }
 
+if ((INSTALL_FORGE)); then
+  section 'Sentinel Forge and Hermes'
+  AI_BASE_URL="$AI_BASE_URL" AI_MODEL="$AI_MODEL" AI_FALLBACK_MODEL="$AI_FALLBACK_MODEL" AI_PROVIDER_LABEL="$AI_PROVIDER_LABEL" AI_API_KEY="$AI_API_KEY" AI_BACKUP_KEYS="$AI_BACKUP_KEYS" ./deploy/install-forge.sh
+  systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Core service failed after Forge integration.'
+fi
+
 if ((CONFIGURE_UFW)) && command -v ufw >/dev/null 2>&1; then
   section 'Firewall'
   ufw allow OpenSSH >/dev/null; ufw allow 80/tcp >/dev/null; ufw allow 443/tcp >/dev/null
@@ -285,4 +311,5 @@ section 'First access'
 node bin/enroll.js 'initial-install'
 if ((!NO_RECOVERY_CODES)); then node bin/enroll.js --recovery; fi
 ok 'Installation completed.'
-printf '\n  Dashboard: https://%s\n  Control:   sudo sentinelctl status\n  Diagnose:  sudo sentinelctl doctor\n  Backup:    sudo sentinelctl backup\n\n' "$DOMAIN"
+forge_state=$([[ $INSTALL_FORGE -eq 1 ]] && echo installed || echo skipped)
+printf '\n  Dashboard: https://%s\n  Control:   sudo sentinelctl status\n  Diagnose:  sudo sentinelctl doctor\n  Forge:     %s\n  Backup:    sudo sentinelctl backup\n\n' "$DOMAIN" "$forge_state"

@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh Sentinel Forge VPS context
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=20
+Persistent=true
+[Install]
+WantedBy=timers.target
