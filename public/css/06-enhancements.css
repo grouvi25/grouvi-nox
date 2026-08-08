@@ -205,3 +205,25 @@
 .runtime-log{border:1px solid var(--border);border-radius:7px;overflow:hidden;background:var(--panel)}.runtime-log summary{min-height:38px;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--text2);font:9px var(--mono);cursor:pointer}.runtime-log summary span{margin-left:auto;color:var(--text3);font-size:8px}.runtime-log .log-view{border:0;border-top:1px solid var(--border);border-radius:0;max-height:320px;margin:0}.detail-subtle{color:var(--text3);font:9px/1.5 var(--mono)}
 @container sentinel-content (max-width:720px){.project-row{grid-template-columns:8px minmax(0,1fr) 42px 14px}.project-stack{display:none}.project-auto{display:none}.target-row{grid-template-columns:70px minmax(0,1fr) 36px}.target-row small{display:none}}
 @media(max-width:700px){.project-row{grid-template-columns:8px minmax(0,1fr) 38px 14px;gap:9px;padding-inline:10px}.project-stack{display:none}.inventory-toolbar{align-items:stretch;flex-direction:column}.inventory-toolbar input[type=search],.inventory-toolbar select{width:100%}.project-component{grid-template-columns:62px minmax(0,1fr)}}
+/* Operations composition and interaction polish */
+#s-ops .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+#s-ops .deploy-panel{grid-column:1/-1}
+#s-ops .ops-summary-panel{min-width:0}
+@container sentinel-content (max-width:980px){
+  #s-ops .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #s-ops .ops-summary-wide{grid-column:1/-1}
+  #s-ops .deploy-panel{grid-column:1/-1}
+}
+@container sentinel-content (max-width:680px){
+  #s-ops .g3{grid-template-columns:1fr}
+  #s-ops .ops-summary-wide,#s-ops .deploy-panel{grid-column:1}
+}
+
+/* Every custom control gets the same project-native interaction vocabulary. */
+:is(.seg,.action-sm,.notify-open,.incident-pager button,.git-footer button,.commit-actions button,.storage-tabs button,.storage-row,.project-row,.project-component,.target-row,.forge-tool,.forge-menu-item,.forge-starters button,.forge-history-item,.inventory-row,.crumb,.btn-icon):active:not(:disabled){transform:translateY(1px);filter:brightness(1.08)}
+:is(.seg,.action-sm,.notify-open,.incident-pager button,.git-footer button,.commit-actions button,.storage-tabs button,.storage-row,.project-row,.project-component,.target-row,.forge-tool,.forge-menu-item,.forge-starters button,.forge-history-item,.inventory-row,.crumb,.btn-icon):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+:is(.seg,.action-sm,.notify-open,.incident-pager button,.git-footer button,.commit-actions button,.storage-tabs button,.storage-row,.project-row,.project-component,.target-row,.forge-tool,.forge-menu-item,.forge-starters button,.forge-history-item,.inventory-row,.crumb,.btn-icon):disabled{opacity:.42;cursor:not-allowed;transform:none;filter:none}
+.git-actions :is(select,input):focus-visible,.inventory-toolbar :is(select,input):focus-visible,.fs-search input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.deploy-row:active{transform:translateY(1px);background:var(--border)}
+.storage-row:active{background:var(--border)}
+.project-row:active,.project-component:active,.target-row:active{background:var(--border)}
