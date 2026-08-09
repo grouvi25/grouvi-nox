@@ -195,8 +195,8 @@ if(!a||!s)process.exit(1);console.log(r.tag_name);console.log(a.browser_download
 NODE
   )
   tag=${release[0]}; archive_url=${release[1]}; sums_url=${release[2]}
-  curl -fsS --proto '=https' --tlsv1.2 "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
-  curl -fsS --proto '=https' --tlsv1.2 "$sums_url" -o "$work/SHA256SUMS"
+  curl -fL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
+  curl -fL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors "$sums_url" -o "$work/SHA256SUMS"
   update_progress verifying 'Проверяю SHA-256 и release manifest'
   expected=$(awk -v name="vps-sentinel-$tag-linux.tar.gz" '$2==name {print $1}' "$work/SHA256SUMS")
   [[ $expected =~ ^[a-f0-9]{64}$ ]] || die 'Latest release checksum is missing.'
