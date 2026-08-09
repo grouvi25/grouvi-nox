@@ -323,10 +323,15 @@ async function refreshFleetNode(nodeId=activeFleetNode){
   if(nodeId==='local'||nodeId!==activeFleetNode)return;
   try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;render(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
 }
+function renderRemoteScope(snapshot){
+  const alerts=snapshot?.alerts||[];$('incidentCount').textContent=String(alerts.length);$('incidentActive').textContent=String(alerts.length);$('incidentCritical').textContent=String(alerts.filter(x=>x.level==='critical').length);$('incidentResolved').textContent='0';$('incidentHint').textContent='Активные сигналы выбранного узла';$('incidentList').innerHTML=alerts.length?alerts.map(item=>`<div class="incident-item"><span class="pill ${item.level==='critical'?'crit':'warn'}">${esc(item.level)}</span><span><b>${esc(item.message||item.key||'Сигнал')}</b><small>${esc(item.key||'remote telemetry')}</small></span></div>`).join(''):'<div class="empty">Активных сигналов нет.</div>';
+  $('fsIndexMeta').textContent='локальный индекс узла';$('fsEntries').innerHTML='<div class="empty">Детальный файловый индекс открывается в локальной панели узла.</div>';$('fsSummary').innerHTML='<div class="empty">Hub получает только безопасную телеметрию.</div>';$('fsLargest').innerHTML='<div class="empty">Содержимое файлов не передаётся.</div>';$('fsRisks').innerHTML='<div class="empty">Проверяется локально на узле.</div>';
+  $('discoverySummary').innerHTML='<div class="empty">Карта проектов остаётся локальной на узле.</div>';$('projectList').innerHTML='<div class="empty">Hub не получает пути и содержимое проектов.</div>';$('deployments').innerHTML='<div class="empty">Git activity не покидает узел.</div>';$('deployMeta').textContent='локальные данные узла';$('deployOverview').innerHTML='';$('deployShown').textContent='';$('deployMore').hidden=true;
+}
 async function selectFleetNode(nodeId){
-  clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;document.body.classList.toggle('fleet-remote',nodeId!=='local');content.scrollTo({top:0,behavior:'smooth'});
-  if(nodeId==='local'){latest=localLatest;if(latest)render(latest);setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h');return}
-  setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);fleetRefreshTimer=setInterval(()=>{refreshFleetNode(nodeId);fleet.load()},10000)
+  clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;content.scrollTo({top:0,behavior:'smooth'});
+  if(nodeId==='local'){latest=localLatest;if(latest)render(latest);setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await Promise.allSettled([loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h'),loadIncidents('all'),loadFilesystem('/'),discoveryController.load(),loadDeployments()]);return}
+  setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);renderRemoteScope(latest);fleetRefreshTimer=setInterval(async()=>{await refreshFleetNode(nodeId);renderRemoteScope(latest);fleet.load()},10000)
 }
 
 async function loadHistory(range = '24h') {
@@ -640,17 +645,17 @@ $('historyRange').addEventListener('click', (e) => {
   loadHistory(button.dataset.range);
 });
 
-$('incidentFilters').addEventListener('click',incidents.onFilterClick);
+$('incidentFilters').addEventListener('click',event=>{if(activeFleetNode==='local')incidents.onFilterClick(event)});
 
 $('content').addEventListener('click', (e) => {
-  if(incidents.onContentClick(e))return;
+  if(activeFleetNode==='local'&&incidents.onContentClick(e))return;
   const metric = e.target.closest('[data-metric]');
   if (metric) { openMetricDetail(metric.dataset.metric); return; }
   const service = e.target.closest('[data-service-type]');
   if (service) openServiceDetail(service.dataset.serviceType, service.dataset.serviceName);
 });
 
-$('content').addEventListener('change',incidents.onContentChange);
+$('content').addEventListener('change',event=>{if(activeFleetNode==='local')incidents.onContentChange(event)});
 
 $('content').addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -715,9 +720,9 @@ document.querySelectorAll('.forge-menu').forEach(menu=>menu.addEventListener('cl
 document.addEventListener('click',e=>{if(!e.target.closest('.forge-menu-wrap'))forge.closeForgeMenus()});
 forge.renderForgeMenus();forge.renderForgeHistory();fleet.bind();initPaneResizers();forge.loadForgeProjects();
 
-setInterval(() => loadIncidents(), 30_000);
-setInterval(()=>loadDeployments(),5*60_000);
-setInterval(()=>discoveryController.load(),5*60_000);
+setInterval(()=>{if(activeFleetNode==='local')loadIncidents()},30_000);
+setInterval(()=>{if(activeFleetNode==='local')loadDeployments()},5*60_000);
+setInterval(()=>{if(activeFleetNode==='local')discoveryController.load()},5*60_000);
 setInterval(()=>fleet.load(),30_000);
 
 let resizeTimer;
