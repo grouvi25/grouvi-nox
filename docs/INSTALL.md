@@ -13,13 +13,13 @@ The dashboard requires HTTPS because passkeys use WebAuthn. Installation by raw 
 
 Download these two files from the same GitHub Release:
 
-- `vps-sentinel-vX.Y.Z-linux.tar.gz`
+- `grouvi-nox-vX.Y.Z-linux.tar.gz`
 - `SHA256SUMS`
 
 ```bash
 sha256sum -c SHA256SUMS
-tar -xzf vps-sentinel-vX.Y.Z-linux.tar.gz
-cd vps-sentinel-vX.Y.Z
+tar -xzf grouvi-nox-vX.Y.Z-linux.tar.gz
+cd grouvi-nox-vX.Y.Z
 ```
 
 Never use `curl | sh`. The installer is a local file and can be reviewed before execution.
@@ -29,7 +29,7 @@ Never use `curl | sh`. The installer is a local file and can be reviewed before 
 Create an A/AAAA record for the intended hostname. Examples:
 
 - Public origin: `monitor.example.com` points directly to the VPS.
-- Cloudflare origin: enable the orange proxy and use `--proxy cloudflare`; Sentinel then rejects direct traffic from non-Cloudflare peers.
+- Cloudflare origin: enable the orange proxy and use `--proxy cloudflare`; Grouvi Nox then rejects direct traffic from non-Cloudflare peers.
 
 ## 3. Dry-run
 
@@ -52,7 +52,7 @@ sudo ./deploy/install.sh \
   --proxy public
 ```
 
-Sentinel Forge and its pinned Hermes runtime are installed by default. The AI key may be supplied during installation or entered later in the authenticated Settings page.
+Nox Forge and its pinned Hermes runtime are installed by default. The AI key may be supplied during installation or entered later in the authenticated Settings page.
 
 Cloudflare origin lock:
 
@@ -87,8 +87,8 @@ Secrets are written to `/etc/vps-sentinel.env` with mode `0600` and are not prin
 The installer prints a one-time enrollment URL and ten recovery codes. Open the URL on the device that will hold the passkey. Store recovery codes offline.
 
 ```bash
-sudo sentinelctl status
-sudo sentinelctl doctor
+sudo noxctl status
+sudo noxctl doctor
 ```
 
 ## What the installer changes
@@ -99,7 +99,7 @@ sudo sentinelctl doctor
 - Creates root-only configuration and a mode-0700 state directory.
 - Configures nginx, Let's Encrypt, systemd and optional UFW.
 - Starts a sandboxed unprivileged web service and a narrow read-only host collector.
-- Installs a commit-pinned Hermes runtime, isolated `sentinel-ai` user, sanitized context timer and local-only Sentinel Forge bridge.
+- Installs a commit-pinned Hermes runtime, isolated `sentinel-ai` user, sanitized context timer and local-only Nox Forge bridge.
 - Automatically creates editable Forge workspace copies for enabled discovered Git projects. Production repositories remain read-only.
 - Does not alter SSH authentication, application containers or unrelated virtual hosts.
 
@@ -114,6 +114,6 @@ Forge is usable immediately when `--ai-key` is supplied. Without a key, all Forg
 Secrets are deliberately outside the browser settings store:
 
 ```bash
-sudo sentinelctl configure telegram
-sudo sentinelctl configure ai
+sudo noxctl configure telegram
+sudo noxctl configure ai
 ```

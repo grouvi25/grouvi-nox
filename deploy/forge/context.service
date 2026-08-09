@@ -1,5 +1,5 @@
 [Unit]
-Description=Build sanitized VPS context for Sentinel Forge
+Description=Build sanitized VPS context for Nox Forge
 After=vps-sentinel-agent.service
 [Service]
 Type=oneshot

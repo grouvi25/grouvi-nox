@@ -98,7 +98,7 @@ export function startAdminSocket() {
 
   server.listen(sockPath, () => {
     fs.chmodSync(sockPath, 0o600);
-    console.log(`[vps-sentinel] admin socket at ${sockPath}`);
+    console.log(`[grouvi-nox] admin socket at ${sockPath}`);
   });
 
   server.on('error', (e) => console.error('[admin-socket]', e.message));

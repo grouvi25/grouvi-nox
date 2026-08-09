@@ -1,6 +1,6 @@
 [Unit]
-Description=VPS Sentinel - read-only realtime monitoring dashboard
-Documentation=https://github.com/grouvi25/vps-sentinel
+Description=Grouvi Nox - read-only realtime monitoring dashboard
+Documentation=https://github.com/grouvi25/grouvi-nox
 After=network-online.target vps-sentinel-agent.service
 Wants=network-online.target
 

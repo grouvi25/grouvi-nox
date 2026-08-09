@@ -70,7 +70,7 @@ router.post('/register/options', enrollLimit, async (req, res, next) => {
       rpID: config.rpID,
       userID: new Uint8Array(Buffer.from('vps-admin')),
       userName: `admin@${config.rpID}`,
-      userDisplayName: 'VPS Sentinel admin',
+      userDisplayName: 'Grouvi Nox admin',
       attestationType: 'none',
       excludeCredentials: existing.map(c => ({ id: c.id, transports: c.transports })),
       authenticatorSelection: {

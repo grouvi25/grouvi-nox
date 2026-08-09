@@ -1,18 +1,31 @@
 {
-  "product": "VPS Sentinel",
-  "package": "vps-sentinel",
+  "product": "Grouvi Nox",
+  "package": "grouvi-nox-vps-sentinel",
   "schema": 2,
-  "capabilities": ["standalone", "fleet-hub", "fleet-node", "signed-update-discovery"],
+  "capabilities": [
+    "standalone",
+    "fleet-hub",
+    "fleet-node",
+    "signed-update-discovery"
+  ],
   "supported": {
-    "os": ["ubuntu-22.04", "ubuntu-24.04", "debian-12"],
-    "architectures": ["x86_64", "aarch64"],
+    "os": [
+      "ubuntu-22.04",
+      "ubuntu-24.04",
+      "debian-12"
+    ],
+    "architectures": [
+      "x86_64",
+      "aarch64"
+    ],
     "node": ">=20"
   },
   "install": {
     "path": "/opt/vps-sentinel",
     "state": "/var/lib/vps-sentinel",
     "config": "/etc/vps-sentinel.env",
-    "control": "/usr/local/sbin/sentinelctl"
+    "control": "/usr/local/sbin/noxctl",
+    "legacyControl": "/usr/local/sbin/sentinelctl"
   },
   "security": {
     "passwordAuth": false,

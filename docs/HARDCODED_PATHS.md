@@ -1,6 +1,6 @@
 # Path policy
 
-VPS Sentinel has three path classes:
+Grouvi Nox has three path classes:
 
 1. Product-owned defaults: `/opt/vps-sentinel`, `/var/lib/vps-sentinel`, `/etc/vps-sentinel.env`, `/run/vps-sentinel`. These are configurable through install metadata and environment variables.
 2. Standard Linux discovery roots: `/opt`, `/srv`, `/var/www`, `/home`, `/root`. The setup wizard can replace this list. `/proc`, `/sys`, `/dev`, `/run`, Docker/containerd internals, `.ssh`, caches and quarantine directories are always excluded.

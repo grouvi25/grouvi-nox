@@ -16,7 +16,7 @@ export async function checkForUpdates(){
   const url=`https://api.github.com/repos/${config.releaseRepo}/releases/latest`;
   try{
     const response=await fetch(url,{headers:githubHeaders(),signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error(`GitHub HTTP ${response.status}`);
-    const release=await response.json(),latest=String(release.tag_name||'').replace(/^v/,''),assets=Array.isArray(release.assets)?release.assets:[],archive=assets.find(a=>/vps-sentinel-v.*-linux\.tar\.gz$/.test(a.name)),sums=assets.find(a=>a.name==='SHA256SUMS'),available=Boolean(latest&&isNewer(latest,pkg.version));
+    const release=await response.json(),latest=String(release.tag_name||'').replace(/^v/,''),assets=Array.isArray(release.assets)?release.assets:[],archive=assets.find(a=>/grouvi-nox-v.*-linux\.tar\.gz$/.test(a.name))||assets.find(a=>/vps-sentinel-v.*-linux\.tar\.gz$/.test(a.name)),sums=assets.find(a=>a.name==='SHA256SUMS'),available=Boolean(latest&&isNewer(latest,pkg.version));
     const details=available?await compareChanges(pkg.version,latest):{compareUrl:null,changes:[]};
     state={current:pkg.version,latest:latest||pkg.version,available,checkedAt:Date.now(),releaseUrl:release.html_url||null,archiveUrl:archive?.browser_download_url||null,checksumUrl:sums?.browser_download_url||null,compareUrl:details.compareUrl,name:release.name||null,body:String(release.body||'').slice(0,30000),changes:details.changes,publishedAt:release.published_at||null,error:null};
   }catch(error){
@@ -25,7 +25,7 @@ export async function checkForUpdates(){
       const match=/\/tag\/v([0-9]+\.[0-9]+\.[0-9]+)$/.exec(response.url),latest=match?.[1];
       if(!response.ok||!latest)throw error;
       const tag=`v${latest}`,base=`https://github.com/${config.releaseRepo}/releases/download/${tag}`;
-      state={...state,current:pkg.version,latest,available:isNewer(latest,pkg.version),checkedAt:Date.now(),releaseUrl:`https://github.com/${config.releaseRepo}/releases/tag/${tag}`,archiveUrl:`${base}/vps-sentinel-${tag}-linux.tar.gz`,checksumUrl:`${base}/SHA256SUMS`,compareUrl:`https://github.com/${config.releaseRepo}/compare/v${pkg.version}...${tag}`,body:'GitHub API временно ограничен. Полный список изменений доступен по ссылке.',changes:[],error:null};
+      state={...state,current:pkg.version,latest,available:isNewer(latest,pkg.version),checkedAt:Date.now(),releaseUrl:`https://github.com/${config.releaseRepo}/releases/tag/${tag}`,archiveUrl:`${base}/grouvi-nox-${tag}-linux.tar.gz`,checksumUrl:`${base}/SHA256SUMS`,compareUrl:`https://github.com/${config.releaseRepo}/compare/v${pkg.version}...${tag}`,body:'GitHub API временно ограничен. Полный список изменений доступен по ссылке.',changes:[],error:null};
     }catch{state={...state,checkedAt:Date.now(),error:error.message}}
   }
   return updateState();

@@ -3,7 +3,7 @@
 Start with:
 
 ```bash
-sudo sentinelctl doctor
+sudo noxctl doctor
 sudo systemctl status vps-sentinel vps-sentinel-agent nginx
 ```
 
@@ -45,7 +45,7 @@ sudo sqlite3 /var/lib/vps-sentinel/sentinel.db 'select ts,success,detail from no
 
 ## Update failed
 
-`sentinelctl update` automatically restores the previous application if staging or health checks fail. Paths to state and app rollback archives are printed. Run `sentinelctl doctor` before retrying.
+`noxctl update` automatically restores the previous application if staging or health checks fail. Paths to state and app rollback archives are printed. Run `noxctl doctor` before retrying.
 
 ## High CPU in browser
 

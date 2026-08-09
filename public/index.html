@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
-<title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.24.13">
+<title>Grouvi Nox</title>
+<link rel="stylesheet" href="/style.css?v=1.25.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -21,7 +21,7 @@
         <path class="m-pulse" d="M6.9 13.6h2.6l1.3-2.9 1.9 5.8 1.3-2.9h3.1"/>
       </svg>
       <div class="brand-info">
-        <h1>VPS Sentinel</h1>
+        <h1>Grouvi Nox</h1>
         <div class="host" id="sideHost">…</div>
       </div>
     </div>
@@ -46,7 +46,7 @@
     <nav class="nav" id="nav">
       <button class="nav-item forge-open" id="forgeOpen" type="button">
         <svg viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v7a2.5 2.5 0 01-2.5 2.5H11l-4 3v-3.2A2.5 2.5 0 015 13.5z"/><path d="M9 9h6M9 12h4"/></svg>
-        <span>Sentinel Forge</span><span class="n-badge forge-ai-badge">AI</span>
+        <span>Nox Forge</span><span class="n-badge forge-ai-badge">AI</span>
       </button>
       <div class="nav-separator"></div>
       <a class="nav-item" href="#s-overview">
@@ -313,11 +313,11 @@
     </div>
   </main>
 
-  <aside class="forge-pane" id="forgePane" data-pane-kind="forge" aria-hidden="true" aria-label="Sentinel Forge чат">
+  <aside class="forge-pane" id="forgePane" data-pane-kind="forge" aria-hidden="true" aria-label="Nox Forge чат">
     <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
     <header class="forge-pane-head">
       <button class="btn-icon forge-back" id="forgeClose" aria-label="Закрыть чат"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div class="forge-head-identity"><div><h2>Sentinel Forge</h2><p><span id="forgePresence">готов</span> · DevOps и код</p></div></div>
+      <div class="forge-head-identity"><div><h2>Nox Forge</h2><p><span id="forgePresence">готов</span> · DevOps и код</p></div></div>
       <div class="forge-head-actions"><button class="btn-icon" id="forgeHistoryToggle" title="История чатов" aria-label="История чатов" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button class="btn-icon" id="forgeReset" title="Новый чат" aria-label="Новый чат"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
     </header>
     <div class="forge-history" id="forgeHistory" hidden><div class="forge-history-head"><span>Недавние чаты</span><button type="button" id="forgeHistoryClose" aria-label="Закрыть историю">Закрыть</button></div><div id="forgeHistoryList"></div></div>
@@ -334,7 +334,7 @@
     </div>
     <div class="forge-composer-zone">
       <form class="forge-composer-v2" id="forgeForm">
-        <textarea id="forgeInput" rows="1" maxlength="6000" placeholder="Сообщение Sentinel Forge" aria-label="Сообщение Sentinel Forge" required></textarea>
+        <textarea id="forgeInput" rows="1" maxlength="6000" placeholder="Сообщение Nox Forge" aria-label="Сообщение Nox Forge" required></textarea>
         <div class="forge-compose-actions">
           <div class="forge-tools">
             <div class="forge-menu-wrap">
@@ -358,13 +358,13 @@
   <section class="notify-group"><h3>Тишина и повторы</h3><div class="notify-line"><span><b>Не беспокоить</b><small>В выбранные часы</small></span><label class="switch"><input type="checkbox" name="quietEnabled"><span></span></label></div><div class="notify-time"><label>с <select name="quietStart"></select></label><label>до <select name="quietEnd"></select></label></div><div class="notify-line"><span><b>Критические пропускать</b><small>Даже в тихие часы</small></span><label class="switch"><input type="checkbox" name="criticalDuringQuiet"><span></span></label></div><label class="notify-select"><span><b>Повтор одинакового события</b><small>Защита от спама</small></span><select name="cooldownMin"><option value="5">5 мин</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">1 час</option><option value="120">2 часа</option></select></label></section>
   <section class="notify-group"><div class="notify-recent-head"><h3>Последние доставки</h3><button type="button" id="notifyTest">Отправить тест</button></div><div id="notifyRecent" class="notify-recent"><div class="empty">Загрузка…</div></div></section><footer class="notify-footer" id="notifyFooter" hidden><span id="notifySaveState"></span><button type="submit" id="notifySave">Сохранить</button></footer></form></aside>
   <span id="settingsRailScrim" hidden></span>
-  <aside class="settings-rail sidebar" id="settingsRail" aria-hidden="true" aria-label="Разделы настроек"><div class="brand settings-brand"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path class="m-shape" d="M12 2.8 21.13 9.43 17.64 20.17 6.36 20.17 2.87 9.43Z"/><path class="m-pulse" d="M6.9 13.6h2.6l1.3-2.9 1.9 5.8 1.3-2.9h3.1"/></svg><div class="brand-info"><h1>Настройки</h1><div class="host" id="settingsDrawerMeta">загрузка</div></div></div><div class="side-label">Разделы</div><nav class="nav"><button class="nav-item active" type="button" data-settings-nav="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg><span>Система</span></button><button class="nav-item" type="button" data-settings-nav="discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Discovery</span></button><button class="nav-item" type="button" data-settings-nav="fleet"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 12h4M14 11l2.5-3M14 13l2.5 3"/></svg><span>Fleet</span></button><button class="nav-item" type="button" data-settings-nav="telegram"><svg viewBox="0 0 24 24"><path d="M21 3L3.8 10.2c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.5 1.4.3 1.6-.8L22 4.2c.3-1.4-.5-2-1-1.2z"/></svg><span>Telegram</span></button><button class="nav-item" type="button" data-settings-nav="ai"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 3v3"/></svg><span>AI provider</span></button><button class="nav-item" type="button" data-settings-nav="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-2.9 8.2-7 10-4.1-1.8-7-5.2-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Безопасность</span></button></nav><div class="side-foot"><div>Панель настроек</div><div>VPS Sentinel</div></div></aside>
-  <aside class="settings-pane" id="settingsPane" data-pane-kind="settings" aria-hidden="true" aria-label="Настройки Sentinel"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину настроек" tabindex="0"></div>
-    <header class="settings-pane-head"><button class="btn-icon" id="settingsClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Управление</span><h2>Настройки Sentinel</h2></div><i class="pill idle" id="settingsDrawerHealth">проверка</i></header>
+  <aside class="settings-rail sidebar" id="settingsRail" aria-hidden="true" aria-label="Разделы настроек"><div class="brand settings-brand"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path class="m-shape" d="M12 2.8 21.13 9.43 17.64 20.17 6.36 20.17 2.87 9.43Z"/><path class="m-pulse" d="M6.9 13.6h2.6l1.3-2.9 1.9 5.8 1.3-2.9h3.1"/></svg><div class="brand-info"><h1>Настройки</h1><div class="host" id="settingsDrawerMeta">загрузка</div></div></div><div class="side-label">Разделы</div><nav class="nav"><button class="nav-item active" type="button" data-settings-nav="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg><span>Система</span></button><button class="nav-item" type="button" data-settings-nav="discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Discovery</span></button><button class="nav-item" type="button" data-settings-nav="fleet"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 12h4M14 11l2.5-3M14 13l2.5 3"/></svg><span>Fleet</span></button><button class="nav-item" type="button" data-settings-nav="telegram"><svg viewBox="0 0 24 24"><path d="M21 3L3.8 10.2c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.5 1.4.3 1.6-.8L22 4.2c.3-1.4-.5-2-1-1.2z"/></svg><span>Telegram</span></button><button class="nav-item" type="button" data-settings-nav="ai"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 3v3"/></svg><span>AI provider</span></button><button class="nav-item" type="button" data-settings-nav="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-2.9 8.2-7 10-4.1-1.8-7-5.2-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Безопасность</span></button></nav><div class="side-foot"><div>Панель настроек</div><div>Grouvi Nox</div></div></aside>
+  <aside class="settings-pane" id="settingsPane" data-pane-kind="settings" aria-hidden="true" aria-label="Настройки Grouvi Nox"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину настроек" tabindex="0"></div>
+    <header class="settings-pane-head"><button class="btn-icon" id="settingsClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Управление</span><h2>Настройки Grouvi Nox</h2></div><i class="pill idle" id="settingsDrawerHealth">проверка</i></header>
     <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">Обновить</button></footer></main>
   </aside>
 
-  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">VPS Sentinel</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">Подготовка...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
+  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">Grouvi Nox</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">Подготовка...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
   <aside class="detail-pane" id="detailPane" data-pane-kind="detail" aria-hidden="true">
     <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
     <div class="detail-head">
@@ -378,6 +378,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.24.13" type="module"></script>
+<script src="/app.js?v=1.25.0" type="module"></script>
 </body>
 </html>

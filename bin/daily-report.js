@@ -5,7 +5,7 @@ const settings=getNotificationSettings();
 if(!settings.enabled||!settings.dailyDigest)process.exit(0);
 const d = incidentDigest(24);
 const lines = [
-  '🛡️ <b>VPS Sentinel · суточный отчёт</b>',
+  '🛡️ <b>Grouvi Nox · суточный отчёт</b>',
   `Период: последние 24 часа`,
   `Новых инцидентов: <b>${d.opened}</b>`,
   `Критических: <b>${d.critical}</b>`,
@@ -14,7 +14,7 @@ const lines = [
   '',
   ...(d.top.length ? d.top.map((x) => `${x.severity === 'critical' ? '🔴' : '🟠'} ${String(x.title).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')}`) : ['✅ За сутки новых аварий не зафиксировано.']),
   '',
-  '<a href="https://vps.grouvi.online/#s-incidents">Открыть VPS Sentinel</a>',
+  '<a href="https://vps.grouvi.online/#s-incidents">Открыть Grouvi Nox</a>',
 ];
 const result = await sendTelegramText(lines.join('\n'), { eventType: 'daily_report' });
 if (!result.sent) process.exitCode = result.skipped ? 0 : 1;

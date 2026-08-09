@@ -3,7 +3,7 @@ import { renderMarkdown } from './markdown.js';
 
 export function createForgeController({ api, formatWhen, setWorkspacePane }) {
   const sidebar=$('sidebar');
-/* ------------------------- Sentinel Forge ------------------------ */
+/* ------------------------- Nox Forge ------------------------ */
 const forgeMessages = [];
 const FORGE_CHATS_KEY='sentinelForgeChats:v1';
 let forgeChatId=crypto.randomUUID?.()||String(Date.now());
@@ -36,7 +36,7 @@ function appendForgeMessage(role, text, loading = false, meta = {}) {
   article.className = `forge-chat-message ${role}${loading ? ' loading' : ''}`;
   const wrap = document.createElement('div'); wrap.className = 'forge-chat-content';
   const top = document.createElement('div'); top.className = 'forge-chat-meta';
-  const name = document.createElement('b'); name.textContent = role === 'assistant' ? 'Sentinel Forge' : 'Вы';
+  const name = document.createElement('b'); name.textContent = role === 'assistant' ? 'Nox Forge' : 'Вы';
   const details = document.createElement('span'); details.textContent = meta.model ? `${meta.model} · ${forgeTime()}` : forgeTime();
   top.append(name, details);
   const content = document.createElement('div');

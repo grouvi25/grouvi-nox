@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VPS Sentinel production installer
+# Grouvi Nox production installer
 # Supported: Ubuntu 22.04/24.04, Debian 12; x86_64/aarch64.
 # Safe to re-run. Existing state is preserved and config is backed up.
 set -Eeuo pipefail
@@ -40,7 +40,7 @@ AI_BACKUP_KEYS=${AI_BACKUP_KEYS:-}
 DRY_RUN=0
 
 usage(){ cat <<'EOF'
-VPS Sentinel production installer
+Grouvi Nox production installer
 
 Usage:
   sudo ./deploy/install.sh --domain monitor.example.com --email ops@example.com [options]
@@ -63,7 +63,7 @@ Options:
   --fleet-secret SECRET     Unique 32+ byte HMAC secret
   --fleet-nodes-json JSON   Hub map: node ID to secret or [current,previous]
   --fleet-allowed-ips CSV   Optional hub source-IP allowlist
-  --without-forge           Skip isolated Hermes/Sentinel Forge installation
+  --without-forge           Skip isolated Hermes/Nox Forge installation
   --ai-base-url URL         OpenAI-compatible HTTPS endpoint
   --ai-model NAME           Primary Forge model
   --ai-fallback-model NAME  Fallback Forge model
@@ -81,7 +81,7 @@ Options:
 Security:
   Download a release archive and SHA256SUMS separately. Verify with
   `sha256sum -c SHA256SUMS`, extract, then run this local installer.
-  Never install VPS Sentinel via `curl | sh`.
+  Never install Grouvi Nox via `curl | sh`.
 EOF
 }
 
@@ -130,7 +130,7 @@ if [[ $SENTINEL_ROLE == hub ]]; then
   [[ $FLEET_NODES_JSON == \{*\} ]] || die 'Hub mode requires valid --fleet-nodes-json.'
 fi
 ((INSTALL_FORGE==0)) || [[ $AI_BASE_URL == https://* ]] || die '--ai-base-url must use HTTPS.'
-[[ -f $SOURCE_DIR/package.json && -f $SOURCE_DIR/RELEASE-MANIFEST.json ]] || die 'Run installer from an extracted VPS Sentinel release.'
+[[ -f $SOURCE_DIR/package.json && -f $SOURCE_DIR/RELEASE-MANIFEST.json ]] || die 'Run installer from an extracted Grouvi Nox release.'
 
 section 'Preflight'
 supported_os || die "Unsupported OS: ${OS_ID:-unknown} ${OS_VERSION:-unknown}. Supported: Ubuntu 22.04/24.04, Debian 12."
@@ -152,7 +152,7 @@ fi
 # Empty backup/deploy lists are intentional: Discovery Engine manages them after first login.
 
 section 'Installation plan'
-printf '  Domain:          %s\n  Proxy mode:      %s\n  Internal port:   %s\n  Install path:    %s\n  State path:      %s\n  Backup folders:  %s\n  Git repositories:%s\n  Telegram:        %s\n  Sentinel Forge:  %s\n  AI provider:     %s\n' \
+printf '  Domain:          %s\n  Proxy mode:      %s\n  Internal port:   %s\n  Install path:    %s\n  State path:      %s\n  Backup folders:  %s\n  Git repositories:%s\n  Telegram:        %s\n  Nox Forge:  %s\n  AI provider:     %s\n' \
   "$DOMAIN" "$PROXY_MODE" "$PORT" "$SENTINEL_APP_DIR" "$SENTINEL_STATE_DIR" \
   "${BACKUP_DIRS:- none}" "${DEPLOY_DIRS:+ }${DEPLOY_DIRS:- none}" "$([[ -n $TELEGRAM_TOKEN && -n $TELEGRAM_CHAT_ID ]] && echo enabled || echo disabled)" \
   "$([[ $INSTALL_FORGE -eq 1 ]] && echo installed || echo skipped)" "$([[ -n $AI_API_KEY ]] && echo configured || echo dashboard-setup)"
@@ -198,6 +198,7 @@ if [[ $(readlink -f "$SOURCE_DIR") != $(readlink -f "$SENTINEL_APP_DIR" 2>/dev/n
 fi
 cd "$SENTINEL_APP_DIR"; npm ci --omit=dev --no-audit --no-fund
 chown -R root:root "$SENTINEL_APP_DIR"; chmod -R go-w "$SENTINEL_APP_DIR"
+install -m 755 bin/noxctl /usr/local/sbin/noxctl
 install -m 755 bin/sentinelctl /usr/local/sbin/sentinelctl
 ok "Installed version $(node -p "require('./package.json').version")"
 
@@ -216,7 +217,7 @@ PORT=$PORT
 HOST=127.0.0.1
 RP_ID=$DOMAIN
 ORIGIN=https://$DOMAIN
-RP_NAME=VPS Sentinel
+RP_NAME=Grouvi Nox
 STATE_DIR=$SENTINEL_STATE_DIR
 BACKUP_DIRS=$BACKUP_DIRS
 DEPLOY_DIRS=$DEPLOY_DIRS
@@ -234,7 +235,7 @@ FLEET_PUSH_INTERVAL_MS=10000
 FLEET_OFFLINE_AFTER_MS=45000
 FLEET_MAX_SNAPSHOT_BYTES=524288
 FLEET_INGEST_PER_MINUTE=30
-SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel
+SENTINEL_RELEASE_REPO=grouvi25/grouvi-nox
 UPDATE_CHECK_INTERVAL_MS=1800000
 TELEGRAM_COOLDOWN_MIN=30
 DISCOVERY_ROOTS=${DISCOVERY_ROOTS:-/opt,/srv,/var/www,/home,/root}
@@ -334,7 +335,7 @@ for _ in {1..30}; do [[ -s $SENTINEL_STATE_DIR/discovery.json ]] && break; sleep
 wait_http "http://127.0.0.1:${PORT}/healthz" 40 2 || { journalctl -u "$SENTINEL_SERVICE" -n 100 --no-pager; die 'Service failed health check.'; }
 
 if ((INSTALL_FORGE)); then
-  section 'Sentinel Forge and Hermes'
+  section 'Nox Forge and Hermes'
   AI_BASE_URL="$AI_BASE_URL" AI_MODEL="$AI_MODEL" AI_FALLBACK_MODEL="$AI_FALLBACK_MODEL" AI_PROVIDER_LABEL="$AI_PROVIDER_LABEL" AI_API_KEY="$AI_API_KEY" AI_BACKUP_KEYS="$AI_BACKUP_KEYS" ./deploy/install-forge.sh
   systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
   wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Core service failed after Forge integration.'
@@ -347,10 +348,10 @@ if ((CONFIGURE_UFW)) && command -v ufw >/dev/null 2>&1; then
 fi
 
 section 'Verification'
-sentinelctl doctor || die 'Installation completed, but doctor found errors.'
+noxctl doctor || die 'Installation completed, but doctor found errors.'
 section 'First access'
 node bin/enroll.js 'initial-install'
 if ((!NO_RECOVERY_CODES)); then node bin/enroll.js --recovery; fi
 ok 'Installation completed.'
 forge_state=$([[ $INSTALL_FORGE -eq 1 ]] && echo installed || echo skipped)
-printf '\n  Dashboard: https://%s\n  Control:   sudo sentinelctl status\n  Diagnose:  sudo sentinelctl doctor\n  Forge:     %s\n  Backup:    sudo sentinelctl backup\n\n' "$DOMAIN" "$forge_state"
+printf '\n  Dashboard: https://%s\n  Control:   sudo noxctl status\n  Diagnose:  sudo noxctl doctor\n  Forge:     %s\n  Backup:    sudo noxctl backup\n\n' "$DOMAIN" "$forge_state"

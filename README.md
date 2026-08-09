@@ -1,4 +1,4 @@
-# VPS Sentinel
+# Grouvi Nox
 
 A production-grade, passkey-only monitoring dashboard for Linux VPS hosts. It combines realtime metrics, persistent history, incidents, Telegram alerts, Docker/PM2 drill-down, deployment history and a metadata-only filesystem explorer.
 
@@ -11,8 +11,8 @@ Supported: Ubuntu 22.04/24.04 and Debian 12 on x86_64 or aarch64.
 
 ```bash
 sha256sum -c SHA256SUMS
-tar -xzf vps-sentinel-vX.Y.Z-linux.tar.gz
-cd vps-sentinel-vX.Y.Z
+tar -xzf grouvi-nox-vX.Y.Z-linux.tar.gz
+cd grouvi-nox-vX.Y.Z
 ```
 
 3. Validate without changing the host:
@@ -42,7 +42,7 @@ Full guide: [docs/INSTALL.md](docs/INSTALL.md)
 
 ## Fleet mode
 
-Run Sentinel independently on every VPS, then connect nodes to one hub with per-node HMAC secrets. Nodes keep collecting locally during hub or network outages; the hub receives sanitized snapshots only, never SSH keys, Docker sockets or file contents.
+Run Grouvi Nox independently on every VPS, then connect nodes to one hub with per-node HMAC secrets. Nodes keep collecting locally during hub or network outages; the hub receives sanitized snapshots only, never SSH keys, Docker sockets or file contents.
 
 The main dashboard shows online state, resource pressure, alerts and available updates for every VPS. Deep host-local views remain available on each node's own passkey-protected domain.
 
@@ -77,17 +77,17 @@ See [docs/SECURITY.md](docs/SECURITY.md).
 ## Operations
 
 ```bash
-sudo sentinelctl status
-sudo sentinelctl doctor
-sudo sentinelctl enroll "New laptop"
-sudo sentinelctl backup
-sudo sentinelctl logs web
+sudo noxctl status
+sudo noxctl doctor
+sudo noxctl enroll "New laptop"
+sudo noxctl backup
+sudo noxctl logs web
 ```
 
 Verified updates require a local release bundle and its expected SHA-256:
 
 ```bash
-sudo sentinelctl update ./vps-sentinel-vX.Y.Z-linux.tar.gz <sha256>
+sudo noxctl update ./grouvi-nox-vX.Y.Z-linux.tar.gz <sha256>
 ```
 
 Update creates application and state rollback archives, then automatically restores the previous app if staging or health checks fail.
@@ -120,4 +120,4 @@ The first-login wizard builds a persistent inventory of Git projects, Docker/Com
 
 ## Zero-to-running installer
 
-The verified release installer now provisions the full stack by default: nginx/TLS, passkey bootstrap, Discovery Engine, host collectors, isolated Hermes runtime, Sentinel Forge bridge, sanitized VPS context, project workspaces and lifecycle tooling. Supply the domain and email; optionally pass Telegram and AI credentials, or enter them later in authenticated Settings. Use `--without-forge` only to opt out. See `docs/INSTALL.md`.
+The verified release installer now provisions the full stack by default: nginx/TLS, passkey bootstrap, Discovery Engine, host collectors, isolated Hermes runtime, Nox Forge bridge, sanitized VPS context, project workspaces and lifecycle tooling. Supply the domain and email; optionally pass Telegram and AI credentials, or enter them later in authenticated Settings. Use `--without-forge` only to opt out. See `docs/INSTALL.md`.

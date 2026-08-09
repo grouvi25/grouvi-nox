@@ -12,7 +12,7 @@ export const config = {
 
   // WebAuthn relying party
   rpID: env.RP_ID || 'vps.grouvi.online',
-  rpName: env.RP_NAME || 'VPS Sentinel',
+  rpName: env.RP_NAME || 'Grouvi Nox',
   origin: env.ORIGIN || 'https://vps.grouvi.online',
 
   sessionTtlMs: num(env.SESSION_TTL_MIN, 720) * 60_000,
@@ -30,7 +30,7 @@ export const config = {
   historyRetentionDays: num(env.HISTORY_RETENTION_DAYS, 30),
   incidentResolveGraceMs: num(env.INCIDENT_RESOLVE_GRACE_MS, 45_000),
 
-  releaseRepo: env.SENTINEL_RELEASE_REPO || 'grouvi25/vps-sentinel',
+  releaseRepo: env.SENTINEL_RELEASE_REPO || 'grouvi25/grouvi-nox',
   updateCheckIntervalMs: num(env.UPDATE_CHECK_INTERVAL_MS, 30 * 60_000),
 
   fleet: {

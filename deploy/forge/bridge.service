@@ -1,5 +1,5 @@
 [Unit]
-Description=Sentinel Forge isolated AI bridge
+Description=Nox Forge isolated AI bridge
 After=network-online.target sentinel-ai-context.service
 Wants=network-online.target
 [Service]

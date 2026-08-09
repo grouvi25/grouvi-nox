@@ -1,0 +1,311 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_DIR=${SENTINEL_APP_DIR:-/opt/vps-sentinel}
+COMMON="$APP_DIR/deploy/lib/common.sh"
+[[ -r $COMMON ]] || { echo "Grouvi Nox common library missing: $COMMON" >&2; exit 1; }
+# shellcheck source=../deploy/lib/common.sh
+. "$COMMON"
+
+usage(){ cat <<'EOF'
+Grouvi Nox lifecycle manager
+
+Usage: noxctl <command> [options]
+
+Commands:
+  status                   Services, version, database and endpoint status
+  configure telegram|ai    Configure optional secret integrations safely
+  doctor                   Full read-only installation diagnostic
+  enroll [label]           Create a one-time passkey enrollment link
+  recovery                 Rotate and print recovery codes
+  backup [output.tar.gz]   Backup state, configuration and nginx integration
+  check-update              Compare installed version with latest GitHub Release
+  update-github             Download, checksum and atomically install latest release
+  update <bundle> <sha256> Verify a release bundle and perform atomic update
+  restore <backup.tar.gz>  Restore state/config from a noxctl backup
+  uninstall [--purge]      Remove services and integration; keep data by default
+  logs [agent|web]         Follow service logs
+  version                  Print installed version and commit
+
+Never use `curl | sh`. Download releases and SHA256SUMS separately, verify, then
+pass the local bundle plus expected SHA-256 to `noxctl update`.
+EOF
+}
+
+update_progress(){
+  [[ -n ${SENTINEL_UPDATE_JOB_FILE:-} ]] || return 0
+  local status=${1:-running} message=${2:-Обновление выполняется}
+  UPDATE_STATUS="$status" UPDATE_MESSAGE="$message" node - "$SENTINEL_UPDATE_JOB_FILE" "${SENTINEL_UPDATE_STARTED_AT:-$(date +%s000)}" <<'NODE'
+const fs=require('fs'),file=process.argv[2],startedAt=Number(process.argv[3]);
+const job={status:process.env.UPDATE_STATUS,running:true,ok:false,startedAt,updatedAt:Date.now(),message:process.env.UPDATE_MESSAGE};
+const tmp=`${file}.${process.pid}.tmp`;fs.writeFileSync(tmp,JSON.stringify(job));fs.renameSync(tmp,file);
+NODE
+}
+
+cmd_status(){
+  load_install_config
+  section 'Grouvi Nox'
+  printf '  Version: %s\n' "$(node -p "require('$APP_DIR/package.json').version" 2>/dev/null || echo unknown)"
+  printf '  Domain:  %s\n' "$DOMAIN"
+  printf '  Mode:    %s\n' "$PROXY_MODE"
+  printf '  App:     %s\n' "$APP_DIR"
+  printf '  State:   %s\n' "$STATE_DIR"
+  printf '  Commit:  %s\n' "$(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null || echo release-bundle)"
+  section 'Services'
+  for service in "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE" nginx; do
+    state=$(systemctl is-active "$service" 2>/dev/null || true)
+    [[ $state == active ]] && ok "$service: active" || warn "$service: ${state:-missing}"
+  done
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then state=$(systemctl is-active sentinel-ai-bridge 2>/dev/null||true);[[ $state == active ]]&&ok 'sentinel-ai-bridge: active'||warn "sentinel-ai-bridge: $state";fi
+  section 'Endpoints'
+  wait_http "http://127.0.0.1:${PORT}/healthz" 1 0 && ok 'local health endpoint' || warn 'local health endpoint failed'
+  curl -fsS --max-time 8 "https://${DOMAIN}/login" >/dev/null 2>&1 && ok 'public HTTPS endpoint' || warn 'public HTTPS endpoint failed'
+  section 'State'
+  du -sh "$STATE_DIR" 2>/dev/null || true
+  [[ -f $STATE_DIR/sentinel.db ]] && sqlite3 "$STATE_DIR/sentinel.db" "select 'metrics='||count(*) from metrics; select 'active_incidents='||count(*) from incidents where status!='resolved';" || true
+}
+
+cmd_doctor(){
+  require_root; load_install_config
+  local failed=0
+  check(){ if "$@"; then ok "$CHECK_NAME"; else warn "$CHECK_NAME"; failed=$((failed+1)); fi; }
+  section 'Platform'
+  CHECK_NAME="supported OS ($(. /etc/os-release; echo "$PRETTY_NAME"))"; check supported_os
+  CHECK_NAME='Node.js >= 20'; check bash -c 'v=$(node -p "process.versions.node.split(\".\")[0]"); ((v>=20))'
+  CHECK_NAME='configuration permissions 0600'; check bash -c "[[ \$(stat -c %a '$SENTINEL_CONFIG') == 600 ]]"
+  CHECK_NAME='state owner and mode'; check bash -c "[[ \$(stat -c %U '$STATE_DIR') == '$SENTINEL_USER' && \$(stat -c %a '$STATE_DIR') == 700 ]]"
+  section 'Services'
+  for service in "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE" nginx; do CHECK_NAME="$service active"; check service_active "$service"; done
+  CHECK_NAME='nginx configuration'; check nginx -t
+  CHECK_NAME='systemd web sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_SERVICE}.service"
+  CHECK_NAME='systemd agent sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+  section 'Runtime'
+  CHECK_NAME='local health endpoint'; check wait_http "http://127.0.0.1:${PORT}/healthz" 1 0
+  CHECK_NAME='public HTTPS endpoint'; check curl -fsS --max-time 10 "https://${DOMAIN}/login" -o /dev/null
+  CHECK_NAME='SQLite integrity'; check bash -c "[[ \$(sqlite3 '$STATE_DIR/sentinel.db' 'pragma integrity_check;') == ok ]]"
+  CHECK_NAME='filesystem metadata index'; check bash -c "node -e \"const d=require('$STATE_DIR/filesystem.json');if(!d.policy?.metadataOnly||d.policy?.contentAccess)process.exit(1)\""
+  CHECK_NAME='Discovery Engine snapshot'; check bash -c "node -e \"const d=require('$STATE_DIR/discovery.json');if(d.schema!==1||!Array.isArray(d.items))process.exit(1)\""
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then
+    CHECK_NAME='Nox Forge bridge active'; check service_active sentinel-ai-bridge
+    CHECK_NAME='Nox Forge local socket'; check test -S /run/sentinel-ai/bridge.sock
+    CHECK_NAME='Nox Forge sanitized context'; check test -s /var/lib/sentinel-ai/context/VPS.md
+    CHECK_NAME='Hermes isolated runtime'; check test -x /opt/sentinel-ai/venv/bin/hermes
+  fi
+  CHECK_NAME='SSH private paths excluded'; check bash -c "! grep -q '\"path\":\"/root/.ssh/' '$STATE_DIR/filesystem.json'"
+  section 'Security posture'
+  CHECK_NAME='web service is unprivileged'; check bash -c "[[ \$(systemctl show '$SENTINEL_SERVICE' -p User --value) == '$SENTINEL_USER' ]]"
+  CHECK_NAME='web user is outside docker group'; check bash -c "! id -nG '$SENTINEL_USER' | tr ' ' '\\n' | grep -qx docker"
+  CHECK_NAME='read-only Docker broker socket'; check bash -c "[[ -S '$STATE_DIR/docker-read.sock' && \$(stat -c %G '$STATE_DIR/docker-read.sock') == '$SENTINEL_USER' ]]"
+  CHECK_NAME='integration configuration broker socket'; check bash -c "[[ -S '$STATE_DIR/integration-config.sock' && \$(stat -c %G '$STATE_DIR/integration-config.sock') == '$SENTINEL_USER' ]]"
+  CHECK_NAME='web listener is loopback only'; check bash -c "ss -H -lntp | grep -q '127.0.0.1:${PORT}' && ! ss -H -lntp | grep -qE '(0.0.0.0|\[::\]):${PORT}'"
+  CHECK_NAME='API rejects unauthenticated history'; check bash -c "[[ \$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:${PORT}/api/history) == 401 ]]"
+  if [[ $PROXY_MODE == cloudflare ]]; then
+    CHECK_NAME='Cloudflare origin allowlist installed'; check test -s /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf
+  fi
+  section 'Result'
+  ((failed==0)) && { ok 'All checks passed'; return 0; }
+  warn "$failed checks failed"; return 1
+}
+
+upsert_env(){
+  local key=$1 value=$2 tmp
+  tmp=$(mktemp)
+  awk -F= -v key="$key" '$1!=key{print}' "$SENTINEL_CONFIG" >"$tmp"
+  printf '%s=%s\n' "$key" "$value" >>"$tmp"
+  install -m 600 -o root -g root "$tmp" "$SENTINEL_CONFIG"
+  rm -f "$tmp"
+}
+cmd_configure(){
+  require_root; load_install_config
+  case ${1:-} in
+    telegram)
+      local token chat
+      read -rsp 'Telegram bot token: ' token; echo
+      read -rp 'Telegram chat ID: ' chat
+      [[ $token =~ ^[0-9]+:[A-Za-z0-9_-]{20,}$ ]] || die 'Invalid Telegram bot token format.'
+      [[ $chat =~ ^-?[0-9]+$ ]] || die 'Invalid Telegram chat ID.'
+      upsert_env SENTINEL_TELEGRAM_BOT_TOKEN "$token"
+      upsert_env SENTINEL_TELEGRAM_CHAT_ID "$chat"
+      systemctl restart "$SENTINEL_SERVICE"
+      ok 'Telegram credentials saved in root-only config. Use the dashboard test button when ready.'
+      ;;
+    ai)
+      if systemctl is-active --quiet sentinel-ai-bridge.service && [[ -S /run/sentinel-ai/bridge.sock ]]; then
+        ok 'Nox Forge bridge is already connected.'
+        info 'Provider credentials remain managed by the isolated sentinel-ai service.'
+      else
+        warn 'Nox Forge is optional and not bundled with the monitoring core.'
+        info 'Install an isolated OpenAI-compatible agent bridge, then expose /run/sentinel-ai/bridge.sock to group vpssentinel.'
+        info 'Never place provider API keys in the dashboard database or browser storage.'
+      fi
+      ;;
+    *) die 'Usage: noxctl configure telegram|ai' ;;
+  esac
+}
+
+cmd_enroll(){ require_root; cd "$APP_DIR"; node bin/enroll.js "${1:-noxctl}"; }
+cmd_recovery(){ require_root; cd "$APP_DIR"; node bin/enroll.js --recovery; }
+
+cmd_backup(){
+  require_root; load_install_config
+  local output=${1:-/root/vps-sentinel-backup-$(date -u +%Y%m%dT%H%M%SZ).tar.gz} staging
+  staging=$(mktemp -d); trap 'rm -rf "${staging:-}"' RETURN
+  mkdir -p "$staging/state" "$staging/etc" "$staging/nginx"
+  sqlite3 "$STATE_DIR/sentinel.db" ".backup '$staging/state/sentinel.db'" 2>/dev/null || true
+  cp -a "$STATE_DIR/state.json" "$staging/state/" 2>/dev/null || true
+  cp -a "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" "$staging/etc/"
+  [[ -f /etc/sentinel-ai.env ]] && cp -a /etc/sentinel-ai.env "$staging/etc/"
+  [[ -f /var/lib/sentinel-ai/.hermes/config.yaml ]] && { mkdir -p "$staging/ai";cp -a /var/lib/sentinel-ai/.hermes/config.yaml "$staging/ai/"; }
+  cp -a /etc/nginx/sites-available/vps-sentinel "$staging/nginx/" 2>/dev/null || true
+  cat > "$staging/MANIFEST" <<EOF
+created=$(date -u +%FT%TZ)
+domain=$DOMAIN
+version=$(node -p "require('$APP_DIR/package.json').version")
+source_host=$(hostname)
+EOF
+  tar -C "$staging" -czf "$output" .
+  chmod 600 "$output"
+  ok "Backup created: $output"
+  printf '  SHA256: %s\n' "$(sha256_file "$output")"
+}
+
+cmd_check_update(){
+  load_install_config
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/grouvi-nox} installed latest_url latest
+  installed=$(node -p "require('$APP_DIR/package.json').version")
+  latest_url=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -o /dev/null -w '%{url_effective}' -H 'User-Agent: vps-sentinel' "https://github.com/$repo/releases/latest")
+  latest=${latest_url##*/}; latest=${latest#v}
+  [[ $latest =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'Latest release tag is invalid.'
+  printf 'Installed: %s\nLatest:    %s\n' "$installed" "$latest"
+  [[ $installed == "$latest" ]] && ok 'Already up to date.' || warn "Update available: v$latest"
+}
+
+cmd_update_github(){
+  require_root; load_install_config
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/grouvi-nox} work latest_url tag archive_name archive_url sums_url expected
+  update_progress downloading 'Скачиваю данные релиза с GitHub'
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
+  latest_url=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -o /dev/null -w '%{url_effective}' -H 'User-Agent: vps-sentinel' "https://github.com/$repo/releases/latest")
+  tag=${latest_url##*/}
+  [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'Latest release tag is invalid.'
+  archive_name="grouvi-nox-$tag-linux.tar.gz"
+  archive_url="https://github.com/$repo/releases/download/$tag/$archive_name"
+  sums_url="https://github.com/$repo/releases/download/$tag/SHA256SUMS"
+  if ! curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -H 'User-Agent: grouvi-nox' "$archive_url" -o "$work/$archive_name"; then
+    archive_name="vps-sentinel-$tag-linux.tar.gz"; archive_url="https://github.com/$repo/releases/download/$tag/$archive_name"
+    curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -H 'User-Agent: grouvi-nox' "$archive_url" -o "$work/$archive_name"
+  fi
+  curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -H 'User-Agent: grouvi-nox' "$sums_url" -o "$work/SHA256SUMS"
+  update_progress verifying 'Проверяю SHA-256 и release manifest'
+  expected=$(awk -v name="$archive_name" '$2==name {print $1}' "$work/SHA256SUMS")
+  [[ $expected =~ ^[a-f0-9]{64}$ ]] || die 'Latest release checksum is missing.'
+  cmd_update "$work/$archive_name" "$expected"
+}
+
+cmd_update(){
+  require_root; load_install_config
+  local bundle=${1:-} expected=${2:-} work backup app_backup
+  [[ -f $bundle && -n $expected ]] || die 'Usage: noxctl update <bundle.tar.gz> <expected-sha256>'
+  actual=$(sha256_file "$bundle"); [[ $actual == "$expected" ]] || die "Checksum mismatch: expected $expected, got $actual"
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
+  tar -xzf "$bundle" -C "$work"
+  [[ -f $work/package.json && -f $work/src/server.js && -f $work/deploy/install.sh ]] || die 'Invalid Grouvi Nox bundle.'
+  node -e "const p=require('$work/package.json');if(!p.name?.startsWith('grouvi-nox')&&p.name!=='vps-sentinel')process.exit(1)" || die 'Bundle identity check failed.'
+  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+  backup="/root/vps-sentinel-pre-update-${stamp}.tar.gz"
+  app_backup="/root/vps-sentinel-app-pre-update-${stamp}.tar.gz"
+  update_progress backup 'Создаю резервную копию конфигурации и приложения'
+  cmd_backup "$backup" >/dev/null
+  tar -C "$APP_DIR" --exclude=node_modules --exclude=.git -czf "$app_backup" .
+  chmod 600 "$app_backup"
+  update_progress installing 'Устанавливаю новую версию'
+  systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+  rsync -a --checksum --delete --exclude node_modules --exclude .git "$work/" "$APP_DIR/"
+  cd "$APP_DIR"
+  if ! npm ci --omit=dev --no-audit --no-fund \
+    || ! install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service" \
+    || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"; then
+    update_progress rollback 'Установка не завершилась, возвращаю прошлую версию'
+    warn 'Update staging failed; restoring previous application.'
+    rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
+    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE";[[ ${INSTALL_FORGE:-0} == 1 ]] && systemctl restart sentinel-ai-context.service sentinel-ai-bridge.service || true
+    die "Update rolled back. Diagnostics: $app_backup"
+  fi
+  chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"; chmod 755 "$APP_DIR"; find "$APP_DIR" -type d -exec chmod 755 {} +
+  install -m 755 "$APP_DIR/bin/noxctl" /usr/local/sbin/noxctl
+  install -m 755 "$APP_DIR/bin/sentinelctl" /usr/local/sbin/sentinelctl
+  if grep -qx 'RP_NAME=VPS Sentinel' "$SENTINEL_CONFIG"; then sed -i 's/^RP_NAME=VPS Sentinel$/RP_NAME=Grouvi Nox/' "$SENTINEL_CONFIG"; fi
+  if grep -qx 'SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel' "$SENTINEL_CONFIG"; then sed -i 's#^SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel$#SENTINEL_RELEASE_REPO=grouvi25/grouvi-nox#' "$SENTINEL_CONFIG"; fi
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then install -m 644 deploy/forge/bridge.service /etc/systemd/system/sentinel-ai-bridge.service;install -m 644 deploy/forge/context.service /etc/systemd/system/sentinel-ai-context.service;install -m 644 deploy/forge/context.timer /etc/systemd/system/sentinel-ai-context.timer;install -m 755 deploy/forge/sentinel-hermes /usr/local/bin/sentinel-hermes;fi
+  getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
+  update_progress restarting 'Перезапускаю службы Grouvi Nox'
+  systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  update_progress healthcheck 'Проверяю новую версию и подключение'
+  if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
+    update_progress rollback 'Health-check не пройден, возвращаю прошлую версию'
+    warn 'New version failed health check; restoring previous application.'
+    systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+    rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
+    install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service"
+    install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+    systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+    wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Rollback also failed; manual intervention required.'
+    die "Update failed and was rolled back. Failed bundle retained: $bundle"
+  fi
+  find /root -maxdepth 1 -type f \( -name 'vps-sentinel-pre-update-*.tar.gz' -o -name 'vps-sentinel-app-pre-update-*.tar.gz' \) -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk 'NR>6{$1="";sub(/^ /,"");print}' | xargs -r rm -f
+  ok "Updated to $(node -p "require('$APP_DIR/package.json').version")"
+  info "Rollback backups: $backup and $app_backup (latest 3 updates retained)"
+}
+
+cmd_restore(){
+  require_root; load_install_config
+  local archive=${1:-} work
+  [[ -f $archive ]] || die 'Usage: noxctl restore <backup.tar.gz>'
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
+  tar -xzf "$archive" -C "$work"
+  [[ -f $work/etc/vps-sentinel.env ]] || die 'Not a Grouvi Nox backup.'
+  systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
+  cp -a "$work/etc/vps-sentinel.env" "$SENTINEL_CONFIG"
+  [[ -f $work/etc/install.conf ]] && cp -a "$work/etc/install.conf" "$SENTINEL_INSTALL_CONFIG"
+  [[ -f $work/state/state.json ]] && install -m 600 -o "$SENTINEL_USER" -g "$SENTINEL_USER" "$work/state/state.json" "$STATE_DIR/state.json"
+  [[ -f $work/state/sentinel.db ]] && install -m 600 -o "$SENTINEL_USER" -g "$SENTINEL_USER" "$work/state/sentinel.db" "$STATE_DIR/sentinel.db"
+  systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Restore completed but service failed health check.'
+  ok 'Restore completed.'
+}
+
+cmd_uninstall(){
+  require_root; load_install_config
+  local purge=0; [[ ${1:-} == --purge ]] && purge=1
+  confirm "Remove Grouvi Nox from this server?" || die 'Cancelled.'
+  systemctl disable --now "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE" >/dev/null 2>&1 || true
+  rm -f "/etc/systemd/system/${SENTINEL_SERVICE}.service" "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+  rm -f /etc/nginx/sites-enabled/vps-sentinel /etc/nginx/sites-available/vps-sentinel
+  rm -f /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf /etc/nginx/conf.d/vps-sentinel-http.conf
+  rm -f /etc/nginx/snippets/vps-sentinel-cloudflare-realip.conf /etc/nginx/snippets/sentinel-proxy.conf
+  nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
+  systemctl disable --now sentinel-ai-bridge.service sentinel-ai-context.timer >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/sentinel-ai-bridge.service /etc/systemd/system/sentinel-ai-context.service /etc/systemd/system/sentinel-ai-context.timer /usr/local/bin/sentinel-hermes
+  rm -rf "${APP_DIR:?}"; rm -f /usr/local/sbin/noxctl /usr/local/sbin/sentinelctl
+  if ((purge)); then rm -rf "${STATE_DIR:?}" /var/lib/sentinel-ai /opt/sentinel-ai; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" /etc/sentinel-ai.env; userdel sentinel-ai 2>/dev/null || true; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
+  systemctl daemon-reload
+  if ((purge)); then ok 'Uninstalled; application data purged.'; else ok "Uninstalled; data kept in $STATE_DIR."; fi
+}
+
+cmd_logs(){
+  case ${1:-web} in
+    web) journalctl -u "$SENTINEL_SERVICE" -f -n 100 ;;
+    agent) journalctl -u "$SENTINEL_AGENT_SERVICE" -f -n 100 ;;
+    *) die 'Usage: noxctl logs [web|agent]' ;;
+  esac
+}
+
+cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || true; }
+
+command=${1:-}; shift || true
+case "$command" in
+  status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
+  backup) cmd_backup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
+  logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
+esac

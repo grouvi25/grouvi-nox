@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared runtime for VPS Sentinel lifecycle commands.
+# Shared runtime for Grouvi Nox lifecycle commands.
 set -Eeuo pipefail
 
 SENTINEL_APP_DIR=${SENTINEL_APP_DIR:-/opt/vps-sentinel}

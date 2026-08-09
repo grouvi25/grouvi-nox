@@ -67,7 +67,7 @@ jobs:
       - name: Build and verify release bundle
         run: |
           ./scripts/build-release.sh "v$(node -p "require('./package.json').version")" dist
-          ./scripts/verify-release.sh dist/vps-sentinel-v$(node -p "require('./package.json').version")-linux.tar.gz dist/SHA256SUMS
+          ./scripts/verify-release.sh dist/grouvi-nox-v$(node -p "require('./package.json').version")-linux.tar.gz dist/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: sentinel-ci-bundle

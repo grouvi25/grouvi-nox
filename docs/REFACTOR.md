@@ -1,6 +1,6 @@
 # Architecture map
 
-VPS Sentinel is split by responsibility and keeps browser access read-only except authenticated incident and notification controls.
+Grouvi Nox is split by responsibility and keeps browser access read-only except authenticated incident and notification controls.
 
 ## Browser
 - `public/app.js`: composition, live snapshot rendering and event wiring.

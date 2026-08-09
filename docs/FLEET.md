@@ -36,8 +36,8 @@ Use a unique secret per node. Generate one with `openssl rand -hex 32`.
 
 ## Telegram
 
-VPS Sentinel only calls Telegram `sendMessage`; it does not use long polling or webhooks. One bot token may therefore be used on multiple nodes without a Telegram conflict. Messages include the node name, and deduplication is local to each node. For large fleets, configure Telegram only on the hub or use separate chats.
+Grouvi Nox only calls Telegram `sendMessage`; it does not use long polling or webhooks. One bot token may therefore be used on multiple nodes without a Telegram conflict. Messages include the node name, and deduplication is local to each node. For large fleets, configure Telegram only on the hub or use separate chats.
 
 ## Updates
 
-Every instance checks the latest GitHub Release and exposes version state in the dashboard. Updates remain explicit and verified: download the release archive and `SHA256SUMS`, then use `sentinelctl update`. Fleet mode never executes an update remotely.
+Every instance checks the latest GitHub Release and exposes version state in the dashboard. Updates remain explicit and verified: download the release archive and `SHA256SUMS`, then use `noxctl update`. Fleet mode never executes an update remotely.

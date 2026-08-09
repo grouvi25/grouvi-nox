@@ -3,10 +3,10 @@
 ## Daily commands
 
 ```bash
-sudo sentinelctl status
-sudo sentinelctl doctor
-sudo sentinelctl logs web
-sudo sentinelctl logs agent
+sudo noxctl status
+sudo noxctl doctor
+sudo noxctl logs web
+sudo noxctl logs agent
 ```
 
 `doctor` is read-only. It checks OS support, Node, permissions, systemd sandboxes, nginx, HTTPS, SQLite integrity, filesystem-index policy, loopback binding and API authorization.
@@ -14,8 +14,8 @@ sudo sentinelctl logs agent
 ## Backup
 
 ```bash
-sudo sentinelctl backup
-sudo sentinelctl backup /secure/path/sentinel-backup.tar.gz
+sudo noxctl backup
+sudo noxctl backup /secure/path/sentinel-backup.tar.gz
 ```
 
 The archive contains a consistent SQLite snapshot, passkey/session state, root-only configuration, install metadata and nginx integration. It does not include application source or unrelated host data.
@@ -23,7 +23,7 @@ The archive contains a consistent SQLite snapshot, passkey/session state, root-o
 ## Restore
 
 ```bash
-sudo sentinelctl restore /secure/path/sentinel-backup.tar.gz
+sudo noxctl restore /secure/path/sentinel-backup.tar.gz
 ```
 
 Services are stopped while state and configuration are replaced, then health-checked.
@@ -33,7 +33,7 @@ Services are stopped while state and configuration are replaced, then health-che
 Download a release bundle and obtain its SHA-256 from `SHA256SUMS`:
 
 ```bash
-sudo sentinelctl update ./vps-sentinel-vX.Y.Z-linux.tar.gz <sha256>
+sudo noxctl update ./grouvi-nox-vX.Y.Z-linux.tar.gz <sha256>
 ```
 
 Update verifies the checksum and package identity, creates state and application rollback archives, stages dependencies, restarts both services and performs a health check. A failed update restores the previous application automatically.
@@ -41,8 +41,8 @@ Update verifies the checksum and package identity, creates state and application
 ## Passkeys
 
 ```bash
-sudo sentinelctl enroll "Operations laptop"
-sudo sentinelctl recovery
+sudo noxctl enroll "Operations laptop"
+sudo noxctl recovery
 ```
 
 Generating recovery codes replaces the previous set.
@@ -52,13 +52,13 @@ Generating recovery codes replaces the previous set.
 Keep state/configuration:
 
 ```bash
-sudo sentinelctl uninstall
+sudo noxctl uninstall
 ```
 
 Remove everything, including state and passkeys:
 
 ```bash
-sudo sentinelctl uninstall --purge
+sudo noxctl uninstall --purge
 ```
 
 Let's Encrypt certificates are retained to avoid deleting certificates shared with another process. Remove them separately only after confirming they are unused.
@@ -71,7 +71,7 @@ Let's Encrypt certificates are retained to avoid deleting certificates shared wi
 | Metrics/incidents/passkeys | `/var/lib/vps-sentinel` |
 | Runtime secrets | `/etc/vps-sentinel.env` |
 | Install metadata | `/etc/vps-sentinel/install.conf` |
-| Lifecycle CLI | `/usr/local/sbin/sentinelctl` |
+| Lifecycle CLI | `/usr/local/sbin/noxctl` |
 | nginx site | `/etc/nginx/sites-available/vps-sentinel` |
 | Services | `vps-sentinel.service`, `vps-sentinel-agent.service` |
 
@@ -81,4 +81,4 @@ Run `npm test` for unit and HTTP integration tests, `npm run test:coverage` for 
 
 ## Settings UI
 
-Use `/settings` for Discovery, Telegram and the optional OpenAI-compatible Sentinel Forge provider. Blank secret fields preserve existing configuration. Telegram test delivery happens only when the admin presses the explicit test button. CLI configuration remains available as a recovery path.
+Use `/settings` for Discovery, Telegram and the optional OpenAI-compatible Nox Forge provider. Blank secret fields preserve existing configuration. Telegram test delivery happens only when the admin presses the explicit test button. CLI configuration remains available as a recovery path.

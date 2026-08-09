@@ -45,7 +45,7 @@ try {
   if (args.includes('--status')) {
     const r = await ask({ cmd: 'status' });
     rule();
-    line('  VPS SENTINEL — состояние доступа');
+    line('  GROUVI NOX — состояние доступа');
     rule();
     line(`  Passkey-ключей:      ${r.credentials.length}`);
     for (const c of r.credentials) {

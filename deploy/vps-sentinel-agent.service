@@ -1,6 +1,6 @@
 [Unit]
-Description=VPS Sentinel privileged read-only collector and Docker broker
-Documentation=https://github.com/grouvi25/vps-sentinel
+Description=Grouvi Nox privileged read-only collector and Docker broker
+Documentation=https://github.com/grouvi25/grouvi-nox
 After=network.target
 Before=vps-sentinel.service
 

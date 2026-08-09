@@ -1,5 +1,5 @@
 [Unit]
-Description=Refresh Sentinel Forge VPS context
+Description=Refresh Nox Forge VPS context
 [Timer]
 OnBootSec=2min
 OnUnitActiveSec=5min

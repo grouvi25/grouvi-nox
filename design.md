@@ -1,10 +1,10 @@
-# VPS Sentinel Design System
+# Grouvi Nox Design System
 
-This document is the visual and interaction contract for VPS Sentinel. New UI must extend this language instead of inventing a parallel one.
+This document is the visual and interaction contract for Grouvi Nox. New UI must extend this language instead of inventing a parallel one.
 
 ## 1. Product character
 
-VPS Sentinel is a dense operational instrument, not a generic SaaS dashboard. It should feel calm, precise, compact, dark, and trustworthy. The interface borrows from terminal tooling and the existing tempmail product: near-black surfaces, warm cream emphasis, thin separators, restrained semantic color, compact labels, and very little decoration.
+Grouvi Nox is a dense operational instrument, not a generic SaaS dashboard. It should feel calm, precise, compact, dark, and trustworthy. The interface borrows from terminal tooling and the existing tempmail product: near-black surfaces, warm cream emphasis, thin separators, restrained semantic color, compact labels, and very little decoration.
 
 The hierarchy is: current operational state first, supporting metadata second, actions third. Decorative UI never competes with data.
 
@@ -155,4 +155,4 @@ Use semantic buttons for actions and links for navigation. Keyboard activation m
 
 ## 14. Review checklist
 
-Before shipping UI, verify: exact 56 px chrome, no horizontal overflow, no position movement on controls, every control has visible hover/focus/pressed/disabled behavior, odd grid rows fill their container, drawer transitions use transform and opacity, copy is concise, colors come from project tokens, and the result still looks like VPS Sentinel rather than a new template.
+Before shipping UI, verify: exact 56 px chrome, no horizontal overflow, no position movement on controls, every control has visible hover/focus/pressed/disabled behavior, odd grid rows fill their container, drawer transitions use transform and opacity, copy is concise, colors come from project tokens, and the result still looks like Grouvi Nox rather than a new template.

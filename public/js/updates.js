@@ -6,7 +6,7 @@ const STAGES={
   verifying:{label:'Проверяю SHA-256 и состав архива',progress:34},
   backup:{label:'Создаю резервную копию',progress:48},
   installing:{label:'Устанавливаю новую версию',progress:66},
-  restarting:{label:'Перезапускаю Sentinel',progress:82},
+  restarting:{label:'Перезапускаю Grouvi Nox',progress:82},
   healthcheck:{label:'Проверяю сервисы и подключение',progress:94},
   completed:{label:'Обновление установлено',progress:100},
   rollback:{label:'Проверка не пройдена, возвращаю прошлую версию',progress:74},
@@ -29,7 +29,7 @@ export function createUpdateController({api,setWorkspacePane}){
   async function load(){state=await api('/api/update');misses=0;renderRelease();renderJob(state.job);return state}
   async function open(){setWorkspacePane('updatePane');try{await load()}catch(error){$('updateProgress').hidden=false;$('updateProgressText').textContent=`Не удалось проверить обновление: ${error.message}`}}
   function close(){if(!installing){clearInterval(timer);timer=null}setWorkspacePane()}
-  async function pollUntilReady(){for(let attempt=0;attempt<120;attempt+=1){await sleep(attempt<8?1500:2500);try{const next=await load();installing=Boolean(next.job?.running);if(!installing){if(next.job?.ok){$('updateOpen').hidden=true;renderJob(next.job);setTimeout(()=>location.reload(),1400)}return}}catch{misses+=1;installing=true;$('updateProgress').hidden=false;$('updateProgressText').textContent=misses<3?'Sentinel перезапускается…':'Жду возвращения Sentinel…';$('updateProgressMeta').textContent='Соединение восстановится автоматически';$('updateProgressBar').style.width='88%'}}installing=false;renderJob({status:'failed',message:'Sentinel не вернулся вовремя. Проверьте журнал сервиса.'})}
+  async function pollUntilReady(){for(let attempt=0;attempt<120;attempt+=1){await sleep(attempt<8?1500:2500);try{const next=await load();installing=Boolean(next.job?.running);if(!installing){if(next.job?.ok){$('updateOpen').hidden=true;renderJob(next.job);setTimeout(()=>location.reload(),1400)}return}}catch{misses+=1;installing=true;$('updateProgress').hidden=false;$('updateProgressText').textContent=misses<3?'Grouvi Nox перезапускается…':'Жду возвращения Grouvi Nox…';$('updateProgressMeta').textContent='Соединение восстановится автоматически';$('updateProgressBar').style.width='88%'}}installing=false;renderJob({status:'failed',message:'Grouvi Nox не вернулся вовремя. Проверьте журнал сервиса.'})}
   async function install(){if(!release().available||installing)return;installing=true;renderJob({status:'queued',running:true,message:'Запускаю безопасное обновление…'});try{const result=await api('/api/update/install',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});renderJob(result.job);await pollUntilReady()}catch(error){installing=false;renderJob({status:'failed',running:false,message:`Не удалось запустить обновление: ${error.message}`})}}
   return{load,open,close,install}
 }

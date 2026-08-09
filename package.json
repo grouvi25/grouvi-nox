@@ -1,10 +1,10 @@
 {
-  "name": "vps-sentinel",
-  "version": "1.24.13",
+  "name": "grouvi-nox-vps-sentinel",
+  "version": "1.25.0",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "description": "Realtime VPS monitoring dashboard with WebAuthn passkey authentication",
+  "description": "Grouvi Nox: realtime VPS monitoring, fleet telemetry and passkey-secured operations dashboard",
   "engines": {
     "node": ">=20"
   },

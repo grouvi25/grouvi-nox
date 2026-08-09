@@ -1,4 +1,4 @@
-name: Release
+name: Grouvi Nox Release
 
 on:
   push:
@@ -21,18 +21,21 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Validate tag and build reproducible bundle
         run: ./scripts/build-release.sh "${GITHUB_REF_NAME}" dist
-      - name: Verify bundle
+      - name: Verify canonical bundle
+        run: ./scripts/verify-release.sh "dist/grouvi-nox-${GITHUB_REF_NAME}-linux.tar.gz" dist/SHA256SUMS
+      - name: Verify legacy upgrade bundle
         run: ./scripts/verify-release.sh "dist/vps-sentinel-${GITHUB_REF_NAME}-linux.tar.gz" dist/SHA256SUMS
-      - name: Attest build provenance (public repositories)
+      - name: Attest Grouvi Nox build provenance
         if: github.event.repository.visibility == 'public'
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/vps-sentinel-${{ github.ref_name }}-linux.tar.gz
+          subject-path: dist/grouvi-nox-${{ github.ref_name }}-linux.tar.gz
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
+            dist/grouvi-nox-${{ github.ref_name }}-linux.tar.gz
             dist/vps-sentinel-${{ github.ref_name }}-linux.tar.gz
             dist/SHA256SUMS

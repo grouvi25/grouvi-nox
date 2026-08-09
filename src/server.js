@@ -22,12 +22,12 @@ startUpdateChecks();
 startFleetPush();
 
 server.listen(config.port, config.host, () => {
-  console.log(`[vps-sentinel] listening on http://${config.host}:${config.port} (rp: ${config.rpID})`);
+  console.log(`[grouvi-nox] listening on http://${config.host}:${config.port} (rp: ${config.rpID})`);
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {
-    console.log(`[vps-sentinel] ${sig}, shutting down`);
+    console.log(`[grouvi-nox] ${sig}, shutting down`);
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 5000).unref();
   });

@@ -40,7 +40,7 @@ Only metadata is indexed: path, type, size, permissions, ownership and modificat
 
 ## Release integrity
 
-GitHub tag builds create a reproducible tarball and SHA-256 manifest. Public repositories also receive a GitHub build-provenance attestation; GitHub does not offer attestations for user-owned private repositories. Operators verify the downloaded archive before extraction. `sentinelctl update` requires the expected checksum and performs package-identity checks.
+GitHub tag builds create a reproducible tarball and SHA-256 manifest. Public repositories also receive a GitHub build-provenance attestation; GitHub does not offer attestations for user-owned private repositories. Operators verify the downloaded archive before extraction. `noxctl update` requires the expected checksum and performs package-identity checks.
 
 ## Secrets
 
@@ -60,7 +60,7 @@ A compromised host cannot be made trustworthy by reinstalling the dashboard. Reb
 
 ## Docker isolation
 
-The web process has no Docker group membership and cannot open `/var/run/docker.sock`. The root collector exposes a Unix socket owned by `vpssentinel` and accepts only a fixed set of Docker GET endpoints for list, disk usage, inspect, one-shot stats and redacted log tails. Mutation endpoints and path traversal are rejected. `sentinelctl doctor` verifies this boundary.
+The web process has no Docker group membership and cannot open `/var/run/docker.sock`. The root collector exposes a Unix socket owned by `vpssentinel` and accepts only a fixed set of Docker GET endpoints for list, disk usage, inspect, one-shot stats and redacted log tails. Mutation endpoints and path traversal are rejected. `noxctl doctor` verifies this boundary.
 
 ## Settings and secret integrations
 

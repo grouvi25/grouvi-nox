@@ -73,4 +73,4 @@ systemctl start sentinel-ai-context.service
 systemctl enable --now sentinel-ai-bridge.service
 for _ in {1..30};do [[ -S /run/sentinel-ai/bridge.sock ]]&&break;sleep 1;done
 [[ -S /run/sentinel-ai/bridge.sock ]]||{ journalctl -u sentinel-ai-bridge -n 80 --no-pager;exit 1; }
-echo "Sentinel Forge installed: Hermes $HERMES_REF, bridge active, provider $([[ -n $AI_API_KEY ]]&&echo configured||echo pending-dashboard-setup)."
+echo "Nox Forge installed: Hermes $HERMES_REF, bridge active, provider $([[ -n $AI_API_KEY ]]&&echo configured||echo pending-dashboard-setup)."
