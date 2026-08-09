@@ -171,32 +171,27 @@ EOF
 
 cmd_check_update(){
   load_install_config
-  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} installed latest
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} installed latest_url latest
   installed=$(node -p "require('$APP_DIR/package.json').version")
-  latest=$(curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
-    "https://api.github.com/repos/$repo/releases/latest" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).tag_name.replace(/^v/,'')))")
+  latest_url=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -o /dev/null -w '%{url_effective}' -H 'User-Agent: vps-sentinel' "https://github.com/$repo/releases/latest")
+  latest=${latest_url##*/}; latest=${latest#v}
+  [[ $latest =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'Latest release tag is invalid.'
   printf 'Installed: %s\nLatest:    %s\n' "$installed" "$latest"
   [[ $installed == "$latest" ]] && ok 'Already up to date.' || warn "Update available: v$latest"
 }
 
 cmd_update_github(){
   require_root; load_install_config
-  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} work json tag archive_url sums_url expected
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} work latest_url tag archive_url sums_url expected
   update_progress downloading 'Скачиваю данные релиза с GitHub'
   work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
-  json="$work/release.json"
-  curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
-    "https://api.github.com/repos/$repo/releases/latest" -o "$json"
-  readarray -t release < <(node - "$json" <<'NODE'
-const fs=require('fs');const r=JSON.parse(fs.readFileSync(process.argv[2]));
-const a=r.assets.find(x=>/vps-sentinel-v.*-linux\.tar\.gz$/.test(x.name));
-const s=r.assets.find(x=>x.name==='SHA256SUMS');
-if(!a||!s)process.exit(1);console.log(r.tag_name);console.log(a.browser_download_url);console.log(s.browser_download_url);
-NODE
-  )
-  tag=${release[0]}; archive_url=${release[1]}; sums_url=${release[2]}
-  curl -fL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
-  curl -fL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors "$sums_url" -o "$work/SHA256SUMS"
+  latest_url=$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -o /dev/null -w '%{url_effective}' -H 'User-Agent: vps-sentinel' "https://github.com/$repo/releases/latest")
+  tag=${latest_url##*/}
+  [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die 'Latest release tag is invalid.'
+  archive_url="https://github.com/$repo/releases/download/$tag/vps-sentinel-$tag-linux.tar.gz"
+  sums_url="https://github.com/$repo/releases/download/$tag/SHA256SUMS"
+  curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -H 'User-Agent: vps-sentinel' "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
+  curl -fsSL --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors -H 'User-Agent: vps-sentinel' "$sums_url" -o "$work/SHA256SUMS"
   update_progress verifying 'Проверяю SHA-256 и release manifest'
   expected=$(awk -v name="vps-sentinel-$tag-linux.tar.gz" '$2==name {print $1}' "$work/SHA256SUMS")
   [[ $expected =~ ^[a-f0-9]{64}$ ]] || die 'Latest release checksum is missing.'
