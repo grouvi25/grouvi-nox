@@ -139,7 +139,7 @@ cmd_recovery(){ require_root; cd "$APP_DIR"; node bin/enroll.js --recovery; }
 cmd_backup(){
   require_root; load_install_config
   local output=${1:-/root/vps-sentinel-backup-$(date -u +%Y%m%dT%H%M%SZ).tar.gz} staging
-  staging=$(mktemp -d); trap 'rm -rf "$staging"' RETURN
+  staging=$(mktemp -d); trap 'rm -rf "${staging:-}"' RETURN
   mkdir -p "$staging/state" "$staging/etc" "$staging/nginx"
   sqlite3 "$STATE_DIR/sentinel.db" ".backup '$staging/state/sentinel.db'" 2>/dev/null || true
   cp -a "$STATE_DIR/state.json" "$staging/state/" 2>/dev/null || true
@@ -172,7 +172,7 @@ cmd_check_update(){
 cmd_update_github(){
   require_root; load_install_config
   local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} work json tag archive_url sums_url expected
-  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
   json="$work/release.json"
   curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
     "https://api.github.com/repos/$repo/releases/latest" -o "$json"
@@ -196,7 +196,7 @@ cmd_update(){
   local bundle=${1:-} expected=${2:-} work backup app_backup
   [[ -f $bundle && -n $expected ]] || die 'Usage: sentinelctl update <bundle.tar.gz> <expected-sha256>'
   actual=$(sha256_file "$bundle"); [[ $actual == "$expected" ]] || die "Checksum mismatch: expected $expected, got $actual"
-  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
   tar -xzf "$bundle" -C "$work"
   [[ -f $work/package.json && -f $work/src/server.js && -f $work/deploy/install.sh ]] || die 'Invalid VPS Sentinel bundle.'
   node -e "const p=require('$work/package.json');if(!p.name?.includes('vps-sentinel'))process.exit(1)" || die 'Bundle identity check failed.'
@@ -239,7 +239,7 @@ cmd_restore(){
   require_root; load_install_config
   local archive=${1:-} work
   [[ -f $archive ]] || die 'Usage: sentinelctl restore <backup.tar.gz>'
-  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
   tar -xzf "$archive" -C "$work"
   [[ -f $work/etc/vps-sentinel.env ]] || die 'Not a VPS Sentinel backup.'
   systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"

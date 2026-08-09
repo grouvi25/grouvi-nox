@@ -1,6 +1,6 @@
 {
   "name": "vps-sentinel",
-  "version": "1.23.2",
+  "version": "1.23.3",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
