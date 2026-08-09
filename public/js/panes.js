@@ -5,6 +5,7 @@ const PANE_LIMITS = {
   notify: { min: 360, max: 580, fallback: 440 },
   detail: { min: 400, max: 720, fallback: 540 },
   settings: { min: 560, max: 920, fallback: 780 },
+  update: { min: 400, max: 680, fallback: 520 },
 };
 function paneWidth(kind) {
   const limits=PANE_LIMITS[kind], saved=Number(localStorage.getItem(`sentinelPaneWidth:${kind}`));

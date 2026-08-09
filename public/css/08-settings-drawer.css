@@ -36,3 +36,4 @@ button:active:not(:disabled),a:active,[role="button"]:active,.target:active{tran
 .settings-rail .nav-item.active::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--accent);border-radius:0 2px 2px 0}
 @media(min-width:1101px){.settings-rail.sidebar{transition:transform 340ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}}
 @media(max-width:1100px){.settings-rail.sidebar{transition:transform 280ms cubic-bezier(.16,1,.3,1),opacity 180ms cubic-bezier(.16,1,.3,1)}}
+.drawer-form textarea,.drawer-form select{width:100%;min-height:36px;padding:8px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--panel);color:var(--text);font:10px var(--mono)}.drawer-form textarea{resize:vertical}

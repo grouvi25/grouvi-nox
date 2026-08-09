@@ -10,6 +10,9 @@ let state = {
   releaseUrl: null,
   archiveUrl: null,
   checksumUrl: null,
+  name: null,
+  body: null,
+  publishedAt: null,
   error: null,
 };
 
@@ -48,6 +51,9 @@ export async function checkForUpdates() {
       releaseUrl: release.html_url || null,
       archiveUrl: archive?.browser_download_url || null,
       checksumUrl: sums?.browser_download_url || null,
+      name: release.name || null,
+      body: String(release.body || '').slice(0, 30000),
+      publishedAt: release.published_at || null,
       error: null,
     };
   } catch (error) {

@@ -8,6 +8,7 @@ import { createForgeController } from './js/forge.js';
 import {createDiscoveryController} from './js/discovery.js';
 import {createSettingsController} from './js/settings-pane.js';
 import {createFleetController} from './js/fleet.js';
+import {createUpdateController} from './js/updates.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -16,6 +17,7 @@ const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d
 
 /* ----------------------------- render ---------------------------- */
 const fleet=createFleetController();
+let updates;
 let latest = null;
 let persistedHistory = null;
 
@@ -311,6 +313,7 @@ const { hourOptions, syncNotificationFooter, loadNotificationState, openNotifica
 const forge=createForgeController({api,formatWhen,setWorkspacePane});
 const discoveryController=createDiscoveryController({api,openProject:openProjectDetail,openTarget:openServiceDetail});
 const settings=createSettingsController({api,setWorkspacePane});
+updates=createUpdateController({api,setWorkspacePane});
 
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
@@ -557,7 +560,7 @@ async function bootstrap() {
     if (r.status === 401) { location.href = '/login'; return; }
     render(await r.json());
   } catch { /* websocket will fill in */ }
-  await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load(),fleet.load()]);
+  await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load(),fleet.load(),updates.load()]);
   connect();
   if(location.hash==='#settings')settings.open();
 }
@@ -648,6 +651,10 @@ $('chCpu').addEventListener('mouseleave', () => resetChartInspect('cpu'));
 $('chNet').addEventListener('mousemove', (e) => inspectChart('net', e));
 $('chNet').addEventListener('mouseleave', () => resetChartInspect('net'));
 $('detailClose').addEventListener('click', closeDetail);
+$('updateOpen').addEventListener('click',()=>updates.open().catch(()=>{}));
+$('updateClose').addEventListener('click',updates.close);
+$('updateCancel').addEventListener('click',updates.close);
+$('updateInstall').addEventListener('click',()=>updates.install().catch(error=>{$('updateProgress').hidden=false;$('updateProgressText').textContent=error.message}));
 $('settingsOpen').addEventListener('click',()=>{history.replaceState(null,'','#settings');settings.open()});
 $('settingsClose').addEventListener('click',settings.close);
 $('settingsRefresh').addEventListener('click',()=>settings.load());

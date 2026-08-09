@@ -231,8 +231,9 @@ cmd_update(){
     wait_http "http://127.0.0.1:${PORT}/healthz" 30 2 || die 'Rollback also failed; manual intervention required.'
     die "Update failed and was rolled back. Failed bundle retained: $bundle"
   fi
+  find /root -maxdepth 1 -type f \( -name 'vps-sentinel-pre-update-*.tar.gz' -o -name 'vps-sentinel-app-pre-update-*.tar.gz' \) -printf '%T@ %p\n' 2>/dev/null | sort -rn | awk 'NR>6{$1="";sub(/^ /,"");print}' | xargs -r rm -f
   ok "Updated to $(node -p "require('$APP_DIR/package.json').version")"
-  info "Rollback backups: $backup and $app_backup"
+  info "Rollback backups: $backup and $app_backup (latest 3 updates retained)"
 }
 
 cmd_restore(){
