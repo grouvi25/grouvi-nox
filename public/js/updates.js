@@ -1,2 +1,35 @@
 import{$,esc}from'./utils.js';
-export function createUpdateController({api,setWorkspacePane}){let state=null,timer=null;const text=body=>String(body||'Нет описания релиза.').split('\n').slice(0,80).map(line=>line.startsWith('### ')?`<h4>${esc(line.slice(4))}</h4>`:line.startsWith('## ')?`<h3>${esc(line.slice(3))}</h3>`:line.startsWith('- ')?`<li>${esc(line.slice(2))}</li>`:line.trim()?`<p>${esc(line)}</p>`:'').join('');async function load(){state=await api('/api/update');const u=state.release||state;$('updateOpen').hidden=!u.available;$('updateTopVersion').textContent=u.available?`v${u.latest}`:'';$('updateCurrentVersion').textContent=`v${u.current||'?'}`;$('updateLatestVersion').textContent=`v${u.latest||'?'}`;$('updatePaneVersion').textContent=u.available?'доступно':'актуально';$('updatePaneVersion').className=`pill ${u.available?'warn':'ok'}`;$('updatePublishedAt').textContent=u.publishedAt?new Date(u.publishedAt).toLocaleString('ru-RU'):'';$('updateChangelog').innerHTML=text(u.body);$('updateInstall').disabled=!u.available||state.job?.running;renderJob(state.job);return state}function renderJob(job){if(!job)return;$('updateProgress').hidden=!job.running&&!job.status;$('updateProgressText').textContent=job.message||job.status||'';$('updateProgressBar').style.width=job.running?'64%':job.ok?'100%':'12%';$('updateInstall').disabled=Boolean(job.running)}async function open(){setWorkspacePane('updatePane');await load()}function close(){clearInterval(timer);timer=null;setWorkspacePane()}async function install(){if(!state?.release?.available&&!state?.available)return;$('updateInstall').disabled=true;const result=await api('/api/update/install',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});renderJob(result.job);timer=setInterval(async()=>{try{const next=await load();if(!next.job?.running){clearInterval(timer);timer=null;if(next.job?.ok)setTimeout(()=>location.reload(),1200)}}catch{}},2000)}return{load,open,close,install}}
+
+const STAGES={
+  queued:{label:'Обновление поставлено в очередь',progress:6},
+  downloading:{label:'Скачиваю релиз с GitHub',progress:18},
+  verifying:{label:'Проверяю SHA-256 и состав архива',progress:34},
+  backup:{label:'Создаю резервную копию',progress:48},
+  installing:{label:'Устанавливаю новую версию',progress:66},
+  restarting:{label:'Перезапускаю Sentinel',progress:82},
+  healthcheck:{label:'Проверяю сервисы и подключение',progress:94},
+  completed:{label:'Обновление установлено',progress:100},
+  rollback:{label:'Проверка не пройдена, возвращаю прошлую версию',progress:74},
+  failed:{label:'Обновление не установлено',progress:100},
+};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const cleanSubject=value=>String(value||'').replace(/^[-*]\s*/,'').replace(/\s*\(#\d+\)$/,'').trim();
+function changelog(release){
+  const changes=(release.changes||[]).map(cleanSubject).filter(Boolean).slice(0,12);
+  if(changes.length)return `<ul>${changes.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>${release.compareUrl?`<a class="update-compare" href="${esc(release.compareUrl)}" target="_blank" rel="noopener">Все изменения на GitHub</a>`:''}`;
+  const lines=String(release.body||'').split('\n').map(x=>x.trim()).filter(Boolean).filter(x=>!/^#{1,6}\s*Что изменилось$/i.test(x)&&!/^\*\*Full Changelog\*\*/i.test(x));
+  const useful=lines.filter(x=>!/^https?:\/\//i.test(x)).map(cleanSubject).filter(Boolean).slice(0,12);
+  return useful.length?`<ul>${useful.map(item=>`<li>${esc(item.replace(/\*\*/g,''))}</li>`).join('')}</ul>`:`<p>Технический релиз: исправления надёжности и интерфейса.</p>${release.compareUrl?`<a class="update-compare" href="${esc(release.compareUrl)}" target="_blank" rel="noopener">Посмотреть изменения на GitHub</a>`:''}`;
+}
+export function createUpdateController({api,setWorkspacePane}){
+  let state=null,timer=null,installing=false,misses=0;
+  const release=()=>state?.release||state||{};
+  function renderRelease(){const u=release(),available=Boolean(u.available);$('updateOpen').hidden=!available;$('updateTopVersion').textContent='';$('updateCurrentVersion').textContent=`v${u.current||'?'}`;$('updateLatestVersion').textContent=`v${u.latest||'?'}`;$('updatePaneVersion').textContent=available?'доступно':'актуально';$('updatePaneVersion').className=`pill ${available?'warn':'ok'}`;$('updatePublishedAt').textContent=u.publishedAt?`Опубликовано ${new Date(u.publishedAt).toLocaleString('ru-RU')}`:'';$('updateChangelog').innerHTML=changelog(u);$('updateInstall').disabled=!available||installing||Boolean(state?.job?.running)}
+  function renderJob(job={}){const stage=STAGES[job.status]||{label:job.status||'Подготовка',progress:10},active=Boolean(job.running)||['completed','failed','rollback'].includes(job.status);$('updateProgress').hidden=!active;$('updateProgress').className=`update-progress ${job.ok?'success':''} ${job.status==='failed'?'error':''}`;$('updateProgressText').textContent=job.message||stage.label;$('updateProgressMeta').textContent=job.running?'Не закрывайте вкладку, переподключение произойдёт автоматически':job.ok?`Готово${job.version?` · v${job.version}`:''}`:job.status==='failed'?'Прошлая версия сохранена или восстановлена':'';$('updateProgressBar').style.width=`${stage.progress}%`;$('updateInstall').disabled=Boolean(job.running)||!release().available;$('updateInstall').textContent=job.running?'Обновляю…':job.ok?'Установлено':'Обновить';$('updateCancel').textContent=job.running?'Скрыть':'Отмена'}
+  async function load(){state=await api('/api/update');misses=0;renderRelease();renderJob(state.job);return state}
+  async function open(){setWorkspacePane('updatePane');try{await load()}catch(error){$('updateProgress').hidden=false;$('updateProgressText').textContent=`Не удалось проверить обновление: ${error.message}`}}
+  function close(){if(!installing){clearInterval(timer);timer=null}setWorkspacePane()}
+  async function pollUntilReady(){for(let attempt=0;attempt<120;attempt+=1){await sleep(attempt<8?1500:2500);try{const next=await load();installing=Boolean(next.job?.running);if(!installing){if(next.job?.ok){$('updateOpen').hidden=true;renderJob(next.job);setTimeout(()=>location.reload(),1400)}return}}catch{misses+=1;installing=true;$('updateProgress').hidden=false;$('updateProgressText').textContent=misses<3?'Sentinel перезапускается…':'Жду возвращения Sentinel…';$('updateProgressMeta').textContent='Соединение восстановится автоматически';$('updateProgressBar').style.width='88%'}}installing=false;renderJob({status:'failed',message:'Sentinel не вернулся вовремя. Проверьте журнал сервиса.'})}
+  async function install(){if(!release().available||installing)return;installing=true;renderJob({status:'queued',running:true,message:'Запускаю безопасное обновление…'});try{const result=await api('/api/update/install',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});renderJob(result.job);await pollUntilReady()}catch(error){installing=false;renderJob({status:'failed',running:false,message:`Не удалось запустить обновление: ${error.message}`})}}
+  return{load,open,close,install}
+}

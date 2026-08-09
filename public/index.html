@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.20.0">
+<link rel="stylesheet" href="/style.css?v=1.24.3">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -360,7 +360,7 @@
     <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">Обновить</button></footer></main>
   </aside>
 
-  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">VPS Sentinel</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" hidden><span id="updateProgressText">Подготовка...</span><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
+  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">VPS Sentinel</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">Подготовка...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
   <aside class="detail-pane" id="detailPane" data-pane-kind="detail" aria-hidden="true">
     <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
     <div class="detail-head">
@@ -374,6 +374,6 @@
   </aside>
 </div>
 
-<script src="/app.js?v=1.22.0" type="module"></script>
+<script src="/app.js?v=1.24.3" type="module"></script>
 </body>
 </html>

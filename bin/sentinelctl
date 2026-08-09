@@ -32,6 +32,16 @@ pass the local bundle plus expected SHA-256 to `sentinelctl update`.
 EOF
 }
 
+update_progress(){
+  [[ -n ${SENTINEL_UPDATE_JOB_FILE:-} ]] || return 0
+  local status=${1:-running} message=${2:-Обновление выполняется}
+  UPDATE_STATUS="$status" UPDATE_MESSAGE="$message" node - "$SENTINEL_UPDATE_JOB_FILE" "${SENTINEL_UPDATE_STARTED_AT:-$(date +%s000)}" <<'NODE'
+const fs=require('fs'),file=process.argv[2],startedAt=Number(process.argv[3]);
+const job={status:process.env.UPDATE_STATUS,running:true,ok:false,startedAt,updatedAt:Date.now(),message:process.env.UPDATE_MESSAGE};
+const tmp=`${file}.${process.pid}.tmp`;fs.writeFileSync(tmp,JSON.stringify(job));fs.renameSync(tmp,file);
+NODE
+}
+
 cmd_status(){
   load_install_config
   section 'VPS Sentinel'
@@ -172,6 +182,7 @@ cmd_check_update(){
 cmd_update_github(){
   require_root; load_install_config
   local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} work json tag archive_url sums_url expected
+  update_progress downloading 'Скачиваю данные релиза с GitHub'
   work=$(mktemp -d); trap 'rm -rf "${work:-}"' RETURN
   json="$work/release.json"
   curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
@@ -186,6 +197,7 @@ NODE
   tag=${release[0]}; archive_url=${release[1]}; sums_url=${release[2]}
   curl -fsS --proto '=https' --tlsv1.2 "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
   curl -fsS --proto '=https' --tlsv1.2 "$sums_url" -o "$work/SHA256SUMS"
+  update_progress verifying 'Проверяю SHA-256 и release manifest'
   expected=$(awk -v name="vps-sentinel-$tag-linux.tar.gz" '$2==name {print $1}' "$work/SHA256SUMS")
   [[ $expected =~ ^[a-f0-9]{64}$ ]] || die 'Latest release checksum is missing.'
   cmd_update "$work/vps-sentinel-$tag-linux.tar.gz" "$expected"
@@ -203,25 +215,32 @@ cmd_update(){
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   backup="/root/vps-sentinel-pre-update-${stamp}.tar.gz"
   app_backup="/root/vps-sentinel-app-pre-update-${stamp}.tar.gz"
+  update_progress backup 'Создаю резервную копию конфигурации и приложения'
   cmd_backup "$backup" >/dev/null
   tar -C "$APP_DIR" --exclude=node_modules --exclude=.git -czf "$app_backup" .
   chmod 600 "$app_backup"
+  update_progress installing 'Устанавливаю новую версию'
   systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
   rsync -a --checksum --delete --exclude node_modules --exclude .git "$work/" "$APP_DIR/"
   cd "$APP_DIR"
   if ! npm ci --omit=dev --no-audit --no-fund \
     || ! install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service" \
     || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"; then
+    update_progress rollback 'Установка не завершилась, возвращаю прошлую версию'
     warn 'Update staging failed; restoring previous application.'
     rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
     systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE";[[ ${INSTALL_FORGE:-0} == 1 ]] && systemctl restart sentinel-ai-context.service sentinel-ai-bridge.service || true
     die "Update rolled back. Diagnostics: $app_backup"
   fi
-  chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"
+  chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"; chmod 755 "$APP_DIR"; find "$APP_DIR" -type d -exec chmod 755 {} +
+  install -m 755 "$APP_DIR/bin/sentinelctl" /usr/local/sbin/sentinelctl
   if [[ ${INSTALL_FORGE:-0} == 1 ]]; then install -m 644 deploy/forge/bridge.service /etc/systemd/system/sentinel-ai-bridge.service;install -m 644 deploy/forge/context.service /etc/systemd/system/sentinel-ai-context.service;install -m 644 deploy/forge/context.timer /etc/systemd/system/sentinel-ai-context.timer;install -m 755 deploy/forge/sentinel-hermes /usr/local/bin/sentinel-hermes;fi
   getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
+  update_progress restarting 'Перезапускаю службы Sentinel'
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  update_progress healthcheck 'Проверяю новую версию и подключение'
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
+    update_progress rollback 'Health-check не пройден, возвращаю прошлую версию'
     warn 'New version failed health check; restoring previous application.'
     systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
     rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
