@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#111111">
 <title>VPS Sentinel</title>
-<link rel="stylesheet" href="/style.css?v=1.24.3">
+<link rel="stylesheet" href="/style.css?v=1.24.4">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.svg">
 </head>
@@ -22,27 +22,27 @@
       </svg>
       <div class="brand-info">
         <h1>VPS Sentinel</h1>
-        <div class="host" id="sideHost">…</div>
+        <div class="host" id="sideHost">вЂ¦</div>
       </div>
     </div>
 
-    <div class="side-label">Нагрузка</div>
+    <div class="side-label">РќР°РіСЂСѓР·РєР°</div>
     <div class="gauges">
       <div class="gauge">
-        <div class="g-top"><span class="g-name">Процессор</span><span class="g-val" id="gCpu">—</span></div>
+        <div class="g-top"><span class="g-name">РџСЂРѕС†РµСЃСЃРѕСЂ</span><span class="g-val" id="gCpu">вЂ”</span></div>
         <div class="track"><i id="gCpuBar"></i></div>
       </div>
       <div class="gauge">
-        <div class="g-top"><span class="g-name">Память</span><span class="g-val" id="gMem">—</span></div>
+        <div class="g-top"><span class="g-name">РџР°РјСЏС‚СЊ</span><span class="g-val" id="gMem">вЂ”</span></div>
         <div class="track"><i id="gMemBar"></i></div>
       </div>
       <div class="gauge">
-        <div class="g-top"><span class="g-name">Диск</span><span class="g-val" id="gDisk">—</span></div>
+        <div class="g-top"><span class="g-name">Р”РёСЃРє</span><span class="g-val" id="gDisk">вЂ”</span></div>
         <div class="track"><i id="gDiskBar"></i></div>
       </div>
     </div>
 
-    <div class="side-label">Разделы</div>
+    <div class="side-label">Р Р°Р·РґРµР»С‹</div>
     <nav class="nav" id="nav">
       <button class="nav-item forge-open" id="forgeOpen" type="button">
         <svg viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v7a2.5 2.5 0 01-2.5 2.5H11l-4 3v-3.2A2.5 2.5 0 015 13.5z"/><path d="M9 9h6M9 12h4"/></svg>
@@ -51,27 +51,27 @@
       <div class="nav-separator"></div>
       <a class="nav-item" href="#s-overview">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        <span>Обзор</span>
+        <span>РћР±Р·РѕСЂ</span>
         <span class="n-badge" id="nbAlerts">0</span>
       </a>
       <a class="nav-item" href="#s-perf">
         <svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 5-7 4 4"/></svg>
-        <span>История</span>
+        <span>РСЃС‚РѕСЂРёСЏ</span>
       </a>
       <a class="nav-item" href="#s-incidents">
         <svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.7 3h15.4a2 2 0 001.7-3L13.7 4.3a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>
-        <span>Инциденты</span>
+        <span>РРЅС†РёРґРµРЅС‚С‹</span>
         <span class="n-badge" id="nbIncidents">0</span>
       </a>
       <a class="nav-item" href="#s-hw">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
-        <span>Железо</span>
+        <span>Р–РµР»РµР·Рѕ</span>
       </a>
       <a class="nav-item" href="#s-filesystem">
         <svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M3 10h18"/></svg>
-        <span>Файловая система</span>
+        <span>Р¤Р°Р№Р»РѕРІР°СЏ СЃРёСЃС‚РµРјР°</span>
       </a>
-      <a class="nav-item" href="#s-discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Проекты</span><span class="n-badge" id="nbDiscovery">0</span></a>
+      <a class="nav-item" href="#s-discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>РџСЂРѕРµРєС‚С‹</span><span class="n-badge" id="nbDiscovery">0</span></a>
       <a class="nav-item" href="#s-docker">
         <svg viewBox="0 0 24 24"><rect x="3" y="10" width="4" height="4"/><rect x="8" y="10" width="4" height="4"/><rect x="13" y="10" width="4" height="4"/><rect x="8" y="5" width="4" height="4"/><path d="M2 15c3 4 12 5 17-1 2 0 3-1 3-2"/></svg>
         <span>Docker</span>
@@ -79,43 +79,43 @@
       </a>
       <a class="nav-item" href="#s-pm2">
         <svg viewBox="0 0 24 24"><path d="M8 6l-5 6 5 6M16 6l5 6-5 6"/></svg>
-        <span>Процессы</span>
+        <span>РџСЂРѕС†РµСЃСЃС‹</span>
         <span class="n-badge" id="nbPm2">0</span>
       </a>
       <a class="nav-item" href="#s-sec">
         <svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
-        <span>Безопасность</span>
+        <span>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</span>
       </a>
       <a class="nav-item" href="#s-ops">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.2-8.6"/><path d="M12 7v5l3 2"/></svg>
-        <span>Обслуживание</span>
+        <span>РћР±СЃР»СѓР¶РёРІР°РЅРёРµ</span>
       </a>
     </nav>
 
-    <button class="btn-icon side-settings-icon" id="settingsOpen" type="button" title="Настройки" aria-label="Настройки"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.2h-4v-.2a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.2a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9L4.4 7 7.2 4.2l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.2a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.2v4h-.2a1.7 1.7 0 00-1.8.8z"/></svg></button>
+    <button class="btn-icon side-settings-icon" id="settingsOpen" type="button" title="РќР°СЃС‚СЂРѕР№РєРё" aria-label="РќР°СЃС‚СЂРѕР№РєРё"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.2h-4v-.2a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H3v-4h.2a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9L4.4 7 7.2 4.2l.1.1a1.7 1.7 0 001.9.3 1.7 1.7 0 001-1.6V3h4v.2a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1L20 7.2l-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.2v4h-.2a1.7 1.7 0 00-1.8.8z"/></svg></button>
     <div class="side-foot">
-      <div>Режим: только чтение</div>
-      <div id="sideUpdated">—</div>
+      <div>Р РµР¶РёРј: С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ</div>
+      <div id="sideUpdated">вЂ”</div>
     </div>
   </aside>
 
-  <button class="nav-scrim" id="navScrim" type="button" aria-label="Закрыть навигацию" hidden></button>
+  <button class="nav-scrim" id="navScrim" type="button" aria-label="Р—Р°РєСЂС‹С‚СЊ РЅР°РІРёРіР°С†РёСЋ" hidden></button>
 
   <main class="main">
     <div class="topbar">
       <div class="topbar-left">
-        <button class="btn-icon burger" id="burger" title="Меню">
+        <button class="btn-icon burger" id="burger" title="РњРµРЅСЋ">
           <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
         </button>
         <div>
-          <div class="topbar-title" id="tbTitle">…</div>
-          <div class="topbar-sub" id="tbSub">…</div>
+          <div class="topbar-title" id="tbTitle">вЂ¦</div>
+          <div class="topbar-sub" id="tbSub">вЂ¦</div>
         </div>
       </div>
       <div class="topbar-actions">
-        <div class="conn"><span class="dot" id="dot"></span><span id="connText">подключение…</span></div>
-        <button class="btn-icon update-trigger" id="updateOpen" type="button" title="Доступно обновление" aria-label="Открыть обновление" hidden><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span id="updateTopVersion"></span></button>
-        <button class="btn-icon" id="logout" title="Выйти">
+        <div class="conn"><span class="dot" id="dot"></span><span id="connText">РїРѕРґРєР»СЋС‡РµРЅРёРµвЂ¦</span></div>
+        <button class="btn-icon update-trigger" id="updateOpen" type="button" title="Р”РѕСЃС‚СѓРїРЅРѕ РѕР±РЅРѕРІР»РµРЅРёРµ" aria-label="РћС‚РєСЂС‹С‚СЊ РѕР±РЅРѕРІР»РµРЅРёРµ" hidden><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg><span id="updateTopVersion"></span></button>
+        <button class="btn-icon" id="logout" title="Р’С‹Р№С‚Рё">
           <svg viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M12 3H6a2 2 0 00-2 2v14a2 2 0 002 2h6"/></svg>
         </button>
       </div>
@@ -124,108 +124,108 @@
     <div class="content" id="content">
 
       <section id="s-overview">
-        <div class="sec-head"><h2>Ключевые метрики</h2><span class="right" id="tickInfo">—</span></div>
+        <div class="sec-head"><h2>РљР»СЋС‡РµРІС‹Рµ РјРµС‚СЂРёРєРё</h2><span class="right" id="tickInfo">вЂ”</span></div>
         <div class="kpis">
           <div class="kpi expandable" id="kCpu" role="button" tabindex="0" data-metric="cpu">
-            <div class="k-label">Процессор</div>
+            <div class="k-label">РџСЂРѕС†РµСЃСЃРѕСЂ</div>
             <div class="k-val"><span id="cpuVal">0</span><small>%</small></div>
-            <div class="k-foot" id="cpuFoot">—</div>
+            <div class="k-foot" id="cpuFoot">вЂ”</div>
             <canvas id="spCpu"></canvas>
           </div>
           <div class="kpi expandable" id="kMem" role="button" tabindex="0" data-metric="memory">
-            <div class="k-label">Память</div>
+            <div class="k-label">РџР°РјСЏС‚СЊ</div>
             <div class="k-val"><span id="memVal">0</span><small>%</small></div>
-            <div class="k-foot" id="memFoot">—</div>
+            <div class="k-foot" id="memFoot">вЂ”</div>
             <canvas id="spMem"></canvas>
           </div>
           <div class="kpi expandable" id="kDisk" role="button" tabindex="0" data-metric="disk">
-            <div class="k-label">Диск /</div>
+            <div class="k-label">Р”РёСЃРє /</div>
             <div class="k-val"><span id="diskVal">0</span><small>%</small></div>
-            <div class="k-foot" id="diskFoot">—</div>
+            <div class="k-foot" id="diskFoot">вЂ”</div>
             <div class="track"><i id="diskBar"></i></div>
-            <div class="k-foot mt-sm" id="ioFoot">—</div>
+            <div class="k-foot mt-sm" id="ioFoot">вЂ”</div>
           </div>
           <div class="kpi expandable" id="kLoad" role="button" tabindex="0" data-metric="load">
             <div class="k-label">Load average</div>
             <div class="k-val" id="loadVal">0.00</div>
-            <div class="k-foot" id="loadFoot">—</div>
+            <div class="k-foot" id="loadFoot">вЂ”</div>
             <canvas id="spLoad"></canvas>
           </div>
           <div class="kpi expandable" id="kNet" role="button" tabindex="0" data-metric="network">
-            <div class="k-label">Сеть</div>
-            <div class="k-val val-sm" id="netVal">—</div>
-            <div class="k-foot" id="netFoot">—</div>
+            <div class="k-label">РЎРµС‚СЊ</div>
+            <div class="k-val val-sm" id="netVal">вЂ”</div>
+            <div class="k-foot" id="netFoot">вЂ”</div>
             <canvas id="spNet"></canvas>
           </div>
           <div class="kpi expandable" id="kSwap" role="button" tabindex="0" data-metric="swap">
-            <div class="k-label">Своп</div>
+            <div class="k-label">РЎРІРѕРї</div>
             <div class="k-val"><span id="swapVal">0</span><small>%</small></div>
-            <div class="k-foot" id="swapFoot">—</div>
+            <div class="k-foot" id="swapFoot">вЂ”</div>
             <div class="track"><i id="swapBar"></i></div>
-            <div class="k-foot mt-sm" id="procFoot">—</div>
+            <div class="k-foot mt-sm" id="procFoot">вЂ”</div>
           </div>
         </div>
       </section>
 
       <section id="s-perf">
         <div class="sec-head">
-          <h2>История</h2>
-          <div class="segmented" id="historyRange" aria-label="Период истории">
-            <button class="seg" data-range="1h">1 час</button>
-            <button class="seg active" data-range="24h">24 часа</button>
-            <button class="seg" data-range="7d">7 дней</button>
-            <button class="seg" data-range="30d">30 дней</button>
+          <h2>РСЃС‚РѕСЂРёСЏ</h2>
+          <div class="segmented" id="historyRange" aria-label="РџРµСЂРёРѕРґ РёСЃС‚РѕСЂРёРё">
+            <button class="seg" data-range="1h">1 С‡Р°СЃ</button>
+            <button class="seg active" data-range="24h">24 С‡Р°СЃР°</button>
+            <button class="seg" data-range="7d">7 РґРЅРµР№</button>
+            <button class="seg" data-range="30d">30 РґРЅРµР№</button>
           </div>
-          <span class="right" id="historyMeta">SQLite: загрузка…</span>
+          <span class="right" id="historyMeta">SQLite: Р·Р°РіСЂСѓР·РєР°вЂ¦</span>
         </div>
         <div class="grid g2">
           <div class="panel">
-            <h3>Процессор и память</h3>
-            <div class="chart-wrap interactive-chart"><canvas id="chCpu" tabindex="0"></canvas><div class="chart-crosshair" id="cpuCrosshair"></div><div class="chart-badge" id="cpuInspect">Наведи на график</div></div>
+            <h3>РџСЂРѕС†РµСЃСЃРѕСЂ Рё РїР°РјСЏС‚СЊ</h3>
+            <div class="chart-wrap interactive-chart"><canvas id="chCpu" tabindex="0"></canvas><div class="chart-crosshair" id="cpuCrosshair"></div><div class="chart-badge" id="cpuInspect">РќР°РІРµРґРё РЅР° РіСЂР°С„РёРє</div></div>
             <div class="legend">
               <span><i class="sw-accent"></i>CPU</span>
-              <span><i class="sw-blue"></i>Память</span>
-              <span><i class="sw-purple"></i>Своп</span>
+              <span><i class="sw-blue"></i>РџР°РјСЏС‚СЊ</span>
+              <span><i class="sw-purple"></i>РЎРІРѕРї</span>
             </div>
           </div>
           <div class="panel">
-            <h3>Сеть и диск <span class="right">КБ/с</span></h3>
-            <div class="chart-wrap interactive-chart"><canvas id="chNet" tabindex="0"></canvas><div class="chart-crosshair" id="netCrosshair"></div><div class="chart-badge" id="netInspect">Наведи на график</div></div>
+            <h3>РЎРµС‚СЊ Рё РґРёСЃРє <span class="right">РљР‘/СЃ</span></h3>
+            <div class="chart-wrap interactive-chart"><canvas id="chNet" tabindex="0"></canvas><div class="chart-crosshair" id="netCrosshair"></div><div class="chart-badge" id="netInspect">РќР°РІРµРґРё РЅР° РіСЂР°С„РёРє</div></div>
             <div class="legend">
-              <span><i class="sw-green"></i>Входящий</span>
-              <span><i class="sw-blue"></i>Исходящий</span>
-              <span><i class="sw-amber"></i>Чтение</span>
-              <span><i class="sw-red"></i>Запись</span>
+              <span><i class="sw-green"></i>Р’С…РѕРґСЏС‰РёР№</span>
+              <span><i class="sw-blue"></i>РСЃС…РѕРґСЏС‰РёР№</span>
+              <span><i class="sw-amber"></i>Р§С‚РµРЅРёРµ</span>
+              <span><i class="sw-red"></i>Р—Р°РїРёСЃСЊ</span>
             </div>
           </div>
         </div>
         <div class="analytics-strip" id="analyticsStrip">
-          <div><span>CPU среднее</span><b id="avgCpu">—</b></div>
-          <div><span>CPU пик</span><b id="peakCpu">—</b></div>
-          <div><span>RAM среднее</span><b id="avgMem">—</b></div>
-          <div><span>Сеть вход/выход</span><b id="netRatio">—</b></div>
-          <div><span>Disk R/W</span><b id="ioRatio">—</b></div>
-          <div><span>Инцидентные точки</span><b id="alertPoints">—</b></div>
+          <div><span>CPU СЃСЂРµРґРЅРµРµ</span><b id="avgCpu">вЂ”</b></div>
+          <div><span>CPU РїРёРє</span><b id="peakCpu">вЂ”</b></div>
+          <div><span>RAM СЃСЂРµРґРЅРµРµ</span><b id="avgMem">вЂ”</b></div>
+          <div><span>РЎРµС‚СЊ РІС…РѕРґ/РІС‹С…РѕРґ</span><b id="netRatio">вЂ”</b></div>
+          <div><span>Disk R/W</span><b id="ioRatio">вЂ”</b></div>
+          <div><span>РРЅС†РёРґРµРЅС‚РЅС‹Рµ С‚РѕС‡РєРё</span><b id="alertPoints">вЂ”</b></div>
         </div>
       </section>
 
       <section id="s-incidents">
-        <div class="sec-head incident-head"><h2>Инциденты</h2><span class="count" id="incidentCount">0</span><div class="segmented" id="incidentFilters" aria-label="Фильтр инцидентов"><button class="seg active" data-status="active">Активные <b id="icActive">0</b></button><button class="seg" data-status="open">Открытые <b id="icOpen">0</b></button><button class="seg" data-status="acknowledged">Принятые <b id="icAck">0</b></button><button class="seg" data-status="resolved">Закрытые <b id="icResolved">0</b></button><button class="seg" data-status="all">Все <b id="icAll">0</b></button></div><button class="notify-open" id="notifyOpen" type="button"><span class="notify-dot" id="notifyDot"></span><span id="telegramState">Telegram</span><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div>
-        <div class="incident-overview"><div><span>Требуют внимания</span><b id="incidentActive">0</b></div><div><span>Критические</span><b class="critical" id="incidentCritical">0</b></div><div><span>Закрыты</span><b id="incidentResolved">0</b></div><p id="incidentHint">Сначала показываем то, что требует реакции</p></div>
-        <div class="panel incident-shell"><div id="incidentList" class="incident-list"><div class="empty">Загружаю журнал инцидентов…</div></div><nav class="incident-pager" id="incidentPager" aria-label="Страницы инцидентов" hidden><button type="button" id="incidentPrev" aria-label="Предыдущая страница"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="incidentPageMeta">1 / 1</span><button type="button" id="incidentNext" aria-label="Следующая страница"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></nav></div>
+        <div class="sec-head incident-head"><h2>РРЅС†РёРґРµРЅС‚С‹</h2><span class="count" id="incidentCount">0</span><div class="segmented" id="incidentFilters" aria-label="Р¤РёР»СЊС‚СЂ РёРЅС†РёРґРµРЅС‚РѕРІ"><button class="seg active" data-status="active">РђРєС‚РёРІРЅС‹Рµ <b id="icActive">0</b></button><button class="seg" data-status="open">РћС‚РєСЂС‹С‚С‹Рµ <b id="icOpen">0</b></button><button class="seg" data-status="acknowledged">РџСЂРёРЅСЏС‚С‹Рµ <b id="icAck">0</b></button><button class="seg" data-status="resolved">Р—Р°РєСЂС‹С‚С‹Рµ <b id="icResolved">0</b></button><button class="seg" data-status="all">Р’СЃРµ <b id="icAll">0</b></button></div><button class="notify-open" id="notifyOpen" type="button"><span class="notify-dot" id="notifyDot"></span><span id="telegramState">Telegram</span><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div>
+        <div class="incident-overview"><div><span>РўСЂРµР±СѓСЋС‚ РІРЅРёРјР°РЅРёСЏ</span><b id="incidentActive">0</b></div><div><span>РљСЂРёС‚РёС‡РµСЃРєРёРµ</span><b class="critical" id="incidentCritical">0</b></div><div><span>Р—Р°РєСЂС‹С‚С‹</span><b id="incidentResolved">0</b></div><p id="incidentHint">РЎРЅР°С‡Р°Р»Р° РїРѕРєР°Р·С‹РІР°РµРј С‚Рѕ, С‡С‚Рѕ С‚СЂРµР±СѓРµС‚ СЂРµР°РєС†РёРё</p></div>
+        <div class="panel incident-shell"><div id="incidentList" class="incident-list"><div class="empty">Р—Р°РіСЂСѓР¶Р°СЋ Р¶СѓСЂРЅР°Р» РёРЅС†РёРґРµРЅС‚РѕРІвЂ¦</div></div><nav class="incident-pager" id="incidentPager" aria-label="РЎС‚СЂР°РЅРёС†С‹ РёРЅС†РёРґРµРЅС‚РѕРІ" hidden><button type="button" id="incidentPrev" aria-label="РџСЂРµРґС‹РґСѓС‰Р°СЏ СЃС‚СЂР°РЅРёС†Р°"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><span id="incidentPageMeta">1 / 1</span><button type="button" id="incidentNext" aria-label="РЎР»РµРґСѓСЋС‰Р°СЏ СЃС‚СЂР°РЅРёС†Р°"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></nav></div>
       </section>
 
       <section id="s-hw">
-        <div class="sec-head"><h2>Железо</h2></div>
+        <div class="sec-head"><h2>Р–РµР»РµР·Рѕ</h2></div>
         <div class="grid g2">
           <div class="panel">
-            <h3>Ядра <span class="count" id="coreCount">0</span></h3>
+            <h3>РЇРґСЂР° <span class="count" id="coreCount">0</span></h3>
             <div class="body"><div class="cores" id="cores"></div></div>
           </div>
           <div class="panel">
-            <h3>Файловые системы</h3>
+            <h3>Р¤Р°Р№Р»РѕРІС‹Рµ СЃРёСЃС‚РµРјС‹</h3>
             <div class="body flush"><table><thead><tr>
-              <th>Точка</th><th>Устройство</th><th class="num">Объём</th><th class="num">Свободно</th><th class="num">Занято</th>
+              <th>РўРѕС‡РєР°</th><th>РЈСЃС‚СЂРѕР№СЃС‚РІРѕ</th><th class="num">РћР±СЉС‘Рј</th><th class="num">РЎРІРѕР±РѕРґРЅРѕ</th><th class="num">Р—Р°РЅСЏС‚Рѕ</th>
             </tr></thead><tbody id="fsBody"></tbody></table></div>
           </div>
         </div>
@@ -233,21 +233,21 @@
 
       <section id="s-filesystem">
         <div class="sec-head">
-          <h2>Файловая система VPS</h2>
-          <span class="count" id="fsIndexCount">—</span>
-          <span class="right" id="fsIndexMeta">metadata-only · только чтение</span>
+          <h2>Р¤Р°Р№Р»РѕРІР°СЏ СЃРёСЃС‚РµРјР° VPS</h2>
+          <span class="count" id="fsIndexCount">вЂ”</span>
+          <span class="right" id="fsIndexMeta">metadata-only В· С‚РѕР»СЊРєРѕ С‡С‚РµРЅРёРµ</span>
         </div>
         <div class="filesystem-layout">
-          <div class="panel storage-panel"><div class="storage-head"><div><h3>Распределение объёма</h3><span id="storageCoverage">известный объём</span></div><div class="storage-tabs" role="tablist"><button class="active" type="button" data-storage-mode="roots">Каталоги</button><button type="button" data-storage-mode="types">Типы</button></div></div><div class="storage-body"><div class="storage-donut" id="storageDonut" aria-label="Круговая диаграмма занятого места"><canvas id="storageCanvas" aria-hidden="true"></canvas><div class="storage-center"><b id="storageTotal">—</b><span>в индексе</span></div></div><div class="storage-legend" id="storageLegend"><div class="empty">Считаю распределение…</div></div></div><p class="storage-note">Диаграмма показывает безопасно проиндексированные файлы. Исключённые каталоги не учитываются.</p></div>
+          <div class="panel storage-panel"><div class="storage-head"><div><h3>Р Р°СЃРїСЂРµРґРµР»РµРЅРёРµ РѕР±СЉС‘РјР°</h3><span id="storageCoverage">РёР·РІРµСЃС‚РЅС‹Р№ РѕР±СЉС‘Рј</span></div><div class="storage-tabs" role="tablist"><button class="active" type="button" data-storage-mode="roots">РљР°С‚Р°Р»РѕРіРё</button><button type="button" data-storage-mode="types">РўРёРїС‹</button></div></div><div class="storage-body"><div class="storage-donut" id="storageDonut" aria-label="РљСЂСѓРіРѕРІР°СЏ РґРёР°РіСЂР°РјРјР° Р·Р°РЅСЏС‚РѕРіРѕ РјРµСЃС‚Р°"><canvas id="storageCanvas" aria-hidden="true"></canvas><div class="storage-center"><b id="storageTotal">вЂ”</b><span>РІ РёРЅРґРµРєСЃРµ</span></div></div><div class="storage-legend" id="storageLegend"><div class="empty">РЎС‡РёС‚Р°СЋ СЂР°СЃРїСЂРµРґРµР»РµРЅРёРµвЂ¦</div></div></div><p class="storage-note">Р”РёР°РіСЂР°РјРјР° РїРѕРєР°Р·С‹РІР°РµС‚ Р±РµР·РѕРїР°СЃРЅРѕ РїСЂРѕРёРЅРґРµРєСЃРёСЂРѕРІР°РЅРЅС‹Рµ С„Р°Р№Р»С‹. РСЃРєР»СЋС‡С‘РЅРЅС‹Рµ РєР°С‚Р°Р»РѕРіРё РЅРµ СѓС‡РёС‚С‹РІР°СЋС‚СЃСЏ.</p></div>
           <div class="panel fs-browser-panel">
-            <div class="fs-toolbar"><button class="btn-icon" id="fsUp" title="На уровень выше"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button><div class="fs-breadcrumb" id="fsBreadcrumb"></div><label class="fs-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="fsSearch" type="search" placeholder="Поиск по имени или пути" autocomplete="off"></label></div>
-            <div class="fs-head"><span>Имя</span><span>Размер</span><span>Права</span><span>Изменён</span></div><div id="fsEntries" class="fs-entries"><div class="empty">Индексирую файловую систему…</div></div>
+            <div class="fs-toolbar"><button class="btn-icon" id="fsUp" title="РќР° СѓСЂРѕРІРµРЅСЊ РІС‹С€Рµ"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button><div class="fs-breadcrumb" id="fsBreadcrumb"></div><label class="fs-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="fsSearch" type="search" placeholder="РџРѕРёСЃРє РїРѕ РёРјРµРЅРё РёР»Рё РїСѓС‚Рё" autocomplete="off"></label></div>
+            <div class="fs-head"><span>РРјСЏ</span><span>Р Р°Р·РјРµСЂ</span><span>РџСЂР°РІР°</span><span>РР·РјРµРЅС‘РЅ</span></div><div id="fsEntries" class="fs-entries"><div class="empty">РРЅРґРµРєСЃРёСЂСѓСЋ С„Р°Р№Р»РѕРІСѓСЋ СЃРёСЃС‚РµРјСѓвЂ¦</div></div>
           </div>
-          <div class="fs-support"><div class="panel"><h3>Сводка индекса</h3><div class="body" id="fsSummary"><div class="empty">Загрузка…</div></div></div><div class="panel"><h3>Крупные файлы</h3><div class="body flush" id="fsLargest"><div class="empty">Загрузка…</div></div></div><div class="panel"><h3>Риски доступа</h3><div class="body flush" id="fsRisks"><div class="empty">Загрузка…</div></div></div></div>
+          <div class="fs-support"><div class="panel"><h3>РЎРІРѕРґРєР° РёРЅРґРµРєСЃР°</h3><div class="body" id="fsSummary"><div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div></div></div><div class="panel"><h3>РљСЂСѓРїРЅС‹Рµ С„Р°Р№Р»С‹</h3><div class="body flush" id="fsLargest"><div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div></div></div><div class="panel"><h3>Р РёСЃРєРё РґРѕСЃС‚СѓРїР°</h3><div class="body flush" id="fsRisks"><div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div></div></div></div>
         </div>
       </section>
 
-      <section id="s-discovery"><div class="sec-head"><h2>Проекты VPS</h2><span class="count" id="discoveryCount">0</span><span class="right project-auto">связи обновляются автоматически</span><a class="inventory-config" href="/setup">Настроить Discovery</a></div><div class="inventory-summary" id="discoverySummary"><div class="empty">Собираю карту проектов…</div></div><div class="inventory-toolbar"><input id="inventorySearch" type="search" placeholder="Найти проект, путь или runtime"><select id="inventoryType"><option value="all">Любой стек</option></select></div><div class="panel project-panel"><div class="project-list" id="projectList"><div class="empty">Связываю проекты и runtime…</div></div></div><details class="unassigned"><summary>Системные цели без проекта <span id="unassignedCount">0</span></summary><div class="unassigned-list" id="unassignedList"></div></details></section>
+      <section id="s-discovery"><div class="sec-head"><h2>РџСЂРѕРµРєС‚С‹ VPS</h2><span class="count" id="discoveryCount">0</span><span class="right project-auto">СЃРІСЏР·Рё РѕР±РЅРѕРІР»СЏСЋС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё</span><a class="inventory-config" href="/setup">РќР°СЃС‚СЂРѕРёС‚СЊ Discovery</a></div><div class="inventory-summary" id="discoverySummary"><div class="empty">РЎРѕР±РёСЂР°СЋ РєР°СЂС‚Сѓ РїСЂРѕРµРєС‚РѕРІвЂ¦</div></div><div class="inventory-toolbar"><input id="inventorySearch" type="search" placeholder="РќР°Р№С‚Рё РїСЂРѕРµРєС‚, РїСѓС‚СЊ РёР»Рё runtime"><select id="inventoryType"><option value="all">Р›СЋР±РѕР№ СЃС‚РµРє</option></select></div><div class="panel project-panel"><div class="project-list" id="projectList"><div class="empty">РЎРІСЏР·С‹РІР°СЋ РїСЂРѕРµРєС‚С‹ Рё runtimeвЂ¦</div></div></div><details class="unassigned"><summary>РЎРёСЃС‚РµРјРЅС‹Рµ С†РµР»Рё Р±РµР· РїСЂРѕРµРєС‚Р° <span id="unassignedCount">0</span></summary><div class="unassigned-list" id="unassignedList"></div></details></section>
 
       <section id="s-docker">
         <div class="sec-head"><h2>Docker</h2><span class="count" id="ctnCount">0</span><span class="right" id="ctnSummary"></span></div>
@@ -255,53 +255,53 @@
       </section>
 
       <section id="s-pm2">
-        <div class="sec-head"><h2>Процессы PM2</h2><span class="count" id="pm2Count">0</span></div>
+        <div class="sec-head"><h2>РџСЂРѕС†РµСЃСЃС‹ PM2</h2><span class="count" id="pm2Count">0</span></div>
         <div class="panel"><div class="body flush"><table><thead><tr>
-          <th>Процесс</th><th>Статус</th><th class="num">CPU</th><th class="num">Память</th><th class="num">Рестарты</th><th class="num">Аптайм</th>
+          <th>РџСЂРѕС†РµСЃСЃ</th><th>РЎС‚Р°С‚СѓСЃ</th><th class="num">CPU</th><th class="num">РџР°РјСЏС‚СЊ</th><th class="num">Р РµСЃС‚Р°СЂС‚С‹</th><th class="num">РђРїС‚Р°Р№Рј</th>
         </tr></thead><tbody id="pm2Body"></tbody></table></div></div>
       </section>
 
       <section id="s-sec">
-        <div class="sec-head"><h2>Безопасность</h2></div>
+        <div class="sec-head"><h2>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</h2></div>
         <div class="grid g3">
           <div class="panel">
-            <h3>Доступ и атаки</h3>
+            <h3>Р”РѕСЃС‚СѓРї Рё Р°С‚Р°РєРё</h3>
             <div class="body" id="security"></div>
           </div>
           <div class="panel">
-            <h3>Сертификаты <span class="count" id="certCount">0</span></h3>
+            <h3>РЎРµСЂС‚РёС„РёРєР°С‚С‹ <span class="count" id="certCount">0</span></h3>
             <div class="body flush"><table><thead><tr>
-              <th>Домен</th><th class="num">Осталось</th>
+              <th>Р”РѕРјРµРЅ</th><th class="num">РћСЃС‚Р°Р»РѕСЃСЊ</th>
             </tr></thead><tbody id="certBody"></tbody></table></div>
           </div>
           <div class="panel security-wide">
-            <h3>Последние входы</h3>
+            <h3>РџРѕСЃР»РµРґРЅРёРµ РІС…РѕРґС‹</h3>
             <div class="body flush" id="logins"></div>
           </div>
         </div>
       </section>
 
       <section id="s-ops">
-        <div class="sec-head"><h2>Обслуживание</h2></div>
+        <div class="sec-head"><h2>РћР±СЃР»СѓР¶РёРІР°РЅРёРµ</h2></div>
         <div class="grid g3">
           <div class="panel ops-summary-panel">
-            <h3>Службы</h3>
+            <h3>РЎР»СѓР¶Р±С‹</h3>
             <div class="body" id="services"></div>
           </div>
           <div class="panel ops-summary-panel">
-            <h3>Резервные копии</h3>
+            <h3>Р РµР·РµСЂРІРЅС‹Рµ РєРѕРїРёРё</h3>
             <div class="body" id="backups"></div>
           </div>
           <div class="panel ops-summary-panel ops-summary-wide">
-            <h3>Место в Docker</h3>
+            <h3>РњРµСЃС‚Рѕ РІ Docker</h3>
             <div class="body" id="dockerDisk"></div>
           </div>
           <div class="panel deploy-panel">
-            <div class="git-head"><div><h3>Git activity</h3><span id="deployMeta">собираю репозитории</span></div><div class="git-actions"><label><span>Проект</span><select id="deployProject"><option value="all">Все проекты</option></select></label><label class="git-search"><span>Поиск</span><input id="deploySearch" type="search" placeholder="commit, автор, SHA"></label></div></div>
-            <div class="git-overview" id="deployOverview"><div class="empty">Загружаю историю…</div></div>
-            <div class="git-columns"><span>Репозиторий</span><span>Commit</span><span>Сообщение</span><span>Автор</span><span>Время</span></div>
-            <div class="body flush git-timeline" id="deployments"><div class="empty">Загружаю историю…</div></div>
-            <footer class="git-footer"><span id="deployShown">0 коммитов</span><button type="button" id="deployMore">Показать ещё</button></footer>
+            <div class="git-head"><div><h3>Git activity</h3><span id="deployMeta">СЃРѕР±РёСЂР°СЋ СЂРµРїРѕР·РёС‚РѕСЂРёРё</span></div><div class="git-actions"><label><span>РџСЂРѕРµРєС‚</span><select id="deployProject"><option value="all">Р’СЃРµ РїСЂРѕРµРєС‚С‹</option></select></label><label class="git-search"><span>РџРѕРёСЃРє</span><input id="deploySearch" type="search" placeholder="commit, Р°РІС‚РѕСЂ, SHA"></label></div></div>
+            <div class="git-overview" id="deployOverview"><div class="empty">Р—Р°РіСЂСѓР¶Р°СЋ РёСЃС‚РѕСЂРёСЋвЂ¦</div></div>
+            <div class="git-columns"><span>Р РµРїРѕР·РёС‚РѕСЂРёР№</span><span>Commit</span><span>РЎРѕРѕР±С‰РµРЅРёРµ</span><span>РђРІС‚РѕСЂ</span><span>Р’СЂРµРјСЏ</span></div>
+            <div class="body flush git-timeline" id="deployments"><div class="empty">Р—Р°РіСЂСѓР¶Р°СЋ РёСЃС‚РѕСЂРёСЋвЂ¦</div></div>
+            <footer class="git-footer"><span id="deployShown">0 РєРѕРјРјРёС‚РѕРІ</span><button type="button" id="deployMore">РџРѕРєР°Р·Р°С‚СЊ РµС‰С‘</button></footer>
           </div>
         </div>
       </section>
@@ -309,71 +309,72 @@
     </div>
   </main>
 
-  <aside class="forge-pane" id="forgePane" data-pane-kind="forge" aria-hidden="true" aria-label="Sentinel Forge чат">
-    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
+  <aside class="forge-pane" id="forgePane" data-pane-kind="forge" aria-hidden="true" aria-label="Sentinel Forge С‡Р°С‚">
+    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="РР·РјРµРЅРёС‚СЊ С€РёСЂРёРЅСѓ РїР°РЅРµР»Рё" tabindex="0"></div>
     <header class="forge-pane-head">
-      <button class="btn-icon forge-back" id="forgeClose" aria-label="Закрыть чат"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div class="forge-head-identity"><div><h2>Sentinel Forge</h2><p><span id="forgePresence">готов</span> · DevOps и код</p></div></div>
-      <div class="forge-head-actions"><button class="btn-icon" id="forgeHistoryToggle" title="История чатов" aria-label="История чатов" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button class="btn-icon" id="forgeReset" title="Новый чат" aria-label="Новый чат"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+      <button class="btn-icon forge-back" id="forgeClose" aria-label="Р—Р°РєСЂС‹С‚СЊ С‡Р°С‚"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div class="forge-head-identity"><div><h2>Sentinel Forge</h2><p><span id="forgePresence">РіРѕС‚РѕРІ</span> В· DevOps Рё РєРѕРґ</p></div></div>
+      <div class="forge-head-actions"><button class="btn-icon" id="forgeHistoryToggle" title="РСЃС‚РѕСЂРёСЏ С‡Р°С‚РѕРІ" aria-label="РСЃС‚РѕСЂРёСЏ С‡Р°С‚РѕРІ" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9.7 9.7 0 00-6.7 2.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg></button><button class="btn-icon" id="forgeReset" title="РќРѕРІС‹Р№ С‡Р°С‚" aria-label="РќРѕРІС‹Р№ С‡Р°С‚"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
     </header>
-    <div class="forge-history" id="forgeHistory" hidden><div class="forge-history-head"><span>Недавние чаты</span><button type="button" id="forgeHistoryClose" aria-label="Закрыть историю">Закрыть</button></div><div id="forgeHistoryList"></div></div>
+    <div class="forge-history" id="forgeHistory" hidden><div class="forge-history-head"><span>РќРµРґР°РІРЅРёРµ С‡Р°С‚С‹</span><button type="button" id="forgeHistoryClose" aria-label="Р—Р°РєСЂС‹С‚СЊ РёСЃС‚РѕСЂРёСЋ">Р—Р°РєСЂС‹С‚СЊ</button></div><div id="forgeHistoryList"></div></div>
     <div class="forge-chat-body" id="forgeTranscript" aria-live="polite">
       <div class="forge-welcome" id="forgeWelcome">
-        <h3>Чем помочь?</h3>
-        <p>Диагностика VPS, расследование инцидентов и работа с кодом.</p>
+        <h3>Р§РµРј РїРѕРјРѕС‡СЊ?</h3>
+        <p>Р”РёР°РіРЅРѕСЃС‚РёРєР° VPS, СЂР°СЃСЃР»РµРґРѕРІР°РЅРёРµ РёРЅС†РёРґРµРЅС‚РѕРІ Рё СЂР°Р±РѕС‚Р° СЃ РєРѕРґРѕРј.</p>
         <div class="forge-starters" id="forgeSuggestions">
-          <button type="button" data-forge-prompt="Проверь состояние VPS и назови главный риск.">Проверить VPS</button>
-          <button type="button" data-forge-prompt="Разбери открытые инциденты и найди причины.">Инциденты</button>
-          <button type="button" data-forge-prompt="Проверь выбранный проект, git status и тесты.">Код и тесты</button>
+          <button type="button" data-forge-prompt="РџСЂРѕРІРµСЂСЊ СЃРѕСЃС‚РѕСЏРЅРёРµ VPS Рё РЅР°Р·РѕРІРё РіР»Р°РІРЅС‹Р№ СЂРёСЃРє.">РџСЂРѕРІРµСЂРёС‚СЊ VPS</button>
+          <button type="button" data-forge-prompt="Р Р°Р·Р±РµСЂРё РѕС‚РєСЂС‹С‚С‹Рµ РёРЅС†РёРґРµРЅС‚С‹ Рё РЅР°Р№РґРё РїСЂРёС‡РёРЅС‹.">РРЅС†РёРґРµРЅС‚С‹</button>
+          <button type="button" data-forge-prompt="РџСЂРѕРІРµСЂСЊ РІС‹Р±СЂР°РЅРЅС‹Р№ РїСЂРѕРµРєС‚, git status Рё С‚РµСЃС‚С‹.">РљРѕРґ Рё С‚РµСЃС‚С‹</button>
         </div>
       </div>
     </div>
     <div class="forge-composer-zone">
       <form class="forge-composer-v2" id="forgeForm">
-        <textarea id="forgeInput" rows="1" maxlength="6000" placeholder="Сообщение Sentinel Forge" aria-label="Сообщение Sentinel Forge" required></textarea>
+        <textarea id="forgeInput" rows="1" maxlength="6000" placeholder="РЎРѕРѕР±С‰РµРЅРёРµ Sentinel Forge" aria-label="РЎРѕРѕР±С‰РµРЅРёРµ Sentinel Forge" required></textarea>
         <div class="forge-compose-actions">
           <div class="forge-tools">
             <div class="forge-menu-wrap">
-              <button class="forge-tool" id="forgeScopeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span id="forgeScopeLabel">Весь VPS</span><svg class="chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg></button>
-              <div class="forge-menu" id="forgeScopeMenu" role="listbox" aria-label="Проект"></div>
+              <button class="forge-tool" id="forgeScopeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M3 6a2 2 0 012-2h5l2 2h7a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span id="forgeScopeLabel">Р’РµСЃСЊ VPS</span><svg class="chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg></button>
+              <div class="forge-menu" id="forgeScopeMenu" role="listbox" aria-label="РџСЂРѕРµРєС‚"></div>
             </div>
             <div class="forge-menu-wrap">
               <button class="forge-tool" id="forgeModelTrigger" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="forge-model-dot"></span><span id="forgeModelLabel">GLM 5.2</span><svg class="chev" viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg></button>
-              <div class="forge-menu" id="forgeModelMenu" role="listbox" aria-label="Модель"></div>
+              <div class="forge-menu" id="forgeModelMenu" role="listbox" aria-label="РњРѕРґРµР»СЊ"></div>
             </div>
           </div>
-          <span class="forge-hint">Enter отправить</span><button id="forgeSend" type="submit" aria-label="Отправить"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+          <span class="forge-hint">Enter РѕС‚РїСЂР°РІРёС‚СЊ</span><button id="forgeSend" type="submit" aria-label="РћС‚РїСЂР°РІРёС‚СЊ"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
         </div>
       </form>
-      <p class="forge-disclaimer">Контекст проекта берётся из изолированной рабочей копии. Production-ремонт идёт через журналируемый шлюз.</p>
+      <p class="forge-disclaimer">РљРѕРЅС‚РµРєСЃС‚ РїСЂРѕРµРєС‚Р° Р±РµСЂС‘С‚СЃСЏ РёР· РёР·РѕР»РёСЂРѕРІР°РЅРЅРѕР№ СЂР°Р±РѕС‡РµР№ РєРѕРїРёРё. Production-СЂРµРјРѕРЅС‚ РёРґС‘С‚ С‡РµСЂРµР· Р¶СѓСЂРЅР°Р»РёСЂСѓРµРјС‹Р№ С€Р»СЋР·.</p>
     </div>
   </aside>
-  <aside class="notify-pane" id="notifyPane" data-pane-kind="notify" aria-hidden="true" aria-label="Настройки уведомлений"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div><header class="notify-pane-head"><button class="btn-icon" id="notifyClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Доставка событий</span><h2>Уведомления</h2></div><span class="notify-health" id="notifyHealth">проверка</span></header><form id="notifyForm" class="notify-body">
-  <section class="notify-primary"><div><h3>Telegram</h3><p id="notifyDestination">Подключение проверяется</p></div><label class="switch"><input type="checkbox" name="enabled"><span></span></label></section>
-  <section class="notify-group"><h3>Какие события отправлять</h3><div class="notify-check-grid"><label><input type="checkbox" name="critical"><span><b>Критические</b><small>Аварии и недоступность</small></span></label><label><input type="checkbox" name="warning"><span><b>Предупреждения</b><small>Пороговые значения</small></span></label><label><input type="checkbox" name="opened"><span><b>Открытие</b><small>Новый инцидент</small></span></label><label><input type="checkbox" name="escalated"><span><b>Ухудшение</b><small>Рост серьёзности</small></span></label><label><input type="checkbox" name="resolved"><span><b>Восстановление</b><small>Инцидент закрыт</small></span></label><label><input type="checkbox" name="dailyDigest"><span><b>Сводка в 09:00</b><small>Asia/Tomsk, раз в сутки</small></span></label></div></section>
-  <section class="notify-group"><h3>Тишина и повторы</h3><div class="notify-line"><span><b>Не беспокоить</b><small>В выбранные часы</small></span><label class="switch"><input type="checkbox" name="quietEnabled"><span></span></label></div><div class="notify-time"><label>с <select name="quietStart"></select></label><label>до <select name="quietEnd"></select></label></div><div class="notify-line"><span><b>Критические пропускать</b><small>Даже в тихие часы</small></span><label class="switch"><input type="checkbox" name="criticalDuringQuiet"><span></span></label></div><label class="notify-select"><span><b>Повтор одинакового события</b><small>Защита от спама</small></span><select name="cooldownMin"><option value="5">5 мин</option><option value="15">15 мин</option><option value="30">30 мин</option><option value="60">1 час</option><option value="120">2 часа</option></select></label></section>
-  <section class="notify-group"><div class="notify-recent-head"><h3>Последние доставки</h3><button type="button" id="notifyTest">Отправить тест</button></div><div id="notifyRecent" class="notify-recent"><div class="empty">Загрузка…</div></div></section><footer class="notify-footer" id="notifyFooter" hidden><span id="notifySaveState"></span><button type="submit" id="notifySave">Сохранить</button></footer></form></aside>
+  <aside class="notify-pane" id="notifyPane" data-pane-kind="notify" aria-hidden="true" aria-label="РќР°СЃС‚СЂРѕР№РєРё СѓРІРµРґРѕРјР»РµРЅРёР№"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="РР·РјРµРЅРёС‚СЊ С€РёСЂРёРЅСѓ РїР°РЅРµР»Рё" tabindex="0"></div><header class="notify-pane-head"><button class="btn-icon" id="notifyClose" aria-label="Р—Р°РєСЂС‹С‚СЊ РЅР°СЃС‚СЂРѕР№РєРё"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Р”РѕСЃС‚Р°РІРєР° СЃРѕР±С‹С‚РёР№</span><h2>РЈРІРµРґРѕРјР»РµРЅРёСЏ</h2></div><span class="notify-health" id="notifyHealth">РїСЂРѕРІРµСЂРєР°</span></header><form id="notifyForm" class="notify-body">
+  <section class="notify-primary"><div><h3>Telegram</h3><p id="notifyDestination">РџРѕРґРєР»СЋС‡РµРЅРёРµ РїСЂРѕРІРµСЂСЏРµС‚СЃСЏ</p></div><label class="switch"><input type="checkbox" name="enabled"><span></span></label></section>
+  <section class="notify-group"><h3>РљР°РєРёРµ СЃРѕР±С‹С‚РёСЏ РѕС‚РїСЂР°РІР»СЏС‚СЊ</h3><div class="notify-check-grid"><label><input type="checkbox" name="critical"><span><b>РљСЂРёС‚РёС‡РµСЃРєРёРµ</b><small>РђРІР°СЂРёРё Рё РЅРµРґРѕСЃС‚СѓРїРЅРѕСЃС‚СЊ</small></span></label><label><input type="checkbox" name="warning"><span><b>РџСЂРµРґСѓРїСЂРµР¶РґРµРЅРёСЏ</b><small>РџРѕСЂРѕРіРѕРІС‹Рµ Р·РЅР°С‡РµРЅРёСЏ</small></span></label><label><input type="checkbox" name="opened"><span><b>РћС‚РєСЂС‹С‚РёРµ</b><small>РќРѕРІС‹Р№ РёРЅС†РёРґРµРЅС‚</small></span></label><label><input type="checkbox" name="escalated"><span><b>РЈС…СѓРґС€РµРЅРёРµ</b><small>Р РѕСЃС‚ СЃРµСЂСЊС‘Р·РЅРѕСЃС‚Рё</small></span></label><label><input type="checkbox" name="resolved"><span><b>Р’РѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ</b><small>РРЅС†РёРґРµРЅС‚ Р·Р°РєСЂС‹С‚</small></span></label><label><input type="checkbox" name="dailyDigest"><span><b>РЎРІРѕРґРєР° РІ 09:00</b><small>Asia/Tomsk, СЂР°Р· РІ СЃСѓС‚РєРё</small></span></label></div></section>
+  <section class="notify-group"><h3>РўРёС€РёРЅР° Рё РїРѕРІС‚РѕСЂС‹</h3><div class="notify-line"><span><b>РќРµ Р±РµСЃРїРѕРєРѕРёС‚СЊ</b><small>Р’ РІС‹Р±СЂР°РЅРЅС‹Рµ С‡Р°СЃС‹</small></span><label class="switch"><input type="checkbox" name="quietEnabled"><span></span></label></div><div class="notify-time"><label>СЃ <select name="quietStart"></select></label><label>РґРѕ <select name="quietEnd"></select></label></div><div class="notify-line"><span><b>РљСЂРёС‚РёС‡РµСЃРєРёРµ РїСЂРѕРїСѓСЃРєР°С‚СЊ</b><small>Р”Р°Р¶Рµ РІ С‚РёС…РёРµ С‡Р°СЃС‹</small></span><label class="switch"><input type="checkbox" name="criticalDuringQuiet"><span></span></label></div><label class="notify-select"><span><b>РџРѕРІС‚РѕСЂ РѕРґРёРЅР°РєРѕРІРѕРіРѕ СЃРѕР±С‹С‚РёСЏ</b><small>Р—Р°С‰РёС‚Р° РѕС‚ СЃРїР°РјР°</small></span><select name="cooldownMin"><option value="5">5 РјРёРЅ</option><option value="15">15 РјРёРЅ</option><option value="30">30 РјРёРЅ</option><option value="60">1 С‡Р°СЃ</option><option value="120">2 С‡Р°СЃР°</option></select></label></section>
+  <section class="notify-group"><div class="notify-recent-head"><h3>РџРѕСЃР»РµРґРЅРёРµ РґРѕСЃС‚Р°РІРєРё</h3><button type="button" id="notifyTest">РћС‚РїСЂР°РІРёС‚СЊ С‚РµСЃС‚</button></div><div id="notifyRecent" class="notify-recent"><div class="empty">Р—Р°РіСЂСѓР·РєР°вЂ¦</div></div></section><footer class="notify-footer" id="notifyFooter" hidden><span id="notifySaveState"></span><button type="submit" id="notifySave">РЎРѕС…СЂР°РЅРёС‚СЊ</button></footer></form></aside>
   <span id="settingsRailScrim" hidden></span>
-  <aside class="settings-rail sidebar" id="settingsRail" aria-hidden="true" aria-label="Разделы настроек"><div class="brand settings-brand"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path class="m-shape" d="M12 2.8 21.13 9.43 17.64 20.17 6.36 20.17 2.87 9.43Z"/><path class="m-pulse" d="M6.9 13.6h2.6l1.3-2.9 1.9 5.8 1.3-2.9h3.1"/></svg><div class="brand-info"><h1>Настройки</h1><div class="host" id="settingsDrawerMeta">загрузка</div></div></div><div class="side-label">Разделы</div><nav class="nav"><button class="nav-item active" type="button" data-settings-nav="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg><span>Система</span></button><button class="nav-item" type="button" data-settings-nav="discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Discovery</span></button><button class="nav-item" type="button" data-settings-nav="fleet"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 12h4M14 11l2.5-3M14 13l2.5 3"/></svg><span>Fleet</span></button><button class="nav-item" type="button" data-settings-nav="telegram"><svg viewBox="0 0 24 24"><path d="M21 3L3.8 10.2c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.5 1.4.3 1.6-.8L22 4.2c.3-1.4-.5-2-1-1.2z"/></svg><span>Telegram</span></button><button class="nav-item" type="button" data-settings-nav="ai"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 3v3"/></svg><span>AI provider</span></button><button class="nav-item" type="button" data-settings-nav="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-2.9 8.2-7 10-4.1-1.8-7-5.2-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Безопасность</span></button></nav><div class="side-foot"><div>Панель настроек</div><div>VPS Sentinel</div></div></aside>
-  <aside class="settings-pane" id="settingsPane" data-pane-kind="settings" aria-hidden="true" aria-label="Настройки Sentinel"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину настроек" tabindex="0"></div>
-    <header class="settings-pane-head"><button class="btn-icon" id="settingsClose" aria-label="Закрыть настройки"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>Управление</span><h2>Настройки Sentinel</h2></div><i class="pill idle" id="settingsDrawerHealth">проверка</i></header>
-    <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">Обновить</button></footer></main>
+  <aside class="settings-rail sidebar" id="settingsRail" aria-hidden="true" aria-label="Р Р°Р·РґРµР»С‹ РЅР°СЃС‚СЂРѕРµРє"><div class="brand settings-brand"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><path class="m-shape" d="M12 2.8 21.13 9.43 17.64 20.17 6.36 20.17 2.87 9.43Z"/><path class="m-pulse" d="M6.9 13.6h2.6l1.3-2.9 1.9 5.8 1.3-2.9h3.1"/></svg><div class="brand-info"><h1>РќР°СЃС‚СЂРѕР№РєРё</h1><div class="host" id="settingsDrawerMeta">Р·Р°РіСЂСѓР·РєР°</div></div></div><div class="side-label">Р Р°Р·РґРµР»С‹</div><nav class="nav"><button class="nav-item active" type="button" data-settings-nav="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4M12 16h.01"/></svg><span>РЎРёСЃС‚РµРјР°</span></button><button class="nav-item" type="button" data-settings-nav="discovery"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg><span>Discovery</span></button><button class="nav-item" type="button" data-settings-nav="fleet"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 12h4M14 11l2.5-3M14 13l2.5 3"/></svg><span>Fleet</span></button><button class="nav-item" type="button" data-settings-nav="telegram"><svg viewBox="0 0 24 24"><path d="M21 3L3.8 10.2c-1.2.5-1.2 1.2-.2 1.5l4.4 1.4 1.7 5.2c.2.6.1.8.7.8.5 0 .7-.2 1-.5l2.1-2 4.4 3.2c.8.5 1.4.3 1.6-.8L22 4.2c.3-1.4-.5-2-1-1.2z"/></svg><span>Telegram</span></button><button class="nav-item" type="button" data-settings-nav="ai"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="13" rx="3"/><path d="M9 11h.01M15 11h.01M9 15h6M12 3v3"/></svg><span>AI provider</span></button><button class="nav-item" type="button" data-settings-nav="security"><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.8-2.9 8.2-7 10-4.1-1.8-7-5.2-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Р‘РµР·РѕРїР°СЃРЅРѕСЃС‚СЊ</span></button></nav><div class="side-foot"><div>РџР°РЅРµР»СЊ РЅР°СЃС‚СЂРѕРµРє</div><div>VPS Sentinel</div></div></aside>
+  <aside class="settings-pane" id="settingsPane" data-pane-kind="settings" aria-hidden="true" aria-label="РќР°СЃС‚СЂРѕР№РєРё Sentinel"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="РР·РјРµРЅРёС‚СЊ С€РёСЂРёРЅСѓ РЅР°СЃС‚СЂРѕРµРє" tabindex="0"></div>
+    <header class="settings-pane-head"><button class="btn-icon" id="settingsClose" aria-label="Р—Р°РєСЂС‹С‚СЊ РЅР°СЃС‚СЂРѕР№РєРё"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><span>РЈРїСЂР°РІР»РµРЅРёРµ</span><h2>РќР°СЃС‚СЂРѕР№РєРё Sentinel</h2></div><i class="pill idle" id="settingsDrawerHealth">РїСЂРѕРІРµСЂРєР°</i></header>
+    <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">РћР±РЅРѕРІРёС‚СЊ</button></footer></main>
   </aside>
 
-  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">VPS Sentinel</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">Подготовка...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
+  <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="РР·РјРµРЅРёС‚СЊ С€РёСЂРёРЅСѓ РѕР±РЅРѕРІР»РµРЅРёСЏ" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Р—Р°РєСЂС‹С‚СЊ РѕР±РЅРѕРІР»РµРЅРёРµ"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">VPS Sentinel</div><h2>РћР±РЅРѕРІР»РµРЅРёРµ</h2></div><i class="pill info" id="updatePaneVersion">РїСЂРѕРІРµСЂРєР°</i></div><div class="detail-body update-body"><section class="detail-section"><h3>РќРѕРІР°СЏ РІРµСЂСЃРёСЏ</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Р§С‚Рѕ РёР·РјРµРЅРёР»РѕСЃСЊ</h3><div class="update-changelog" id="updateChangelog">Р—Р°РіСЂСѓР·РєР° changelog...</div></section><section class="detail-section update-safety"><h3>Р‘РµР·РѕРїР°СЃРЅР°СЏ СѓСЃС‚Р°РЅРѕРІРєР°</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>РђСЂС…РёРІ СЃРІРµСЂСЏРµС‚СЃСЏ СЃ release manifest</small></span><i class="pill ok">РІРєР»СЋС‡РµРЅРѕ</i></div><div><span><b>Rollback</b><small>РџСЂРё РїСЂРѕРІР°Р»Рµ health-check РІРµСЂРЅС‘С‚СЃСЏ РїСЂРѕС€Р»Р°СЏ РІРµСЂСЃРёСЏ</small></span><i class="pill ok">Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё</i></div><div><span><b>РћС‡РёСЃС‚РєР°</b><small>Р’СЂРµРјРµРЅРЅР°СЏ СЃР±РѕСЂРєР° СѓРґР°Р»СЏРµС‚СЃСЏ, С…СЂР°РЅСЏС‚СЃСЏ 3 rollback-РєРѕРїРёРё</small></span><i class="pill ok">Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">РџРѕРґРіРѕС‚РѕРІРєР°...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">РћС‚РјРµРЅР°</button><button class="drawer-button primary" id="updateInstall" type="button">РћР±РЅРѕРІРёС‚СЊ</button></footer></aside>
   <aside class="detail-pane" id="detailPane" data-pane-kind="detail" aria-hidden="true">
-    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
+    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="РР·РјРµРЅРёС‚СЊ С€РёСЂРёРЅСѓ РїР°РЅРµР»Рё" tabindex="0"></div>
     <div class="detail-head">
-      <button class="btn-icon" id="detailClose" aria-label="Закрыть детали">
+      <button class="btn-icon" id="detailClose" aria-label="Р—Р°РєСЂС‹С‚СЊ РґРµС‚Р°Р»Рё">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <div><div class="detail-kicker" id="detailType">Сервис</div><h2 id="detailTitle">Детали</h2></div>
-      <span class="pill idle" id="detailStatus">—</span>
+      <div><div class="detail-kicker" id="detailType">РЎРµСЂРІРёСЃ</div><h2 id="detailTitle">Р”РµС‚Р°Р»Рё</h2></div>
+      <span class="pill idle" id="detailStatus">вЂ”</span>
     </div>
     <div class="detail-body" id="detailBody"><div class="detail-skeleton"></div></div>
   </aside>
 </div>
 
-<script src="/app.js?v=1.24.3" type="module"></script>
+<script src="/app.js?v=1.24.4" type="module"></script>
 </body>
 </html>
+
