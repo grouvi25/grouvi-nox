@@ -21,6 +21,7 @@ StandardError=journal
 SyslogIdentifier=vps-sentinel
 
 # --- sandboxing ---------------------------------------------------
+NoNewPrivileges=true
 PrivateTmp=true
 PrivateDevices=true
 ProtectSystem=strict

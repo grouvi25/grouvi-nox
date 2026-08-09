@@ -7,6 +7,7 @@ import { ingestFleetSnapshot, listFleetNodes, fleetNodeSnapshot, fleetHistory } 
 import { requireAuth } from './auth.js';
 
 const nonces = new Map();
+const ingestBuckets = new Map();
 let pushTimer = null;
 let lastPush = { at: null, ok: false, error: null };
 
@@ -23,6 +24,23 @@ function sign(secret, timestamp, nonce, body) {
 function cleanupNonces() {
   const cutoff = Date.now() - 120_000;
   for (const [key, at] of nonces) if (at < cutoff) nonces.delete(key);
+  for (const [key, bucket] of ingestBuckets) if (Date.now() > bucket.reset) ingestBuckets.delete(key);
+}
+
+function nodeSecrets(value) {
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter(secret => typeof secret === 'string' && secret.length >= 32).slice(0, 2);
+}
+
+function ingestAllowed(nodeId, ip) {
+  if (config.fleet.allowedIps.length && !config.fleet.allowedIps.includes(ip)) return false;
+  const now = Date.now();
+  const key = `${nodeId}:${ip}`;
+  let bucket = ingestBuckets.get(key);
+  if (!bucket || now > bucket.reset) bucket = { count: 0, reset: now + 60_000 };
+  bucket.count += 1;
+  ingestBuckets.set(key, bucket);
+  return bucket.count <= config.fleet.ingestPerMinute;
 }
 
 function publicNodeSnapshot() {
@@ -76,25 +94,34 @@ export function startFleetPush() {
 
 export function fleetIngestRouter() {
   const router = express.Router();
-  router.post('/v1/snapshot', express.text({ type: 'application/json', limit: '2mb' }), (req, res) => {
+  router.post('/v1/snapshot', express.text({ type: 'application/json', limit: config.fleet.maxSnapshotBytes }), (req, res) => {
     cleanupNonces();
     const nodeId = String(req.get('X-Sentinel-Node') || '');
     const timestamp = String(req.get('X-Sentinel-Timestamp') || '');
     const nonce = String(req.get('X-Sentinel-Nonce') || '');
     const signature = String(req.get('X-Sentinel-Signature') || '');
-    const secret = config.fleet.nodes[nodeId];
-    if (!secret || !/^[a-z0-9][a-z0-9_-]{1,63}$/i.test(nodeId)) return res.status(401).json({ error: 'unknown_node' });
+    const secrets = nodeSecrets(config.fleet.nodes[nodeId]);
+    if (!secrets.length || !/^[a-z0-9][a-z0-9_-]{1,63}$/i.test(nodeId)) return res.status(401).json({ error: 'unknown_node' });
+    const ip = String(req.ip || '').replace(/^::ffff:/, '');
+    if (!ingestAllowed(nodeId, ip)) return res.status(429).json({ error: 'ingest_limited' });
     const age = Math.abs(Date.now() - Number(timestamp));
     if (!Number.isFinite(age) || age > 60_000) return res.status(401).json({ error: 'stale_request' });
     const replayKey = `${nodeId}:${nonce}`;
     if (!/^[a-f0-9]{32}$/.test(nonce) || nonces.has(replayKey)) return res.status(409).json({ error: 'replay' });
-    if (!safeEqual(signature, sign(secret, timestamp, nonce, req.body))) return res.status(401).json({ error: 'bad_signature' });
+    if (!secrets.some(secret => safeEqual(signature, sign(secret, timestamp, nonce, req.body)))) {
+      return res.status(401).json({ error: 'bad_signature' });
+    }
     let payload;
     try { payload = JSON.parse(req.body); } catch { return res.status(400).json({ error: 'bad_json' }); }
     if (payload?.schema !== 1 || payload?.node?.id !== nodeId || !payload?.snapshot) return res.status(400).json({ error: 'bad_payload' });
     nonces.set(replayKey, Date.now());
-    ingestFleetSnapshot(nodeId, payload);
-    return res.json({ ok: true, receivedAt: Date.now() });
+    try {
+      ingestFleetSnapshot(nodeId, payload);
+      return res.json({ ok: true, receivedAt: Date.now() });
+    } catch (error) {
+      console.error('[fleet-ingest]', error.message);
+      return res.status(400).json({ error: 'invalid_snapshot' });
+    }
   });
   return router;
 }

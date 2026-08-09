@@ -17,6 +17,13 @@ BACKUP_DIRS=${BACKUP_DIRS:-}
 DEPLOY_DIRS=${DEPLOY_DIRS:-}
 TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
 TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+SENTINEL_ROLE=${SENTINEL_ROLE:-standalone}
+FLEET_NODE_ID=${FLEET_NODE_ID:-}
+FLEET_NODE_NAME=${FLEET_NODE_NAME:-}
+FLEET_HUB_URL=${FLEET_HUB_URL:-}
+FLEET_SHARED_SECRET=${FLEET_SHARED_SECRET:-}
+FLEET_NODES_JSON=${FLEET_NODES_JSON:-{}}
+FLEET_ALLOWED_IPS=${FLEET_ALLOWED_IPS:-}
 NON_INTERACTIVE=0
 ASSUME_YES=0
 SKIP_DNS_CHECK=0
@@ -48,6 +55,13 @@ Options:
   --deploy-dirs CSV         Git repositories shown in deployment timeline
   --telegram-token TOKEN    Optional Telegram bot token
   --telegram-chat-id ID     Optional Telegram destination
+  --role MODE               standalone, hub or node
+  --node-id ID              Stable fleet node identifier
+  --node-name NAME          Human-readable server name
+  --hub-url URL             HTTPS hub URL used by a node
+  --fleet-secret SECRET     Unique 32+ byte HMAC secret
+  --fleet-nodes-json JSON   Hub map: node ID to secret or [current,previous]
+  --fleet-allowed-ips CSV   Optional hub source-IP allowlist
   --without-forge           Skip isolated Hermes/Sentinel Forge installation
   --ai-base-url URL         OpenAI-compatible HTTPS endpoint
   --ai-model NAME           Primary Forge model
@@ -76,6 +90,10 @@ while (($#)); do
     --proxy) PROXY_MODE=${2:-}; shift 2;; --port) PORT=${2:-}; shift 2;;
     --backup-dirs) BACKUP_DIRS=${2:-}; shift 2;; --deploy-dirs) DEPLOY_DIRS=${2:-}; shift 2;;
     --telegram-token) TELEGRAM_TOKEN=${2:-}; shift 2;; --telegram-chat-id) TELEGRAM_CHAT_ID=${2:-}; shift 2;;
+    --role) SENTINEL_ROLE=${2:-}; shift 2;; --node-id) FLEET_NODE_ID=${2:-}; shift 2;;
+    --node-name) FLEET_NODE_NAME=${2:-}; shift 2;; --hub-url) FLEET_HUB_URL=${2:-}; shift 2;;
+    --fleet-secret) FLEET_SHARED_SECRET=${2:-}; shift 2;; --fleet-nodes-json) FLEET_NODES_JSON=${2:-}; shift 2;;
+    --fleet-allowed-ips) FLEET_ALLOWED_IPS=${2:-}; shift 2;;
     --without-forge) INSTALL_FORGE=0; shift;; --ai-base-url) AI_BASE_URL=${2:-}; shift 2;; --ai-model) AI_MODEL=${2:-}; shift 2;;
     --ai-fallback-model) AI_FALLBACK_MODEL=${2:-}; shift 2;; --ai-provider-label) AI_PROVIDER_LABEL=${2:-}; shift 2;; --ai-key) AI_API_KEY=${2:-}; shift 2;; --ai-backup-keys) AI_BACKUP_KEYS=${2:-}; shift 2;;
     --configure-ufw) CONFIGURE_UFW=1; shift;; --skip-dns-check) SKIP_DNS_CHECK=1; shift;;
@@ -101,6 +119,15 @@ valid_domain "$DOMAIN" || die "Invalid domain: $DOMAIN"
 [[ $LE_EMAIL =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || die 'Invalid email address.'
 valid_port "$PORT" || die "Invalid port: $PORT"
 [[ $PROXY_MODE == public || $PROXY_MODE == cloudflare ]] || die '--proxy must be public or cloudflare.'
+[[ $SENTINEL_ROLE == standalone || $SENTINEL_ROLE == hub || $SENTINEL_ROLE == node ]] || die '--role must be standalone, hub or node.'
+if [[ $SENTINEL_ROLE == node ]]; then
+  [[ $FLEET_NODE_ID =~ ^[A-Za-z0-9][A-Za-z0-9_-]{1,63}$ ]] || die 'Node mode requires a valid --node-id.'
+  [[ $FLEET_HUB_URL =~ ^https:// ]] || die 'Node mode requires an HTTPS --hub-url.'
+  [[ ${#FLEET_SHARED_SECRET} -ge 32 ]] || die 'Node mode requires a 32+ byte --fleet-secret.'
+fi
+if [[ $SENTINEL_ROLE == hub ]]; then
+  [[ $FLEET_NODES_JSON == \{*\} ]] || die 'Hub mode requires valid --fleet-nodes-json.'
+fi
 ((INSTALL_FORGE==0)) || [[ $AI_BASE_URL == https://* ]] || die '--ai-base-url must use HTTPS.'
 [[ -f $SOURCE_DIR/package.json && -f $SOURCE_DIR/RELEASE-MANIFEST.json ]] || die 'Run installer from an extracted VPS Sentinel release.'
 
@@ -195,6 +222,19 @@ DEPLOY_DIRS=$DEPLOY_DIRS
 HISTORY_PERSIST_INTERVAL_MS=10000
 HISTORY_RETENTION_DAYS=30
 INCIDENT_RESOLVE_GRACE_MS=45000
+SENTINEL_ROLE=$SENTINEL_ROLE
+FLEET_NODE_ID=$FLEET_NODE_ID
+FLEET_NODE_NAME=$FLEET_NODE_NAME
+FLEET_HUB_URL=$FLEET_HUB_URL
+FLEET_SHARED_SECRET=$FLEET_SHARED_SECRET
+FLEET_NODES_JSON=$FLEET_NODES_JSON
+FLEET_ALLOWED_IPS=$FLEET_ALLOWED_IPS
+FLEET_PUSH_INTERVAL_MS=10000
+FLEET_OFFLINE_AFTER_MS=45000
+FLEET_MAX_SNAPSHOT_BYTES=524288
+FLEET_INGEST_PER_MINUTE=30
+SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel
+UPDATE_CHECK_INTERVAL_MS=1800000
 TELEGRAM_COOLDOWN_MIN=30
 DISCOVERY_ROOTS=${DISCOVERY_ROOTS:-/opt,/srv,/var/www,/home,/root}
 DISCOVERY_INTERVAL_MS=900000

@@ -41,6 +41,9 @@ export const config = {
     secret: env.FLEET_SHARED_SECRET || '',
     pushIntervalMs: num(env.FLEET_PUSH_INTERVAL_MS, 10_000),
     offlineAfterMs: num(env.FLEET_OFFLINE_AFTER_MS, 45_000),
+    maxSnapshotBytes: num(env.FLEET_MAX_SNAPSHOT_BYTES, 512 * 1024),
+    ingestPerMinute: num(env.FLEET_INGEST_PER_MINUTE, 30),
+    allowedIps: (env.FLEET_ALLOWED_IPS || '').split(',').map(x => x.trim()).filter(Boolean),
     nodes: (() => {
       try { return JSON.parse(env.FLEET_NODES_JSON || '{}'); } catch { return {}; }
     })(),

@@ -1,4 +1,25 @@
-# Security model
+# Security
+
+## Fleet transport
+
+- Each node uses a unique HMAC-SHA256 secret; secrets are never sent over the wire.
+- Requests include a timestamp and random nonce. The hub rejects stale and replayed requests.
+- Ingest is capped by payload size and per-node/source-IP rate limits.
+- `FLEET_ALLOWED_IPS` can restrict the hub to known node addresses.
+- During rotation, a hub may accept `["current-secret","previous-secret"]` for a node. Remove the previous value after every node has switched.
+- The hub receives sanitized telemetry only, never SSH keys, Docker sockets, passkeys or file contents.
+
+## Supply chain
+
+- CI runs CodeQL, runtime dependency audit, dependency review and credential-pattern checks.
+- Release archives are reproducible, checksummed and receive GitHub provenance attestations.
+- Runtime updates verify the release checksum and roll back on failed health checks.
+
+## Service sandbox
+
+Both systemd services use `NoNewPrivileges`; the web process is unprivileged, loopback-only and writable only to its state directory. The root collector has no public listener and remains constrained by systemd filesystem, namespace, device and resource controls.
+
+# Security model model
 
 ## Trust boundaries
 
