@@ -16,10 +16,14 @@ const ICON_WARN = '<svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.
 const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
 
 /* ----------------------------- render ---------------------------- */
-const fleet=createFleetController();
+let fleet;
 let updates;
 let latest = null;
+let localLatest = null;
 let persistedHistory = null;
+let activeFleetNode = 'local';
+let fleetRefreshTimer = null;
+fleet=createFleetController({onSelect:selectFleetNode});
 
 function renderAlerts(a) {
   const nb = $('nbAlerts');
@@ -315,10 +319,21 @@ const discoveryController=createDiscoveryController({api,openProject:openProject
 const settings=createSettingsController({api,setWorkspacePane});
 updates=createUpdateController({api,setWorkspacePane});
 
+async function refreshFleetNode(nodeId=activeFleetNode){
+  if(nodeId==='local'||nodeId!==activeFleetNode)return;
+  try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;render(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
+}
+async function selectFleetNode(nodeId){
+  clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;document.body.classList.toggle('fleet-remote',nodeId!=='local');content.scrollTo({top:0,behavior:'smooth'});
+  if(nodeId==='local'){latest=localLatest;if(latest)render(latest);setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h');return}
+  setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);fleetRefreshTimer=setInterval(()=>{refreshFleetNode(nodeId);fleet.load()},10000)
+}
+
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
   try {
-    persistedHistory = await api(`/api/history?range=${encodeURIComponent(range)}`);
+    const endpoint=activeFleetNode==='local'?`/api/history?range=${encodeURIComponent(range)}`:`/api/fleet/nodes/${encodeURIComponent(activeFleetNode)}/history?range=${encodeURIComponent(range)}`;
+    persistedHistory = await api(endpoint);
     const points = persistedHistory.rows?.length || 0;
     const collected = persistedHistory.rows?.length
       ? ` · данные с ${formatWhen(persistedHistory.rows[0].ts)}` : ' · история ещё накапливается';
@@ -523,7 +538,7 @@ function render(d) {
 
 /* -------------------------- connection --------------------------- */let ws=null,retry=0,pollTimer=null,reconnectTimer=null;
 function stopSnapshotPolling(){clearInterval(pollTimer);pollTimer=null}
-async function pollSnapshot(){try{render(await api('/api/snapshot'));setConn('live','live · polling')}catch{setConn('down','переподключение…')}}
+async function pollSnapshot(){try{localLatest=await api('/api/snapshot');if(activeFleetNode==='local'){render(localLatest);setConn('live','live · polling')}}catch{if(activeFleetNode==='local')setConn('down','переподключение…')}}
 function startSnapshotPolling(){if(pollTimer)return;pollSnapshot();pollTimer=setInterval(pollSnapshot,2000)}
 
 function setConn(state, text) {
@@ -535,12 +550,12 @@ function connect() {
   const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/stream`;
   ws = new WebSocket(url);
 
-  ws.onopen=()=>{retry=0;clearTimeout(reconnectTimer);stopSnapshotPolling();setConn('live','live')};
+  ws.onopen=()=>{retry=0;clearTimeout(reconnectTimer);stopSnapshotPolling();if(activeFleetNode==='local')setConn('live','live')};
 
   ws.onmessage = (ev) => {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
-    if (msg.type === 'snapshot' || msg.type === 'tick') render(msg.data);
+    if (msg.type === 'snapshot' || msg.type === 'tick') {localLatest=msg.data;if(activeFleetNode==='local')render(msg.data)};
     if (msg.type === 'incidents') loadIncidents();
   };
 
@@ -558,7 +573,7 @@ async function bootstrap() {
   try {
     const r = await fetch('/api/snapshot', { credentials: 'same-origin' });
     if (r.status === 401) { location.href = '/login'; return; }
-    render(await r.json());
+    localLatest=await r.json();render(localLatest);
   } catch { /* websocket will fill in */ }
   await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load(),fleet.load(),updates.load()]);
   connect();
@@ -698,11 +713,12 @@ $('forgeScopeTrigger').addEventListener('click',()=>forge.toggleForgeMenu('scope
 $('forgeModelTrigger').addEventListener('click',()=>forge.toggleForgeMenu('model'));
 document.querySelectorAll('.forge-menu').forEach(menu=>menu.addEventListener('click',e=>{const choice=e.target.closest('[data-forge-choice]');if(choice)forge.chooseForge(choice.dataset.forgeType,choice.dataset.forgeChoice)}));
 document.addEventListener('click',e=>{if(!e.target.closest('.forge-menu-wrap'))forge.closeForgeMenus()});
-forge.renderForgeMenus();forge.renderForgeHistory();initPaneResizers();forge.loadForgeProjects();
+forge.renderForgeMenus();forge.renderForgeHistory();fleet.bind();initPaneResizers();forge.loadForgeProjects();
 
 setInterval(() => loadIncidents(), 30_000);
 setInterval(()=>loadDeployments(),5*60_000);
 setInterval(()=>discoveryController.load(),5*60_000);
+setInterval(()=>fleet.load(),30_000);
 
 let resizeTimer;
 window.addEventListener('resize', () => {

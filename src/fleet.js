@@ -126,9 +126,9 @@ export function fleetIngestRouter() {
   return router;
 }
 
-export function fleetApiRouter() {
+export function fleetApiRouter(authMiddleware=requireAuth) {
   const router = express.Router();
-  router.use(requireAuth);
+  router.use(authMiddleware);
   router.get('/nodes', (req, res) => res.json({
     role: config.fleet.role,
     localNodeId: config.fleet.nodeId,
