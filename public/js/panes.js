@@ -30,7 +30,7 @@ export function initPaneResizers(){
 }
 
 export function setWorkspacePane(activeId = null) {
-  for (const id of ['forgePane', 'notifyPane', 'settingsPane', 'detailPane']) {
+  for (const id of ['forgePane', 'notifyPane', 'settingsPane', 'updatePane', 'detailPane']) {
     const pane = $(id); const open = id === activeId;
     pane.classList.toggle('open', open);
     pane.setAttribute('aria-hidden', String(!open));

@@ -176,3 +176,5 @@ test('settings sidebar scroll spy mirrors the dashboard navigation contract',()=
 
 
 test('storage chart is CSP-safe and realtime transport has a bounded polling fallback',()=>{const fsUi=fs.readFileSync('public/js/filesystem.js','utf8'),html=fs.readFileSync('public/index.html','utf8'),app=fs.readFileSync('public/app.js','utf8');assert.doesNotMatch(fsUi,/style=|\.style\./);assert.match(fsUi,/function drawStorageChart/);assert.match(html,/id="storageCanvas"/);assert.match(app,/function startSnapshotPolling/);assert.match(app,/pollTimer=setInterval\(pollSnapshot,2000\)/);assert.match(app,/retry<=3/);assert.match(app,/live · polling/)});
+
+test('fleet and update UI ship clean UTF-8 copy and complete wiring',()=>{const files=['public/index.html','public/setup.js','public/js/settings-pane.js','public/js/updates.js'].map(file=>fs.readFileSync(file,'utf8')).join('\n');assert.doesNotMatch(files,/\?{3,}/);assert.match(files,/id="updateOpen"/);assert.match(files,/data-pane-kind="update"/);assert.match(files,/configureFleet/);assert.match(files,/drawerFleetForm/);const panes=fs.readFileSync('public/js/panes.js','utf8');assert.match(panes,/['"]updatePane['"]/);});
