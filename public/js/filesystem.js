@@ -1,7 +1,7 @@
 import { $, bytes, esc } from './utils.js';
 
 export function createFilesystemController({ api, formatWhen, kv }) {
-  let currentPath='/',overview={largest:[],risks:[]},distribution={roots:[],types:[]},storageMode='roots',timer=null;
+  let currentPath='/',overview={largest:[],risks:[]},distribution={roots:[],types:[]},storageMode='roots',timer=null,enabled=true;
 const storageColors=['oklch(78% .11 72)','oklch(68% .11 235)','oklch(66% .10 150)','oklch(72% .12 45)','oklch(64% .10 300)','oklch(76% .08 205)','oklch(62% .08 25)','oklch(55% .025 75)'];
 const typeLabels={Archives:'Архивы',Images:'Изображения',Video:'Видео',Audio:'Аудио',Code:'Код',Data:'Данные',Logs:'Логи',Documents:'Документы',Packages:'Пакеты',Other:'Прочее'};
 function fsIcon(type, excluded) {
@@ -21,7 +21,7 @@ function breadcrumb(pathname) {
 
 function storageRows(){const source=distribution[storageMode]||[],head=source.slice(0,7),rest=source.slice(7);if(rest.length)head.push({name:'Other',bytes:rest.reduce((n,x)=>n+x.bytes,0),files:rest.reduce((n,x)=>n+x.files,0)});return head}
 function drawStorageChart(rows,total){const canvas=$('storageCanvas'),box=$('storageDonut'),rect=box.getBoundingClientRect(),dpr=window.devicePixelRatio||1,size=Math.max(1,Math.round(Math.min(rect.width,rect.height)));canvas.width=size*dpr;canvas.height=size*dpr;const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,size,size);const center=size/2,radius=size*.47,inner=size*.285;let angle=-Math.PI/2;for(const [index,row] of rows.entries()){const sweep=total?row.bytes/total*Math.PI*2:0;ctx.beginPath();ctx.arc(center,center,radius,angle,angle+sweep);ctx.arc(center,center,inner,angle+sweep,angle,true);ctx.closePath();ctx.fillStyle=storageColors[index];ctx.fill();angle+=sweep}if(!total){ctx.beginPath();ctx.arc(center,center,radius,0,Math.PI*2);ctx.arc(center,center,inner,Math.PI*2,0,true);ctx.fillStyle='oklch(24% .008 75)';ctx.fill()}}
-function renderStorage(){const rows=storageRows(),total=rows.reduce((n,x)=>n+x.bytes,0);$('storageTotal').textContent=bytes(total);$('storageCoverage').textContent=`${rows.reduce((n,x)=>n+x.files,0).toLocaleString('ru-RU')} файлов`;drawStorageChart(rows,total);if(!total){$('storageLegend').innerHTML='<div class="empty">Данных об объёме пока нет.</div>';return}$('storageLegend').innerHTML=rows.map((row,index)=>{const pct=row.bytes/total*100,label=storageMode==='types'?(typeLabels[row.name]||row.name):row.name;return`<button type="button" class="storage-row" data-storage-index="${index}"><i class="storage-color-${index}"></i><span><b>${esc(label)}</b><small>${row.files.toLocaleString('ru-RU')} файлов · ${pct<.1?'<0.1':pct.toFixed(1)}%</small></span><strong>${bytes(row.bytes)}</strong></button>`}).join('')}
+function renderStorage(){if(!enabled)return;const rows=storageRows(),total=rows.reduce((n,x)=>n+x.bytes,0);$('storageTotal').textContent=bytes(total);$('storageCoverage').textContent=`${rows.reduce((n,x)=>n+x.files,0).toLocaleString('ru-RU')} файлов`;drawStorageChart(rows,total);if(!total){$('storageLegend').innerHTML='<div class="empty">Данных об объёме пока нет.</div>';return}$('storageLegend').innerHTML=rows.map((row,index)=>{const pct=row.bytes/total*100,label=storageMode==='types'?(typeLabels[row.name]||row.name):row.name;return`<button type="button" class="storage-row" data-storage-index="${index}"><i class="storage-color-${index}"></i><span><b>${esc(label)}</b><small>${row.files.toLocaleString('ru-RU')} файлов · ${pct<.1?'<0.1':pct.toFixed(1)}%</small></span><strong>${bytes(row.bytes)}</strong></button>`}).join('')}
 
 function selectStorage(index){const row=storageRows()[Number(index)];if(!row)return;$('storageTotal').textContent=bytes(row.bytes);$('storageDonut').dataset.selected=index;clearTimeout(selectStorage.timer);selectStorage.timer=setTimeout(()=>{$('storageDonut').removeAttribute('data-selected');renderStorage()},2400)}
 
@@ -75,5 +75,6 @@ function fsParent(pathname) {
   document.querySelectorAll('[data-storage-mode]').forEach(button=>button.addEventListener('click',()=>{storageMode=button.dataset.storageMode;document.querySelectorAll('[data-storage-mode]').forEach(x=>x.classList.toggle('active',x===button));renderStorage()}));
   $('storageLegend')?.addEventListener('click',e=>{const row=e.target.closest('[data-storage-index]');if(row)selectStorage(row.dataset.storageIndex)});
   new ResizeObserver(()=>{if((distribution[storageMode]||[]).length)renderStorage()}).observe($('storageDonut'));
-  return { loadFilesystem,onEntriesClick,onEntriesKeydown,onBreadcrumbClick,up,search };
+  function setEnabled(value){enabled=Boolean(value);for(const id of ['fsUp','fsSearch'])if($(id))$(id).disabled=!enabled;document.querySelectorAll('[data-storage-mode]').forEach(button=>button.disabled=!enabled)}
+  return { loadFilesystem,onEntriesClick,onEntriesKeydown,onBreadcrumbClick,up,search,setEnabled };
 }

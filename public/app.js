@@ -324,24 +324,29 @@ updates=createUpdateController({api,setWorkspacePane});
 
 async function refreshFleetNode(nodeId=activeFleetNode){
   if(nodeId==='local'||nodeId!==activeFleetNode)return;
-  try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;render(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
+  try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;render(payload.snapshot,{forceFull:true});renderCharts(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
 }
 function renderRemoteScope(snapshot){
-  const alerts=snapshot?.alerts||[];$('incidentCount').textContent=String(alerts.length);$('incidentActive').textContent=String(alerts.length);$('incidentCritical').textContent=String(alerts.filter(x=>x.level==='critical').length);$('incidentResolved').textContent='0';$('incidentHint').textContent='Активные сигналы выбранного узла';$('incidentList').innerHTML=alerts.length?alerts.map(item=>`<div class="incident-item"><span class="pill ${item.level==='critical'?'crit':'warn'}">${esc(item.level)}</span><span><b>${esc(item.message||item.key||'Сигнал')}</b><small>${esc(item.key||'remote telemetry')}</small></span></div>`).join(''):'<div class="empty">Активных сигналов нет.</div>';
-  $('fsIndexMeta').textContent='локальный индекс узла';$('fsEntries').innerHTML='<div class="empty">Детальный файловый индекс открывается в локальной панели узла.</div>';$('fsSummary').innerHTML='<div class="empty">Hub получает только безопасную телеметрию.</div>';$('fsLargest').innerHTML='<div class="empty">Содержимое файлов не передаётся.</div>';$('fsRisks').innerHTML='<div class="empty">Проверяется локально на узле.</div>';
-  $('discoverySummary').innerHTML='<div class="empty">Карта проектов остаётся локальной на узле.</div>';$('projectList').innerHTML='<div class="empty">Hub не получает пути и содержимое проектов.</div>';$('deployments').innerHTML='<div class="empty">Git activity не покидает узел.</div>';$('deployMeta').textContent='локальные данные узла';$('deployOverview').innerHTML='';$('deployShown').textContent='';$('deployMore').hidden=true;
+  const alerts=snapshot?.alerts||[],critical=alerts.filter(x=>x.level==='critical').length;
+  $('incidentCount').textContent=String(alerts.length);$('incidentActive').textContent=String(alerts.length);$('incidentCritical').textContent=String(critical);$('incidentResolved').textContent='0';$('nbIncidents').textContent=String(alerts.length);$('incidentHint').textContent='Активные сигналы выбранного узла';
+  for(const [id,value] of [['icActive',alerts.length],['icOpen',alerts.length],['icAck',0],['icResolved',0],['icAll',alerts.length]])$(id).textContent=String(value);
+  $('incidentList').innerHTML=alerts.length?alerts.map(item=>`<div class="incident-item"><span class="pill ${item.level==='critical'?'crit':'warn'}">${esc(item.level)}</span><span><b>${esc(item.message||item.key||'Сигнал')}</b><small>${esc(item.key||'remote telemetry')}</small></span></div>`).join(''):'<div class="empty">Активных сигналов нет.</div>';$('incidentPager').hidden=true;
+  $('fsIndexCount').textContent='локально';$('fsIndexMeta').textContent='метаданные не передаются в hub';$('fsBreadcrumb').innerHTML='<span class="crumb">/</span>';$('fsEntries').innerHTML='<div class="empty">Детальный файловый индекс доступен в локальной панели узла.</div>';$('fsSummary').innerHTML='<div class="empty">Hub получает только безопасную телеметрию.</div>';$('fsLargest').innerHTML='<div class="empty">Содержимое и пути файлов не передаются.</div>';$('fsRisks').innerHTML='<div class="empty">Риски доступа проверяются локально.</div>';
+  $('storageTotal').textContent='—';$('storageCoverage').textContent='локальные данные';$('storageLegend').innerHTML='<div class="empty">Распределение хранилища доступно на самом узле.</div>';const canvas=$('storageCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
+  $('discoveryCount').textContent='—';$('nbDiscovery').textContent='—';$('discoverySummary').innerHTML='<div class="empty">Карта проектов остаётся локальной на узле.</div>';$('projectList').innerHTML='<div class="empty">Hub не получает пути и содержимое проектов.</div>';$('unassignedCount').textContent='0';$('unassignedList').innerHTML='<div class="empty">Локальные цели не передаются.</div>';
+  $('deployments').innerHTML='<div class="empty">Git activity не покидает узел.</div>';$('deployMeta').textContent='локальные данные узла';$('deployOverview').innerHTML='';$('deployShown').textContent='';$('deployMore').hidden=true;$('deployProject').innerHTML='<option value="all">Выбранный узел</option>';
 }
 async function selectFleetNode(nodeId){
-  clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;content.scrollTo({top:0,behavior:'smooth'});
-  if(nodeId==='local'){latest=localLatest;if(latest)render(latest);setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await Promise.allSettled([loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h'),loadIncidents('all'),loadFilesystem('/'),discoveryController.load(),loadDeployments()]);return}
-  setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);renderRemoteScope(latest);fleetRefreshTimer=setInterval(async()=>{await refreshFleetNode(nodeId);renderRemoteScope(latest);fleet.load()},10000)
+  clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;filesystem.setEnabled(nodeId==='local');content.scrollTo({top:0,behavior:'smooth'});
+  if(nodeId==='local'){latest=localLatest;if(latest){render(latest,{forceFull:true});renderCharts(latest)}setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await Promise.allSettled([loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h'),loadIncidents('all'),loadFilesystem('/'),discoveryController.load(),loadDeployments(),updates.load()]);return}
+  $('updateOpen').hidden=true;setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);renderRemoteScope(latest);fleetRefreshTimer=setInterval(async()=>{await refreshFleetNode(nodeId);renderRemoteScope(latest);fleet.load()},10000)
 }
 
 async function loadHistory(range = '24h') {
   $('historyMeta').textContent = 'SQLite: загрузка…';
   try {
-    const endpoint=activeFleetNode==='local'?`/api/history?range=${encodeURIComponent(range)}`:`/api/fleet/nodes/${encodeURIComponent(activeFleetNode)}/history?range=${encodeURIComponent(range)}`;
-    persistedHistory = await api(endpoint);
+    const requestedNode=activeFleetNode,endpoint=requestedNode==='local'?`/api/history?range=${encodeURIComponent(range)}`:`/api/fleet/nodes/${encodeURIComponent(requestedNode)}/history?range=${encodeURIComponent(range)}`;
+    const nextHistory=await api(endpoint);if(requestedNode!==activeFleetNode)return;persistedHistory=nextHistory;
     const points = persistedHistory.rows?.length || 0;
     const collected = persistedHistory.rows?.length
       ? ` · данные с ${formatWhen(persistedHistory.rows[0].ts)}` : ' · история ещё накапливается';
@@ -526,7 +531,7 @@ function renderHeader(d) {
 }
 
 let lastFull = 0;
-function render(d) {
+function render(d,{forceFull=false}={}) {
   latest = d;
   fleet.update(d);
   renderHeader(d);
@@ -536,7 +541,7 @@ function render(d) {
   renderCores(d);
 
   const now = Date.now();
-  if (now - lastFull > 15_000) {
+  if (forceFull || now - lastFull > 15_000) {
     lastFull = now;
     renderFs(d); renderContainers(d); renderPm2(d);
     renderSecurity(d); renderCerts(d); renderBackups(d);
@@ -564,7 +569,7 @@ function connect() {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (msg.type === 'snapshot' || msg.type === 'tick') {localLatest=msg.data;if(activeFleetNode==='local')render(msg.data)};
-    if (msg.type === 'incidents') loadIncidents();
+    if (msg.type === 'incidents'&&activeFleetNode==='local') loadIncidents();
   };
 
   ws.onclose = (ev) => {
@@ -683,18 +688,18 @@ $('settingsClose').addEventListener('click',settings.close);
 $('settingsRefresh').addEventListener('click',()=>settings.load());
 $('settingsRail').addEventListener('click',e=>{const item=e.target.closest('[data-settings-nav]');if(item)settings.navigate(item.dataset.settingsNav)});
 
-$('deployProject').addEventListener('change',()=>{deployLimit=20;renderDeployments()});
-$('deploySearch').addEventListener('input',()=>{deployLimit=20;renderDeployments()});
-$('deployMore').addEventListener('click',()=>{deployLimit+=20;renderDeployments()});
-$('deployments').addEventListener('click',e=>{const row=e.target.closest('[data-deploy-sha]');if(row)openCommitDetail(row.dataset.deployDir,row.dataset.deploySha)});
+$('deployProject').addEventListener('change',()=>{if(activeFleetNode==='local'){deployLimit=20;renderDeployments()}});
+$('deploySearch').addEventListener('input',()=>{if(activeFleetNode==='local'){deployLimit=20;renderDeployments()}});
+$('deployMore').addEventListener('click',()=>{if(activeFleetNode==='local'){deployLimit+=20;renderDeployments()}});
+$('deployments').addEventListener('click',e=>{if(activeFleetNode!=='local')return;const row=e.target.closest('[data-deploy-sha]');if(row)openCommitDetail(row.dataset.deployDir,row.dataset.deploySha)});
 $('detailBody').addEventListener('click',e=>{const copy=e.target.closest('[data-copy-sha]');if(copy)navigator.clipboard.writeText(copy.dataset.copySha).then(()=>{copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy SHA',1200)})});
 $('detailBody').addEventListener('click',e=>{const service=e.target.closest('[data-service-type]');if(service)openServiceDetail(service.dataset.serviceType,service.dataset.serviceName)});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){setNavigation(false);settings.close();closeDetail();forge.closeForge();closeNotifications()}});
-$('fsEntries').addEventListener('click',filesystem.onEntriesClick);
-$('fsEntries').addEventListener('keydown',filesystem.onEntriesKeydown);
-$('fsBreadcrumb').addEventListener('click',filesystem.onBreadcrumbClick);
-$('fsUp').addEventListener('click',filesystem.up);
-$('fsSearch').addEventListener('input',filesystem.search);
+$('fsEntries').addEventListener('click',event=>{if(activeFleetNode==='local')filesystem.onEntriesClick(event)});
+$('fsEntries').addEventListener('keydown',event=>{if(activeFleetNode==='local')filesystem.onEntriesKeydown(event)});
+$('fsBreadcrumb').addEventListener('click',event=>{if(activeFleetNode==='local')filesystem.onBreadcrumbClick(event)});
+$('fsUp').addEventListener('click',()=>{if(activeFleetNode==='local')filesystem.up()});
+$('fsSearch').addEventListener('input',event=>{if(activeFleetNode==='local')filesystem.search(event)});
 $('incidentPrev').addEventListener('click',incidents.previous);
 $('incidentNext').addEventListener('click',incidents.next);
 $('notifyOpen').addEventListener('click',openNotifications);
