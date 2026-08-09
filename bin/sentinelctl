@@ -207,7 +207,7 @@ cmd_update(){
   tar -C "$APP_DIR" --exclude=node_modules --exclude=.git -czf "$app_backup" .
   chmod 600 "$app_backup"
   systemctl stop "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE"
-  rsync -a --delete --exclude node_modules --exclude .git "$work/" "$APP_DIR/"
+  rsync -a --checksum --delete --exclude node_modules --exclude .git "$work/" "$APP_DIR/"
   cd "$APP_DIR"
   if ! npm ci --omit=dev --no-audit --no-fund \
     || ! install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service" \
