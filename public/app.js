@@ -223,7 +223,10 @@ const {loadFilesystem}=filesystem;
 
 function renderSecurity(d) {
   const f = d.fail2ban || {}; const s = d.ssh || {};
-  let html = kv('Вход по паролю', '<span class="pill ok">отключён</span>')
+  const posture=s.posture||{},passwordKnown=typeof posture.passwordAuthentication==='boolean',passwordOn=posture.passwordAuthentication;
+  let html = kv('Вход по паролю',passwordKnown?`<span class="pill ${passwordOn?'warn':'ok'}">${passwordOn?'включён':'отключён'}</span>`:'<span class="pill idle">нет данных</span>')
+    + kv('Вход по ключу',typeof posture.publicKeyAuthentication==='boolean'?`<span class="pill ${posture.publicKeyAuthentication?'ok':'warn'}">${posture.publicKeyAuthentication?'включён':'отключён'}</span>`:'<span class="pill idle">нет данных</span>')
+    + kv('Root SSH',posture.permitRootLogin?`<span class="pill ${posture.permitRootLogin==='no'?'ok':'warn'}">${esc(posture.permitRootLogin)}</span>`:'<span class="pill idle">нет данных</span>')
     + kv('Забанено сейчас', f.available ? f.currentlyBanned : '—')
     + kv('Забанено всего', f.available ? f.totalBanned : '—')
     + kv('Неудачных паролей', s.available ? s.failedPassword : '—', 'в текущем окне лога')

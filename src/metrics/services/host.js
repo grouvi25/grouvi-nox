@@ -60,6 +60,7 @@ export async function fail2ban() {
 const TAIL_BYTES = 512 * 1024;
 
 export async function sshActivity() {
+  const posture=(await privileged())?.security||null;
   try {
     const stat = await fsp.stat(config.paths.authLog);
     const start = Math.max(0, stat.size - TAIL_BYTES);
@@ -90,9 +91,10 @@ export async function sshActivity() {
       recentLogins: accepted.slice(-8).reverse(),
       topAttackers: Object.entries(topIps).sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([ip, count]) => ({ ip, count })),
+      posture,
     };
   } catch {
-    return { available: false };
+    return { available: false,posture };
   }
 }
 

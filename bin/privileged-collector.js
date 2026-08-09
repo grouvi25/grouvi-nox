@@ -110,6 +110,15 @@ async function systemdDetails() {
   return{available:true,items};
 }
 
+async function securityPosture(){
+  const [sshd,user,groups,noNewPrivileges]=await Promise.all([
+    run('/usr/sbin/sshd',['-T']),run('systemctl',['show','vps-sentinel','-p','User','--value']),run('id',['-nG','vpssentinel']),run('systemctl',['show','vps-sentinel','-p','NoNewPrivileges','--value']),
+  ]);
+  const values={};for(const line of sshd.stdout.split('\n')){const [key,...rest]=line.trim().split(/\s+/);if(key)values[key]=rest.join(' ')}
+  const yes=value=>String(value||'').toLowerCase()==='yes';
+  return{available:sshd.ok,passwordAuthentication:yes(values.passwordauthentication),keyboardInteractiveAuthentication:yes(values.kbdinteractiveauthentication),publicKeyAuthentication:yes(values.pubkeyauthentication),permitRootLogin:values.permitrootlogin||'unknown',webUser:user.stdout.trim()||'unknown',webInDockerGroup:groups.stdout.trim().split(/\s+/).includes('docker'),noNewPrivileges:yes(noNewPrivileges.stdout.trim()),configMode:(()=>{try{return(fs.statSync('/etc/vps-sentinel.env').mode&0o777).toString(8)}catch{return null}})()};
+}
+
 async function fail2ban() {
   const result = await run(F2B_BIN, ['status', 'sshd']);
   if (!result.ok) return { available: false };
@@ -244,8 +253,8 @@ async function discoveryTick(){try{const configured=discoverySettings().roots||[
 
 async function tick(){if(fs.existsSync(DISCOVERY_RESCAN)){try{fs.unlinkSync(DISCOVERY_RESCAN)}catch{}await discoveryTick()}
   try {
-    const [p, f, d, units] = await Promise.all([pm2(), fail2ban(), deployments(), systemdDetails()]);
-    const payload = JSON.stringify({ at: Date.now(), pm2: p, fail2ban: f, deployments: d, systemdDetails: units });
+    const [p, f, d, units, security] = await Promise.all([pm2(), fail2ban(), deployments(), systemdDetails(),securityPosture()]);
+    const payload = JSON.stringify({ at: Date.now(), pm2: p, fail2ban: f, deployments: d, systemdDetails: units,security });
     const tmp = `${OUT}.tmp`;
     fs.writeFileSync(tmp, payload, { mode: 0o644 });
     fs.renameSync(tmp, OUT);
