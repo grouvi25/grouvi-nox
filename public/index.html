@@ -27,6 +27,19 @@
     </div>
 
     <div class="side-label">Нагрузка</div>
+    <div class="fleet-switcher" id="fleetSwitcher">
+      <div class="side-label">Серверы</div>
+      <div class="fleet-list" id="fleetList">
+        <button class="fleet-node active" data-node="local">
+          <span class="fleet-status online"></span><span>Этот сервер</span><small>local</small>
+        </button>
+      </div>
+    </div>
+
+    <a class="update-notice" id="updateNotice" href="#" target="_blank" rel="noopener" hidden>
+      <span>Доступно обновление</span><strong id="updateVersion">-</strong>
+    </a>
+
     <div class="gauges">
       <div class="gauge">
         <div class="g-top"><span class="g-name">Процессор</span><span class="g-val" id="gCpu">—</span></div>

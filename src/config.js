@@ -30,6 +30,22 @@ export const config = {
   historyRetentionDays: num(env.HISTORY_RETENTION_DAYS, 30),
   incidentResolveGraceMs: num(env.INCIDENT_RESOLVE_GRACE_MS, 45_000),
 
+  releaseRepo: env.SENTINEL_RELEASE_REPO || 'grouvi25/vps-sentinel',
+  updateCheckIntervalMs: num(env.UPDATE_CHECK_INTERVAL_MS, 30 * 60_000),
+
+  fleet: {
+    role: env.SENTINEL_ROLE || 'standalone',
+    nodeId: env.FLEET_NODE_ID || '',
+    nodeName: env.FLEET_NODE_NAME || env.FLEET_NODE_ID || '',
+    hubUrl: env.FLEET_HUB_URL || '',
+    secret: env.FLEET_SHARED_SECRET || '',
+    pushIntervalMs: num(env.FLEET_PUSH_INTERVAL_MS, 10_000),
+    offlineAfterMs: num(env.FLEET_OFFLINE_AFTER_MS, 45_000),
+    nodes: (() => {
+      try { return JSON.parse(env.FLEET_NODES_JSON || '{}'); } catch { return {}; }
+    })(),
+  },
+
   telegram: {
     botToken: env.SENTINEL_TELEGRAM_BOT_TOKEN || '',
     chatId: env.SENTINEL_TELEGRAM_CHAT_ID || '',

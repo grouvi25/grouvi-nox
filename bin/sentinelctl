@@ -19,6 +19,8 @@ Commands:
   enroll [label]           Create a one-time passkey enrollment link
   recovery                 Rotate and print recovery codes
   backup [output.tar.gz]   Backup state, configuration and nginx integration
+  check-update              Compare installed version with latest GitHub Release
+  update-github             Download, checksum and atomically install latest release
   update <bundle> <sha256> Verify a release bundle and perform atomic update
   restore <backup.tar.gz>  Restore state/config from a sentinelctl backup
   uninstall [--purge]      Remove services and integration; keep data by default
@@ -157,6 +159,38 @@ EOF
   printf '  SHA256: %s\n' "$(sha256_file "$output")"
 }
 
+cmd_check_update(){
+  load_install_config
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} installed latest
+  installed=$(node -p "require('$APP_DIR/package.json').version")
+  latest=$(curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
+    "https://api.github.com/repos/$repo/releases/latest" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).tag_name.replace(/^v/,'')))")
+  printf 'Installed: %s\nLatest:    %s\n' "$installed" "$latest"
+  [[ $installed == "$latest" ]] && ok 'Already up to date.' || warn "Update available: v$latest"
+}
+
+cmd_update_github(){
+  require_root; load_install_config
+  local repo=${SENTINEL_RELEASE_REPO:-grouvi25/vps-sentinel} work json tag archive_url sums_url expected
+  work=$(mktemp -d); trap 'rm -rf "$work"' RETURN
+  json="$work/release.json"
+  curl -fsS --proto '=https' --tlsv1.2 -H 'Accept: application/vnd.github+json' -H 'User-Agent: vps-sentinel' \
+    "https://api.github.com/repos/$repo/releases/latest" -o "$json"
+  readarray -t release < <(node - "$json" <<'NODE'
+const fs=require('fs');const r=JSON.parse(fs.readFileSync(process.argv[2]));
+const a=r.assets.find(x=>/vps-sentinel-v.*-linux\.tar\.gz$/.test(x.name));
+const s=r.assets.find(x=>x.name==='SHA256SUMS');
+if(!a||!s)process.exit(1);console.log(r.tag_name);console.log(a.browser_download_url);console.log(s.browser_download_url);
+NODE
+  )
+  tag=${release[0]}; archive_url=${release[1]}; sums_url=${release[2]}
+  curl -fsS --proto '=https' --tlsv1.2 "$archive_url" -o "$work/vps-sentinel-$tag-linux.tar.gz"
+  curl -fsS --proto '=https' --tlsv1.2 "$sums_url" -o "$work/SHA256SUMS"
+  expected=$(awk -v name="vps-sentinel-$tag-linux.tar.gz" '$2==name {print $1}' "$work/SHA256SUMS")
+  [[ $expected =~ ^[a-f0-9]{64}$ ]] || die 'Latest release checksum is missing.'
+  cmd_update "$work/vps-sentinel-$tag-linux.tar.gz" "$expected"
+}
+
 cmd_update(){
   require_root; load_install_config
   local bundle=${1:-} expected=${2:-} work backup app_backup
@@ -249,6 +283,7 @@ cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_
 command=${1:-}; shift || true
 case "$command" in
   status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
-  backup) cmd_backup "$@";; update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
+  backup) cmd_backup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
   logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
 esac

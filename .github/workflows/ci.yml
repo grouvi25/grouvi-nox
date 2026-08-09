@@ -54,6 +54,13 @@ jobs:
           if (db.syncIncidents(snapshot.alerts).length !== 1) process.exit(1)
           if (db.acknowledgeIncident(1)?.status !== 'acknowledged') process.exit(1)
           if (db.resolveIncident(1)?.status !== 'resolved') process.exit(1)
+          const fleet = {
+            schema:1, node:{id:'ci-node',name:'CI node',publicUrl:'https://ci.example',version:'1.4.0'},
+            snapshot:{...snapshot,alerts:[],update:{current:'1.4.0',available:false}}
+          }
+          db.ingestFleetSnapshot('ci-node', fleet)
+          if (db.listFleetNodes()[0]?.id !== 'ci-node') process.exit(1)
+          if (db.fleetHistory('ci-node','24h').rows.length !== 1) process.exit(1)
           NODE
       - name: Installer dry-run
         run: sudo ./deploy/install.sh --domain monitor.example.com --email ops@example.com --proxy public --skip-dns-check --dry-run --non-interactive -y

@@ -7,6 +7,7 @@ import { createFilesystemController } from './js/filesystem.js';
 import { createForgeController } from './js/forge.js';
 import {createDiscoveryController} from './js/discovery.js';
 import {createSettingsController} from './js/settings-pane.js';
+import {createFleetController} from './js/fleet.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -14,6 +15,7 @@ const ICON_WARN = '<svg viewBox="0 0 24 24"><path d="M10.3 4.3L2.6 18a2 2 0 001.
 const ICON_OK = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg>';
 
 /* ----------------------------- render ---------------------------- */
+const fleet=createFleetController();
 let latest = null;
 let persistedHistory = null;
 
@@ -500,6 +502,7 @@ function renderHeader(d) {
 let lastFull = 0;
 function render(d) {
   latest = d;
+  fleet.update(d);
   renderHeader(d);
   renderAlerts(d.alerts);
   renderKpis(d);
@@ -554,7 +557,7 @@ async function bootstrap() {
     if (r.status === 401) { location.href = '/login'; return; }
     render(await r.json());
   } catch { /* websocket will fill in */ }
-  await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load()]);
+  await Promise.allSettled([loadHistory('24h'),loadIncidents('all'),loadDeployments(),loadNotificationState(),loadFilesystem('/'),discoveryController.load(),fleet.load()]);
   connect();
   if(location.hash==='#settings')settings.open();
 }

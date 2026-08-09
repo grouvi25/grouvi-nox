@@ -7,6 +7,7 @@ import * as proc from './proc.js';
 import * as svc from './services.js';
 import { certificates } from './certs.js';
 import { evaluate } from './alerts.js';
+import { updateState } from '../updates.js';
 
 export const bus = new EventEmitter();
 
@@ -102,7 +103,12 @@ function persistTick() {
 }
 
 export function publicSnapshot() {
-  return { ...snapshot, serverTime: Date.now(), collectorUptimeMs: Date.now() - snapshot.startedAt };
+  return {
+    ...snapshot,
+    update: updateState(),
+    serverTime: Date.now(),
+    collectorUptimeMs: Date.now() - snapshot.startedAt,
+  };
 }
 
 export function startCollectors() {

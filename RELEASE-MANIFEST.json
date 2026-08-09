@@ -1,7 +1,8 @@
 {
   "product": "VPS Sentinel",
   "package": "vps-sentinel",
-  "schema": 1,
+  "schema": 2,
+  "capabilities": ["standalone", "fleet-hub", "fleet-node", "signed-update-discovery"],
   "supported": {
     "os": ["ubuntu-22.04", "ubuntu-24.04", "debian-12"],
     "architectures": ["x86_64", "aarch64"],

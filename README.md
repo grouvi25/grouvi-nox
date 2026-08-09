@@ -40,6 +40,14 @@ For an orange-cloud Cloudflare record, use `--proxy cloudflare`; the origin then
 
 Full guide: [docs/INSTALL.md](docs/INSTALL.md)
 
+## Fleet mode
+
+Run Sentinel independently on every VPS, then connect nodes to one hub with per-node HMAC secrets. Nodes keep collecting locally during hub or network outages; the hub receives sanitized snapshots only, never SSH keys, Docker sockets or file contents.
+
+The main dashboard shows online state, resource pressure, alerts and available updates for every VPS. Deep host-local views remain available on each node's own passkey-protected domain.
+
+See [docs/FLEET.md](docs/FLEET.md).
+
 ## What it monitors
 
 - CPU per core, memory, swap, load, disk I/O, filesystems and network throughput
