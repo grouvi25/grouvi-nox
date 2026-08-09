@@ -120,6 +120,7 @@ test('integration broker writes Telegram and AI secrets without exposing values'
   assert.match(fs.readFileSync(aiConfig,'utf8'),/base_url: https:\/\/api\.example\.com\/v1/);await new Promise(resolve=>server.close(resolve));rmSync(dir,{recursive:true,force:true});
 });
 
+test('fleet onboarding uses progressive disclosure, generated pairing keys and readable labels',()=>{const js=fs.readFileSync('public/setup.js','utf8'),css=fs.readFileSync('public/setup.css','utf8');for(const token of ['syncFleetRole','fleetPeerNodeId','generateFleetSecret','randomSecret','fieldError','data-fleet-for'])assert.match(js,new RegExp(token));assert.match(css,/\.summary-grid span,\.field>span,\.type-head\{font-size:9\.5px/);assert.match(css,/\[data-fleet-for\]\[hidden\]/)});
 test('setup policy controls are present before options are accessed',()=>{const source=fs.readFileSync('public/setup.js','utf8');assert.match(source,/id="confidenceSelect"/);assert.match(source,/if\(select\)/);assert.match(source,/id="monitorNew"/)});
 
 
