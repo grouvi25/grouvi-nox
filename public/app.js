@@ -22,6 +22,7 @@ let latest = null;
 let localLatest = null;
 let persistedHistory = null;
 let activeFleetNode = 'local';
+let activeFleetSafe = null;
 let fleetRefreshTimer = null;
 fleet=createFleetController({onSelect:selectFleetNode});
 
@@ -183,7 +184,8 @@ function renderContainers(d) {
     const sd = i.state !== 'running' ? 'idle'
       : i.health === 'unhealthy' ? 'crit'
         : i.health === 'health: starting' ? 'warn' : 'ok';
-    return `<div class="ctn" role="button" tabindex="0" data-service-type="container" data-service-name="${esc(i.name)}">
+    const drill=activeFleetNode==='local'?`role="button" tabindex="0" data-service-type="container" data-service-name="${esc(i.name)}"`:'aria-label="Санитизированная телеметрия контейнера"';
+    return `<div class="ctn" ${drill}>
           <span class="sd ${sd}"></span>
           <span class="nm">${esc(i.name)}</span>
           <span class="im">${esc(i.image)}</span>
@@ -203,7 +205,7 @@ function renderPm2(d) {
   $('pm2Count').textContent = p.items.length;
   $('nbPm2').textContent = String(p.items.length);
   $('nbPm2').className = `n-badge${p.down ? ' alert' : ''}`;
-  body.innerHTML = p.items.map(i => `<tr class="pm2-click" tabindex="0" data-service-type="pm2" data-service-name="${esc(i.name)}">
+  body.innerHTML = p.items.map(i => `<tr class="${activeFleetNode==='local'?'pm2-click':''}" ${activeFleetNode==='local'?`tabindex="0" data-service-type="pm2" data-service-name="${esc(i.name)}"`:'aria-label="Санитизированная телеметрия процесса"'}>
     <td class="nm">${esc(i.name)}</td>
     <td><span class="pill ${i.status === 'online' ? 'ok' : 'crit'}">${esc(i.status)}</span></td>
     <td class="num">${i.cpu}%</td>
@@ -324,17 +326,19 @@ updates=createUpdateController({api,setWorkspacePane});
 
 async function refreshFleetNode(nodeId=activeFleetNode){
   if(nodeId==='local'||nodeId!==activeFleetNode)return;
-  try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;render(payload.snapshot,{forceFull:true});renderCharts(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
+  try{const payload=await api(`/api/fleet/nodes/${encodeURIComponent(nodeId)}/snapshot`);if(nodeId!==activeFleetNode)return;latest=payload.snapshot;activeFleetSafe=payload.safe||{};render(payload.snapshot,{forceFull:true});renderCharts(payload.snapshot);setConn('live',`fleet · ${payload.node?.name||nodeId}`)}catch(error){if(nodeId===activeFleetNode)setConn('down','узел недоступен')}
 }
 function renderRemoteScope(snapshot){
   const alerts=snapshot?.alerts||[],critical=alerts.filter(x=>x.level==='critical').length;
   $('incidentCount').textContent=String(alerts.length);$('incidentActive').textContent=String(alerts.length);$('incidentCritical').textContent=String(critical);$('incidentResolved').textContent='0';$('nbIncidents').textContent=String(alerts.length);$('incidentHint').textContent='Активные сигналы выбранного узла';
   for(const [id,value] of [['icActive',alerts.length],['icOpen',alerts.length],['icAck',0],['icResolved',0],['icAll',alerts.length]])$(id).textContent=String(value);
   $('incidentList').innerHTML=alerts.length?alerts.map(item=>`<div class="incident-item"><span class="pill ${item.level==='critical'?'crit':'warn'}">${esc(item.level)}</span><span><b>${esc(item.message||item.key||'Сигнал')}</b><small>${esc(item.key||'remote telemetry')}</small></span></div>`).join(''):'<div class="empty">Активных сигналов нет.</div>';$('incidentPager').hidden=true;
-  $('fsIndexCount').textContent='локально';$('fsIndexMeta').textContent='метаданные не передаются в hub';$('fsBreadcrumb').innerHTML='<span class="crumb">/</span>';$('fsEntries').innerHTML='<div class="empty">Детальный файловый индекс доступен в локальной панели узла.</div>';$('fsSummary').innerHTML='<div class="empty">Hub получает только безопасную телеметрию.</div>';$('fsLargest').innerHTML='<div class="empty">Содержимое и пути файлов не передаются.</div>';$('fsRisks').innerHTML='<div class="empty">Риски доступа проверяются локально.</div>';
-  $('storageTotal').textContent='—';$('storageCoverage').textContent='локальные данные';$('storageLegend').innerHTML='<div class="empty">Распределение хранилища доступно на самом узле.</div>';const canvas=$('storageCanvas'),ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);
-  $('discoveryCount').textContent='—';$('nbDiscovery').textContent='—';$('discoverySummary').innerHTML='<div class="empty">Карта проектов остаётся локальной на узле.</div>';$('projectList').innerHTML='<div class="empty">Hub не получает пути и содержимое проектов.</div>';$('unassignedCount').textContent='0';$('unassignedList').innerHTML='<div class="empty">Локальные цели не передаются.</div>';
-  $('deployments').innerHTML='<div class="empty">Git activity не покидает узел.</div>';$('deployMeta').textContent='локальные данные узла';$('deployOverview').innerHTML='';$('deployShown').textContent='';$('deployMore').hidden=true;$('deployProject').innerHTML='<option value="all">Выбранный узел</option>';
+  const safe=activeFleetSafe||{},projects=safe.projects||{summary:{},items:[]},projectItems=projects.items||[],summary=projects.summary||{};
+  filesystem.renderFleetSummary(safe.filesystem||{});
+  $('discoveryCount').textContent=String(projectItems.length);$('nbDiscovery').textContent=String(projectItems.length);$('discoverySummary').innerHTML=`<div><span>Проекты</span><b>${summary.projects||projectItems.length}</b></div><div><span>Связанные цели</span><b>${summary.linked||0}</b></div><div><span>Runtime</span><b>${summary.runtimes||0}</b></div><div><span>Без проекта</span><b>${summary.unassigned||0}</b></div>`;
+  $('projectList').innerHTML=projectItems.length?projectItems.map(project=>`<article class="project-workspace"><div class="project-row"><span class="project-state ${project.health?.attention?'warn':'ok'}"></span><span class="project-main"><b>${esc(project.name)}</b><small>sanitized telemetry</small></span><span class="project-stack">${(project.stack||[]).map(item=>`<i>${esc(item)}</i>`).join('')||'<i>metadata</i>'}</span><span class="project-health"><b>${project.health?.runtimeCount||0}</b><small>runtime</small></span></div></article>`).join(''):'<div class="empty">Проекты не обнаружены.</div>';$('unassignedCount').textContent=String(summary.unassigned||0);$('unassignedList').innerHTML='<div class="empty">Имена несвязанных системных целей не передаются.</div>';
+  const deployments=safe.deployments||[],commits=deployments.flatMap(project=>(project.commits||[]).map(commit=>({project,commit}))).sort((a,b)=>new Date(b.commit.at)-new Date(a.commit.at)).slice(0,30),dirty=deployments.filter(x=>x.dirty).length,ahead=deployments.reduce((n,x)=>n+(x.ahead||0),0),behind=deployments.reduce((n,x)=>n+(x.behind||0),0);
+  $('deployMeta').textContent=`${deployments.length} репозиториев · sanitized`;$('deployOverview').innerHTML=`<div><span>Репозитории</span><b>${deployments.length}</b></div><div><span>Изменения локально</span><b class="${dirty?'warn':''}">${dirty}</b></div><div><span>Ahead</span><b>${ahead}</b></div><div><span>Behind</span><b class="${behind?'warn':''}">${behind}</b></div>`;$('deployments').innerHTML=commits.length?commits.map(({project,commit})=>`<div class="deploy-row"><span class="deploy-project"><b>${esc(project.project)}</b><small>${esc(project.branch)} · ${project.dirty?'dirty':'clean'}</small></span><span class="deploy-sha">${esc(commit.short)}</span><span class="deploy-message"><b>${esc(commit.subject)}</b></span><span class="deploy-author"><b>sanitized</b></span><span class="deploy-time">${formatWhen(new Date(commit.at).getTime())}</span></div>`).join(''):'<div class="empty">Коммитов пока нет.</div>';$('deployShown').textContent=`Показано ${commits.length}`;$('deployMore').hidden=true;$('deployProject').innerHTML='<option value="all">Выбранный узел</option>';
 }
 async function selectFleetNode(nodeId){
   clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;filesystem.setEnabled(nodeId==='local');content.scrollTo({top:0,behavior:'smooth'});

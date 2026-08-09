@@ -21,6 +21,7 @@ import Database from 'better-sqlite3';
 import { createApp } from '../../src/app.js';
 import { migrateDatabase, latestSchemaVersion } from '../../src/db/migrations.js';
 import { allowedDockerPath } from '../../bin/docker-read-broker.js';
+import { sanitizeFleetSnapshot } from '../../src/fleet.js';
 
 async function withServer(app, fn) {
   const server=http.createServer(app);await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -42,6 +43,7 @@ test('database migrations are versioned and idempotent',()=>{
   const columns=db.prepare('PRAGMA table_info(incidents)').all().map(x=>x.name);assert.ok(columns.includes('investigation'));assert.ok(columns.includes('investigated_at'));
 });
 
+test('fleet sanitizer removes paths, full IPs and registry coordinates',()=>{const clean=sanitizeFleetSnapshot({backups:[{dir:'/var/backups/private',newest:{name:'secret.sql',at:1,size:2}}],ssh:{recentLogins:[{ip:'203.0.113.42',user:'root'}],topAttackers:[{ip:'2001:db8:abcd:1::2',count:3}]},containers:{items:[{name:'web',image:'registry.example/private/app:1'}]}});const raw=JSON.stringify(clean);assert.doesNotMatch(raw,/\/var\/backups|secret\.sql|203\.0\.113\.42|registry\.example/);assert.match(raw,/203\.0\.x\.x/);assert.match(raw,/app:1/)});
 test('Docker broker accepts only fixed read-only endpoints',()=>{
   assert.equal(allowedDockerPath('/v1.44/containers/json?all=1'),true);assert.equal(allowedDockerPath('/v1.44/system/df'),true);
   assert.equal(allowedDockerPath('/v1.44/containers/web-1/stats?stream=false'),true);assert.equal(allowedDockerPath('/v1.44/containers/web-1/stop'),false);

@@ -1,10 +1,14 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import express from 'express';
 import { config } from './config.js';
 import { publicSnapshot } from './metrics/index.js';
 import { updateState } from './updates.js';
 import { ingestFleetSnapshot, listFleetNodes, fleetNodeSnapshot, fleetHistory } from './database.js';
 import { requireAuth } from './auth.js';
+import { resolvedDiscovery } from './discovery/store.js';
+import { buildProjectGraph } from './discovery/graph.js';
 
 const nonces = new Map();
 const ingestBuckets = new Map();
@@ -43,18 +47,28 @@ function ingestAllowed(nodeId, ip) {
   return bucket.count <= config.fleet.ingestPerMinute;
 }
 
-function publicNodeSnapshot() {
-  const snapshot = publicSnapshot();
-  return {
-    schema: 1,
-    node: {
-      id: config.fleet.nodeId,
-      name: config.fleet.nodeName,
-      publicUrl: config.origin,
-      version: updateState().current,
-    },
-    snapshot: { ...snapshot, update: updateState() },
+const readJson=file=>{try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return null}};
+const cleanText=(value,max=160)=>String(value||'').replace(/[\r\n\t]+/g,' ').replace(/(?:token|secret|password|api[_-]?key)\s*[:=]\s*\S+/gi,'[redacted]').slice(0,max);
+const maskIp=value=>{const ip=String(value||'');if(ip.includes(':'))return ip.split(':').slice(0,3).join(':')+'::/48';const parts=ip.split('.');return parts.length===4?`${parts[0]}.${parts[1]}.x.x`:''};
+function safeFleetContext(){
+  const graph=buildProjectGraph(resolvedDiscovery()),filesystem=readJson(path.join(config.stateDir,'filesystem.json'))||{},privileged=readJson(path.join(config.stateDir,'privileged.json'))||{};
+  return{
+    schema:1,
+    projects:{generatedAt:graph.generatedAt,summary:graph.summary,items:graph.projects.slice(0,100).map(project=>({id:project.id,name:cleanText(project.name,100),stack:(project.stack||[]).map(x=>cleanText(x,30)),health:project.health}))},
+    filesystem:{at:filesystem.at||null,totals:filesystem.totals||{},types:(filesystem.distribution?.types||[]).slice(0,20).map(item=>({name:cleanText(item.name,40),bytes:Number(item.bytes)||0,files:Number(item.files)||0}))},
+    deployments:(privileged.deployments||[]).slice(0,50).map(project=>({project:cleanText(project.project,100),branch:cleanText(project.branch,80),dirty:Boolean(project.dirty),dirtyCount:Number(project.dirtyCount)||0,ahead:Number(project.ahead)||0,behind:Number(project.behind)||0,commits:(project.commits||[]).slice(0,20).map(commit=>({short:cleanText(commit.short,16),at:commit.at,subject:cleanText(commit.subject,180)}))})),
   };
+}
+export function sanitizeFleetSnapshot(source){
+  const snapshot=structuredClone(source);
+  snapshot.backups=(snapshot.backups||[]).map((backup,index)=>({...backup,dir:path.posix.basename(String(backup.dir||''))||`backup-${index+1}`,newest:backup.newest?{at:backup.newest.at,size:backup.newest.size}:null}));
+  if(snapshot.ssh){snapshot.ssh.recentLogins=(snapshot.ssh.recentLogins||[]).map(login=>({...login,ip:maskIp(login.ip)}));snapshot.ssh.topAttackers=(snapshot.ssh.topAttackers||[]).map(item=>({...item,ip:maskIp(item.ip)}))}
+  if(snapshot.containers?.items)snapshot.containers.items=snapshot.containers.items.map(item=>({...item,image:path.posix.basename(String(item.image||''))}));
+  return snapshot;
+}
+function publicNodeSnapshot() {
+  const snapshot=sanitizeFleetSnapshot(publicSnapshot());
+  return {schema:1,node:{id:config.fleet.nodeId,name:config.fleet.nodeName,publicUrl:config.origin,version:updateState().current},snapshot:{...snapshot,update:updateState()},safe:safeFleetContext()};
 }
 
 async function push() {
