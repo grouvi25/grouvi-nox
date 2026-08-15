@@ -9,7 +9,8 @@
     "signed-update-discovery",
     "managed-security-scans",
     "update-error-visibility",
-    "on-demand-update-checks"
+    "on-demand-update-checks",
+    "scanner-engine-visibility"
   ],
   "supported": {
     "os": [
