@@ -28,7 +28,7 @@ if command -v rkhunter >/dev/null; then
   # --logfile keeps the run inside the sandbox: /var/log is read-only under
   # ProtectSystem=strict, and rkhunter aborts when it cannot open its log.
   set +e; rkhunter --check --skip-keypress --nocolors --logfile "$REPORTS/$id.rkhunter.log" >>"$log" 2>&1; rkh=$?; set -e
-  if grep -q '^Possible rootkits:' "$log"; then rkh_ok=true; else missing="rkhunter (не завершился, код $rkh)"; fi
+  if grep -qE '^[[:space:]]*Possible rootkits:' "$log"; then rkh_ok=true; else missing="rkhunter (не завершился, код $rkh)"; fi
 else missing="rkhunter"; echo '=== rkhunter is not installed, skipped ===' >>"$log"; fi
 roots=(); for p in /etc /opt /root /home /srv /var/www /usr/local /tmp /var/tmp; do [[ -e $p ]] && roots+=("$p"); done
 # ClamAV needs its whole signature set resident. On a host below the floor it is
@@ -42,7 +42,7 @@ if command -v clamscan >/dev/null; then
   echo '=== ClamAV ===' >>"$log"
   if ls /var/lib/clamav/*.c[vl]d >/dev/null 2>&1; then
     set +e; clamscan -r --infected --cross-fs=no --exclude-dir='^/var/lib/(docker|containerd)(/|$)' --exclude-dir='^/var/lib/vps-sentinel/security-scans(/|$)' "${roots[@]}" >>"$log" 2>&1; clam=$?; set -e
-    if grep -q '^Infected files:' "$log"; then clam_ok=true; else missing="${missing:+$missing, }clamav (не завершился, код $clam)"; fi
+    if grep -qE '^[[:space:]]*Infected files:' "$log"; then clam_ok=true; else missing="${missing:+$missing, }clamav (не завершился, код $clam)"; fi
   else
     clam=2; missing="${missing:+$missing, }clamav (нет базы сигнатур)"
     echo 'No signature database in /var/lib/clamav; run `noxctl scan-setup` or wait for clamav-freshclam.' >>"$log"
@@ -62,7 +62,9 @@ engines_complete=true
 # returns 1, which aborted the whole scan before any report was written and left
 # the status file pinned at running:true forever. That is exactly what happens
 # when ClamAV is absent and its summary lines never reach the log.
-num(){ awk -v key="^$1:" '$0 ~ key {found=$3+0} END{print found+0}' "$log"; }; infected=$(num 'Infected files'); scanned=$(num 'Scanned files'); known=$(num 'Known viruses'); rootkits=$(num 'Possible rootkits'); warnings=$(grep -Ec '(\[ Warning \]|Warning:)' "$log" || true); infected=${infected:-0}; scanned=${scanned:-0}; known=${known:-0}; rootkits=${rootkits:-0}; warnings=${warnings:-0}
+# rkhunter indents its summary by four spaces ("    Possible rootkits: 0"),
+# so an anchored ^ silently matched nothing and every rootkit count read 0.
+num(){ awk -v key="^[[:space:]]*$1:" '$0 ~ key {found=$3+0} END{print found+0}' "$log"; }; infected=$(num 'Infected files'); scanned=$(num 'Scanned files'); known=$(num 'Known viruses'); rootkits=$(num 'Possible rootkits'); suspect=$(num 'Suspect files'); warnings=$(grep -Ec '(\[ Warning \]|Warning:)' "$log" || true); infected=${infected:-0}; scanned=${scanned:-0}; known=${known:-0}; rootkits=${rootkits:-0}; suspect=${suspect:-0}; warnings=${warnings:-0}
 # Order matters: an engine that never ran cannot vouch for a clean host, and a
 # real detection outranks a noisy exit code.
 result=clean
@@ -72,8 +74,8 @@ result=clean
 [[ $engines_complete == true ]] || result=unavailable
 [[ $infected -gt 0 || $rootkits -gt 0 ]] && result=threats
 finished=$(date +%s000)
-ID="$id" STARTED="$started" FINISHED="$finished" RESULT="$result" CLAM="$clam" RKH="$rkh" FRESH="$fresh" INFECTED="$infected" SCANNED="$scanned" KNOWN="$known" ROOTKITS="$rootkits" WARNINGS="$warnings" CLAM_OK="$clam_ok" RKH_OK="$rkh_ok" CLAM_EXPECTED="$clam_expected" MISSING="$missing" node - "$report" <<'NODE'
-const fs=require('fs'),f=process.argv[2],n=k=>Number(process.env[k]||0),b=k=>process.env[k]==='true';const r={schema:2,id:process.env.ID,startedAt:n('STARTED'),finishedAt:n('FINISHED'),result:process.env.RESULT,missingEngines:process.env.MISSING||'',clamav:{available:b('CLAM_OK'),expected:b('CLAM_EXPECTED'),exitCode:n('CLAM'),infected:n('INFECTED'),scannedFiles:n('SCANNED'),knownViruses:n('KNOWN'),databaseUpdateExit:n('FRESH')},rkhunter:{available:b('RKH_OK'),expected:true,exitCode:n('RKH'),possibleRootkits:n('ROOTKITS'),warnings:n('WARNINGS')}};fs.writeFileSync(f,JSON.stringify(r,null,2));fs.chmodSync(f,0o640)
+ID="$id" STARTED="$started" FINISHED="$finished" RESULT="$result" CLAM="$clam" RKH="$rkh" FRESH="$fresh" INFECTED="$infected" SCANNED="$scanned" KNOWN="$known" ROOTKITS="$rootkits" SUSPECT="$suspect" WARNINGS="$warnings" CLAM_OK="$clam_ok" RKH_OK="$rkh_ok" CLAM_EXPECTED="$clam_expected" MISSING="$missing" node - "$report" <<'NODE'
+const fs=require('fs'),f=process.argv[2],n=k=>Number(process.env[k]||0),b=k=>process.env[k]==='true';const r={schema:2,id:process.env.ID,startedAt:n('STARTED'),finishedAt:n('FINISHED'),result:process.env.RESULT,missingEngines:process.env.MISSING||'',clamav:{available:b('CLAM_OK'),expected:b('CLAM_EXPECTED'),exitCode:n('CLAM'),infected:n('INFECTED'),scannedFiles:n('SCANNED'),knownViruses:n('KNOWN'),databaseUpdateExit:n('FRESH')},rkhunter:{available:b('RKH_OK'),expected:true,exitCode:n('RKH'),possibleRootkits:n('ROOTKITS'),suspectFiles:n('SUSPECT'),warnings:n('WARNINGS')}};fs.writeFileSync(f,JSON.stringify(r,null,2));fs.chmodSync(f,0o640)
 NODE
 chown root:vpssentinel "$report"; printf '\nFinished: %s\nResult: %s\n' "$(date -u +%FT%TZ)" "$result" >>"$log"
 find "$REPORTS" -maxdepth 1 -name '*.json' -printf '%T@ %p\n' | sort -rn | awk 'NR>10{$1="";sub(/^ /,"");print}' | while read -r old; do rm -f "$old" "${old%.json}.log"; done
