@@ -12,7 +12,19 @@ test('host prerequisites have a single source of truth',()=>{
   assert.match(common,/SENTINEL_BASE_PACKAGES=\(/);
   assert.match(install,/apt-get install -y -qq "\$\{SENTINEL_BASE_PACKAGES\[@\]\}"/,'the installer must not carry its own copy of the package list');
   assert.doesNotMatch(install,/apt-get install -y -qq ca-certificates/,'the hardcoded list is what drifted from the update path');
-  assert.match(lifecycle,/ensure_prerequisites \|\| warn/,'an update must converge host packages, and must not roll back a healthy app because apt hiccuped');
+  assert.match(lifecycle,/if ensure_prerequisites; then/,'an update must converge host packages, not only application files');
+  assert.match(lifecycle,/converge \|\| warn/,'a transient apt failure must not roll back a healthy application update');
+});
+
+/* An update is executed by the version being replaced, so convergence written
+   into the new release would otherwise only take effect one update later. */
+test('a release applies its own host migrations during its own installation',()=>{
+  const lifecycle=read('bin/noxctl'),ci=read('.github/workflows/ci.yml');
+  assert.match(lifecycle,/converge\) cmd_converge/,'the command must be dispatchable so a drifted host can be repaired by hand');
+  assert.match(lifecycle,/"\$APP_DIR\/bin\/noxctl" converge/,'the update must call the incoming bundle, not the running script');
+  assert.match(lifecycle,/noxctl\.incoming && mv -f/,'bash reads a script lazily: the running lifecycle manager must be replaced by rename, never truncated in place');
+  assert.doesNotMatch(lifecycle,/install -m 755 "\$APP_DIR\/bin\/noxctl" \/usr\/local\/sbin\/noxctl$/m);
+  assert.match(ci,/bash -n bin\/noxctl/,'a lifecycle manager that cannot parse would strand every future update');
 });
 
 test('the ClamAV resource floor is identical everywhere it is enforced',()=>{
