@@ -15,8 +15,10 @@ test('a scan that could not run every engine never reports clean',()=>{
   assert.match(script,/-ge 128/,'an engine killed by the kernel returned no verdict and must not count as one');
   assert.match(script,/missingEngines/,'the report has to name what did not run');
   assert.match(script,/set -Eeuo pipefail/);
-  assert.match(script,/grep -q '\^Possible rootkits:' "\$log"/,'exit codes lie: rkhunter returned 1 for "cannot write my logfile", so an engine counts only when it printed its own summary');
-  assert.match(script,/grep -q '\^Infected files:' "\$log"/,'clamscan returned 2 for "no signature database" and it was filed as an ordinary warning');
+  assert.match(script,/grep -qE '\^\[\[:space:\]\]\*Possible rootkits:'/,'exit codes lie: rkhunter returned 1 for "cannot write my logfile", so an engine counts only when it printed its own summary');
+  assert.match(script,/grep -qE '\^\[\[:space:\]\]\*Infected files:'/,'clamscan returned 2 for "no signature database" and it was filed as an ordinary warning');
+  assert.match(script,/key="\^\[\[:space:\]\]\*\$1:"/,'rkhunter indents its summary by four spaces, so an anchored ^ read every rootkit and suspect-file count as 0');
+  assert.match(script,/suspectFiles/,'rkhunter reports changed file properties and they were never surfaced');
   assert.match(script,/ls \/var\/lib\/clamav\/\*\.c\[vl\]d/,'an empty signature directory must be caught before the scan claims a verdict');
   assert.match(script,/--logfile "\$REPORTS\/\$id\.rkhunter\.log"/,'/var/log is read-only under ProtectSystem=strict and rkhunter aborts when it cannot open its log');
   assert.match(read('deploy/vps-sentinel-security.service'),/ReadWritePaths=.*-\/var\/lib\/rkhunter/);

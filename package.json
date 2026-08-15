@@ -1,6 +1,6 @@
 {
   "name": "grouvi-nox-vps-sentinel",
-  "version": "1.26.7",
+  "version": "1.26.8",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
