@@ -31,7 +31,8 @@ export const config = {
   incidentResolveGraceMs: num(env.INCIDENT_RESOLVE_GRACE_MS, 45_000),
 
   releaseRepo: env.SENTINEL_RELEASE_REPO || 'grouvi25/grouvi-nox',
-  updateCheckIntervalMs: num(env.UPDATE_CHECK_INTERVAL_MS, 30 * 60_000),
+  updateCheckIntervalMs: num(env.UPDATE_CHECK_INTERVAL_MS, 10 * 60_000),
+  updateFreshnessMs: num(env.UPDATE_FRESHNESS_MS, 60_000),
 
   fleet: {
     role: env.SENTINEL_ROLE || 'standalone',

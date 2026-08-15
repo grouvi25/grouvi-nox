@@ -8,7 +8,8 @@
     "fleet-node",
     "signed-update-discovery",
     "managed-security-scans",
-    "update-error-visibility"
+    "update-error-visibility",
+    "on-demand-update-checks"
   ],
   "supported": {
     "os": [

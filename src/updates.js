@@ -30,4 +30,22 @@ export async function checkForUpdates(){
   }
   return updateState();
 }
+export function isStale(snapshot,maxAgeMs){return !snapshot?.checkedAt||Date.now()-snapshot.checkedAt>maxAgeMs}
+let pendingCheck=null;
+/**
+ * Update state the dashboard can trust.
+ *
+ * The background interval alone was not enough: every install restarts the
+ * service, so the cached answer could be minutes older than the release it is
+ * supposed to announce, and the UI reported "актуально" until the next tick.
+ * Callers get a re-check whenever the cache is older than updateFreshnessMs;
+ * concurrent callers share one in-flight request so a reload storm cannot burn
+ * the unauthenticated GitHub rate limit.
+ */
+export function freshUpdateState(maxAgeMs=config.updateFreshnessMs){
+  const snapshot=updateState();
+  if(!isStale(snapshot,maxAgeMs))return Promise.resolve(snapshot);
+  if(!pendingCheck)pendingCheck=checkForUpdates().finally(()=>{pendingCheck=null});
+  return pendingCheck;
+}
 export function startUpdateChecks(){checkForUpdates();setInterval(checkForUpdates,config.updateCheckIntervalMs).unref()}
