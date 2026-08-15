@@ -27,6 +27,20 @@ test('a scan that could not run every engine never reports clean',()=>{
   assert.doesNotMatch(script,/num\(\)\{ grep/);
 });
 
+/* The drawer used to print four numbers with no way to tell a host that was
+   examined and found clean from one where nothing ran at all. */
+test('the drawer never presents a metric from an engine that did not run',()=>{
+  const ui=read('public/js/settings-pane.js'),css=read('public/css/08-settings-drawer.css'),palette=read('public/css/01-foundation.css');
+  assert.match(ui,/clam\.available\?scanNum\(clam\.infected\):null/,'"Заражено: 0" from an engine that never started is the exact lie this release removes');
+  assert.match(ui,/rkh\.available\?scanNum\(rkh\.possibleRootkits\):null/);
+  assert.match(ui,/value===null\?'—':value/,'unknown must render as a dash, not as zero');
+  assert.match(ui,/suspectFiles/,'rkhunter reports changed file properties and nothing surfaced them');
+  assert.match(ui,/scan-engines/,'engine availability is the first thing an operator needs');
+  assert.match(ui,/db\.present/,'ClamAV with an empty database scans nothing, so the card reports the signature files');
+  assert.match(css,/\.scan-engines/);
+  assert.match(palette,/--amber:#f59e0b/,'every var(--amber) on the dashboard resolved to nothing, so warn states rendered grey');
+});
+
 test('operators are given a way to install the missing engines',()=>{
   const lifecycle=read('bin/noxctl'),ui=read('public/js/settings-pane.js'),broker=read('bin/integration-config-broker.js');
   assert.match(lifecycle,/scan-setup\) cmd_scan_setup/,'the command must be dispatchable');

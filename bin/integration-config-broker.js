@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import http from 'node:http';
-import {execFile} from 'node:child_process';
+import {execFile,execFileSync} from 'node:child_process';
 const MAX_BODY=24*1024;
 const telegramToken=/^[0-9]{5,}:[A-Za-z0-9_-]{20,}$/;
 const chatId=/^-?[0-9]{3,}$/;
@@ -33,7 +33,12 @@ const hasBinary=name=>scannerDirs.some(dir=>fs.existsSync(`${dir}/${name}`));
 const clamavMinMemoryMb=2400,clamavMinDiskMb=3000;
 export function hostSupportsClamav(){try{const memoryMb=Number(/^MemTotal:\s+(\d+)/m.exec(fs.readFileSync('/proc/meminfo','utf8'))?.[1]||0)/1024,disk=fs.statfsSync('/var/lib');return memoryMb>=clamavMinMemoryMb&&disk.bsize*Number(disk.bavail)/1048576>=clamavMinDiskMb}catch{return true}}
 export function scannerEngines(){const present={clamav:hasBinary('clamscan'),rkhunter:hasBinary('rkhunter')};return{present,expected:{clamav:present.clamav||hostSupportsClamav(),rkhunter:true}}}
-function scanSummary(){const status=readJson(scanStatusFile,{status:'never',running:false}),id=String(status.reportId||'');let report=null,log='';if(/^[0-9]{8}T[0-9]{6}Z$/.test(id)){report=readJson(`${scanReportDir}/${id}.json`,null);try{log=fs.readFileSync(`${scanReportDir}/${id}.log`,'utf8').slice(-120000)}catch{}}const {present,expected}=scannerEngines(),missing=Object.keys(expected).filter(name=>expected[name]&&!present[name]),skipped=Object.keys(expected).filter(name=>!expected[name]&&!present[name]);return{installed:missing.length===0,engines:present,expected,missing,skipped,policy:scanPolicy(),status,report,log}}
+/* An installed ClamAV with an empty database scans nothing, and freshclam
+   reports success while rate-limited, so the drawer shows the files it can see
+   rather than the engine's own opinion of itself. */
+function signatureDatabase(dir='/var/lib/clamav'){try{const files=fs.readdirSync(dir).filter(name=>/\.c[vl]d$/.test(name));if(!files.length)return{present:false,updatedAt:null};const newest=Math.max(...files.map(name=>fs.statSync(`${dir}/${name}`).mtimeMs));return{present:true,updatedAt:newest}}catch{return{present:false,updatedAt:null}}}
+function nextScheduledScan(){try{const raw=execFileSync('systemctl',['show','vps-sentinel-security.timer','-p','NextElapseUSecRealtime','--value'],{encoding:'utf8',timeout:5000}).trim();const micros=Number(raw);return Number.isFinite(micros)&&micros>0?Math.round(micros/1000):null}catch{return null}}
+function scanSummary(){const status=readJson(scanStatusFile,{status:'never',running:false}),id=String(status.reportId||'');let report=null,log='';if(/^[0-9]{8}T[0-9]{6}Z$/.test(id)){report=readJson(`${scanReportDir}/${id}.json`,null);try{log=fs.readFileSync(`${scanReportDir}/${id}.log`,'utf8').slice(-120000)}catch{}}const {present,expected}=scannerEngines(),missing=Object.keys(expected).filter(name=>expected[name]&&!present[name]),skipped=Object.keys(expected).filter(name=>!expected[name]&&!present[name]);return{installed:missing.length===0,engines:present,expected,missing,skipped,database:signatureDatabase(),nextRun:nextScheduledScan(),policy:scanPolicy(),status,report,log}}
 function systemctl(args){return new Promise((resolve,reject)=>execFile('systemctl',args,{timeout:20000},error=>error?reject(error):resolve()))}
 async function configureScan(body){const frequency=String(body.frequency||'weekly'),enabled=Boolean(body.enabled);if(!['manual','daily','weekly'].includes(frequency))throw new Error('invalid_scan_frequency');safeWrite(scanPolicyFile,JSON.stringify({schema:1,enabled,frequency,updatedAt:Date.now()},null,2),0o640);if(enabled&&frequency!=='manual')await systemctl(['enable','--now','vps-sentinel-security.timer']);else await systemctl(['disable','--now','vps-sentinel-security.timer']);return{ok:true,...scanSummary()}}
 function startScan(){fs.writeFileSync(scanForceFile,String(Date.now()),{mode:0o600});execFile('systemctl',['start','vps-sentinel-security.service'],{timeout:15000},()=>{});return{ok:true,status:{status:'queued',running:true,message:'Security scan queued',updatedAt:Date.now()}}}
