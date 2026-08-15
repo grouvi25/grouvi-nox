@@ -165,7 +165,8 @@ confirm 'Proceed with this plan?' || die 'Cancelled.'
 section 'System packages'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg git nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 python3-venv python3-pip clamav clamav-freshclam rkhunter >/dev/null
+apt-get install -y -qq "${SENTINEL_BASE_PACKAGES[@]}" >/dev/null
+ensure_scanner_packages || die 'Could not install the security scanners.'
 node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
 if ((node_major < 20)); then
   info 'Installing signed Node.js 20 apt repository (no remote shell execution).'
