@@ -11,6 +11,12 @@ sudo noxctl logs agent
 
 `doctor` is read-only. It checks OS support, Node, permissions, systemd sandboxes, nginx, HTTPS, SQLite integrity, filesystem-index policy, loopback binding and API authorization.
 
+## Managed security scans
+
+ClamAV, freshclam and rkhunter are installed automatically. The default policy runs weekly through `vps-sentinel-security.timer`. Authenticated Settings can switch between weekly, daily and manual modes, start or cancel a run, and display the latest bounded report.
+
+The scanner runs outside the web and collector services with low CPU and I/O priority, a memory cap, a six-hour timeout and control-group cancellation. Virtual filesystems and container storage are excluded. Reports are root-owned, readable only by the service group, and the latest ten are retained.
+
 ## Backup
 
 ```bash

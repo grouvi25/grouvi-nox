@@ -1,0 +1,11 @@
+import express from 'express';
+import {requireSameOrigin} from '../../security.js';
+import {actionLimit,detailLimit} from './limits.js';
+import {securityScanStatus,configureSecurityScan,startSecurityScan,cancelSecurityScan,securityScanReport} from '../../integration-client.js';
+const router=express.Router();
+router.get('/security/scans',detailLimit,async(req,res,next)=>{try{res.set('Cache-Control','no-store');res.json(await securityScanStatus())}catch(error){next(error)}});
+router.get('/security/scans/report',detailLimit,async(req,res,next)=>{try{res.set('Cache-Control','no-store');res.json(await securityScanReport())}catch(error){next(error)}});
+router.post('/security/scans/configure',requireSameOrigin,actionLimit,async(req,res,next)=>{try{res.json(await configureSecurityScan(req.body||{}))}catch(error){next(error)}});
+router.post('/security/scans/start',requireSameOrigin,actionLimit,async(req,res,next)=>{try{res.status(202).json(await startSecurityScan())}catch(error){next(error)}});
+router.post('/security/scans/cancel',requireSameOrigin,actionLimit,async(req,res,next)=>{try{res.json(await cancelSecurityScan())}catch(error){next(error)}});
+export default router;

@@ -6,7 +6,8 @@
     "standalone",
     "fleet-hub",
     "fleet-node",
-    "signed-update-discovery"
+    "signed-update-discovery",
+    "managed-security-scans"
   ],
   "supported": {
     "os": [

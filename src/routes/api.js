@@ -7,7 +7,8 @@ import serviceRoutes from './api/services.js';
 import notificationRoutes from './api/notifications.js';
 import discoveryRoutes from './api/discovery.js';
 import updateRoutes from './api/updates.js';
+import securityScanRoutes from './api/security-scans.js';
 export function createApiRouter({authMiddleware=requireAuth}={}){
-  const router=express.Router();router.use(authMiddleware);router.use(coreRoutes);router.use(incidentRoutes);router.use(agentRoutes);router.use(serviceRoutes);router.use(notificationRoutes);router.use(discoveryRoutes);router.use(updateRoutes);return router;
+  const router=express.Router();router.use(authMiddleware);router.use(coreRoutes);router.use(incidentRoutes);router.use(agentRoutes);router.use(serviceRoutes);router.use(notificationRoutes);router.use(discoveryRoutes);router.use(updateRoutes);router.use(securityScanRoutes);return router;
 }
 export default createApiRouter();

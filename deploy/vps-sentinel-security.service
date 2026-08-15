@@ -1,0 +1,38 @@
+[Unit]
+Description=Grouvi Nox low-priority malware and rootkit scan
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=STATE_DIR=/var/lib/vps-sentinel
+ExecStart=/opt/vps-sentinel/deploy/security-scan.sh
+Nice=19
+IOSchedulingClass=idle
+CPUQuota=25%
+CPUWeight=1
+IOWeight=1
+MemoryMax=900M
+TasksMax=96
+TimeoutStartSec=6h
+KillMode=control-group
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/vps-sentinel -/var/lib/clamav -/var/log/clamav -/run/clamav
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0027

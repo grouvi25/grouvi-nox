@@ -57,6 +57,7 @@ See [docs/FLEET.md](docs/FLEET.md).
 - TLS expiry for nginx hostnames
 - Backup freshness and Git deployment timeline
 - SSH brute-force activity and recent logins
+- Managed ClamAV and rkhunter scans with low-priority systemd isolation, scheduling, cancellation and in-dashboard reports
 - Metadata-only filesystem tree, large files and permission risks
 - SQLite history for 1 hour, 24 hours, 7 days and 30 days
 - Incident lifecycle with acknowledgement, resolution and Telegram deduplication

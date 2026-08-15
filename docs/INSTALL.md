@@ -99,6 +99,7 @@ sudo noxctl doctor
 - Creates root-only configuration and a mode-0700 state directory.
 - Configures nginx, Let's Encrypt, systemd and optional UFW.
 - Starts a sandboxed unprivileged web service and a narrow read-only host collector.
+- Installs ClamAV, freshclam and rkhunter, then enables a low-priority weekly security scan. Scheduling, manual runs, cancellation and reports are managed from authenticated Settings.
 - Installs a commit-pinned Hermes runtime, isolated `sentinel-ai` user, sanitized context timer and local-only Nox Forge bridge.
 - Automatically creates editable Forge workspace copies for enabled discovered Git projects. Production repositories remain read-only.
 - Does not alter SSH authentication, application containers or unrelated virtual hosts.

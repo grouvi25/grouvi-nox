@@ -165,7 +165,7 @@ confirm 'Proceed with this plan?' || die 'Cancelled.'
 section 'System packages'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq ca-certificates curl gnupg git nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 python3-venv python3-pip >/dev/null
+apt-get install -y -qq ca-certificates curl gnupg git nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 python3-venv python3-pip clamav clamav-freshclam rkhunter >/dev/null
 node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
 if ((node_major < 20)); then
   info 'Installing signed Node.js 20 apt repository (no remote shell execution).'
@@ -328,8 +328,14 @@ ok "https://$DOMAIN"
 section 'systemd services'
 install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service"
 install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+install -m 644 deploy/vps-sentinel-security.service /etc/systemd/system/vps-sentinel-security.service
+install -m 644 deploy/vps-sentinel-security.timer /etc/systemd/system/vps-sentinel-security.timer
+chmod 755 "$SENTINEL_APP_DIR/deploy/security-scan.sh"
+install -d -m 750 -o root -g "$SENTINEL_USER" "$SENTINEL_STATE_DIR/security-scans"
+if [[ ! -f $SENTINEL_STATE_DIR/security-scan-policy.json ]]; then printf '%s\n' '{"schema":1,"enabled":true,"frequency":"weekly"}' > "$SENTINEL_STATE_DIR/security-scan-policy.json"; fi
+chown root:"$SENTINEL_USER" "$SENTINEL_STATE_DIR/security-scan-policy.json"; chmod 640 "$SENTINEL_STATE_DIR/security-scan-policy.json"
 systemctl daemon-reload
-systemctl enable --now "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+systemctl enable --now "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE" vps-sentinel-security.timer
 for _ in {1..30}; do [[ -s $SENTINEL_STATE_DIR/discovery.json ]] && break; sleep 1; done
 [[ -s $SENTINEL_STATE_DIR/discovery.json ]] || warn 'Initial discovery is still running; the setup wizard can rescan.'
 wait_http "http://127.0.0.1:${PORT}/healthz" 40 2 || { journalctl -u "$SENTINEL_SERVICE" -n 100 --no-pager; die 'Service failed health check.'; }

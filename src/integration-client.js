@@ -6,3 +6,8 @@ export const configureIntegration=payload=>request('POST','/configure',payload);
 
 export const updateJobStatus=()=>request('GET','/update/status');
 export const startUpdateJob=()=>request('POST','/update/start',{});
+export const securityScanStatus=()=>request('GET','/security/status');
+export const securityScanReport=()=>request('GET','/security/report');
+export const configureSecurityScan=payload=>request('POST','/security/configure',payload);
+export const startSecurityScan=()=>request('POST','/security/start',{});
+export const cancelSecurityScan=()=>request('POST','/security/cancel',{});
