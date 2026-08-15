@@ -239,8 +239,13 @@ cmd_scan_setup(){
   section 'Signature database'
   if command -v freshclam >/dev/null; then
     systemctl stop clamav-freshclam.service >/dev/null 2>&1 || true
-    if freshclam --quiet; then ok 'ClamAV signatures are current'; else warn 'freshclam did not finish; the scheduled scan will retry'; fi
-    systemctl start clamav-freshclam.service >/dev/null 2>&1 || true
+    freshclam --quiet || warn 'freshclam did not complete; ClamAV rate-limits downloads and can hold a host on a day-long cool-down.'
+    systemctl enable --now clamav-freshclam.service >/dev/null 2>&1 || systemctl start clamav-freshclam.service >/dev/null 2>&1 || true
+    # Trust the files, not the exit code. freshclam returns 0 while on cool-down,
+    # which is how a host ended up with an armed scanner and an empty database
+    # and still reported that its signatures were current.
+    if ls /var/lib/clamav/*.c[vl]d >/dev/null 2>&1; then ok 'Signature database present'
+    else warn 'No signature database in /var/lib/clamav yet. clamav-freshclam keeps retrying; until it lands, scans report `unavailable` rather than calling the host clean.'; fi
   else
     info 'No ClamAV on this host; nothing to update.'
   fi

@@ -15,6 +15,12 @@ test('a scan that could not run every engine never reports clean',()=>{
   assert.match(script,/-ge 128/,'an engine killed by the kernel returned no verdict and must not count as one');
   assert.match(script,/missingEngines/,'the report has to name what did not run');
   assert.match(script,/set -Eeuo pipefail/);
+  assert.match(script,/grep -q '\^Possible rootkits:' "\$log"/,'exit codes lie: rkhunter returned 1 for "cannot write my logfile", so an engine counts only when it printed its own summary');
+  assert.match(script,/grep -q '\^Infected files:' "\$log"/,'clamscan returned 2 for "no signature database" and it was filed as an ordinary warning');
+  assert.match(script,/ls \/var\/lib\/clamav\/\*\.c\[vl\]d/,'an empty signature directory must be caught before the scan claims a verdict');
+  assert.match(script,/--logfile "\$REPORTS\/\$id\.rkhunter\.log"/,'/var/log is read-only under ProtectSystem=strict and rkhunter aborts when it cannot open its log');
+  assert.match(read('deploy/vps-sentinel-security.service'),/ReadWritePaths=.*-\/var\/lib\/rkhunter/);
+  assert.match(script,/\$clam_expected == true && \$clam -gt 1/,'only an engine the host was expected to run can raise a warning about it');
   assert.match(script,/num\(\)\{ awk /,'summary parsing must not be a pipeline: under pipefail a grep matching nothing aborted the run before any report was written, pinning the status at running:true forever');
   assert.doesNotMatch(script,/num\(\)\{ grep/);
 });

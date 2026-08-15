@@ -66,7 +66,11 @@ The package list lives once, in `deploy/lib/common.sh`. `install.sh` and `noxctl
 
 **ClamAV is not installed everywhere.** It loads its entire signature set into memory, so below 2400M of RAM or 3000M of free disk it is OOM-killed on every run. On such a host the installer skips it and rkhunter runs alone. That is a configuration, not a fault: the scan does not report `unavailable` for an engine the host was never expected to carry, and the dashboard says the engine was skipped rather than pointing at an install command that would not help. Installing ClamAV by hand on such a host makes it expected again.
 
-A scan reports `unavailable`, never `clean`, when an *expected* engine is missing or was killed by the kernel, and the report names what did not run. Treat `clean` as meaningful only against the engine set the report says was expected.
+An engine counts as having produced a verdict only when it printed its own summary line — `Possible rootkits:` for rkhunter, `Infected files:` for ClamAV. Exit codes are not trusted: rkhunter returns 1 both for "warnings found" and for "cannot open my logfile", and clamscan returns 2 when it has no signature database. Both were being filed as ordinary warnings while nothing on the host had actually been examined.
+
+A scan reports `unavailable`, never `clean`, when an *expected* engine is missing, produced no summary, or was killed by the kernel, and the report names what did not run. Treat `clean` as meaningful only against the engine set the report says was expected.
+
+ClamAV's signature database is owned by the packaged `clamav-freshclam` service. `freshclam` is attempted before a scan but is best effort: the CDN rate-limits and can hold a host on a day-long cool-down while still exiting 0, so what is checked is whether `/var/lib/clamav` actually contains a database. `noxctl scan-setup` reports the files, not the exit code.
 
 ## Incident response
 
