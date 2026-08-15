@@ -60,7 +60,9 @@ ClamAV and rkhunter run as `vps-sentinel-security.service`, a oneshot unit drive
 
 The dashboard can start, stop and reschedule a scan through the same Unix-socket broker as the other integrations; it cannot install packages or run arbitrary commands.
 
-The package list lives once, in `deploy/lib/common.sh`. `install.sh` and `noxctl update` both converge on it, so a release that adds a system dependency reaches hosts installed before it existed. Managed scanning originally shipped its unit, timer and policy to every updated host and its engines to none of them; that class of gap is what the shared list closes. `noxctl scan-setup` installs the engines on demand, and `noxctl doctor` reports anything still missing.
+The package list lives once, in `deploy/lib/common.sh`. `install.sh` and `noxctl converge` both work from it, so a release that adds a system dependency reaches hosts installed before it existed. Managed scanning originally shipped its unit, timer and policy to every updated host and its engines to none of them; that class of gap is what the shared list closes.
+
+`noxctl update` runs `converge` **from the bundle it just unpacked**, not from the script performing the update — an update is executed by the version being replaced, so migrations written into a new release would otherwise only take effect one update later. `converge` is idempotent and can be run by hand to repair a host that drifted. `noxctl scan-setup` installs the engines on demand, and `noxctl doctor` reports anything still missing.
 
 **ClamAV is not installed everywhere.** It loads its entire signature set into memory, so below 2400M of RAM or 3000M of free disk it is OOM-killed on every run. On such a host the installer skips it and rkhunter runs alone. That is a configuration, not a fault: the scan does not report `unavailable` for an engine the host was never expected to carry, and the dashboard says the engine was skipped rather than pointing at an install command that would not help. Installing ClamAV by hand on such a host makes it expected again.
 

@@ -19,6 +19,7 @@ Commands:
   enroll [label]           Create a one-time passkey enrollment link
   recovery                 Rotate and print recovery codes
   backup [output.tar.gz]   Backup state, configuration and nginx integration
+  converge                 Re-apply host prerequisites, migrations and units (idempotent)
   scan-setup               Install ClamAV and rkhunter, refresh signatures, arm the timer
   check-update              Compare installed version with latest GitHub Release
   update-github             Download, checksum and atomically install latest release
@@ -178,6 +179,51 @@ EOF
 # apt runs only from install.sh, which an update does not re-execute. Every box
 # installed before managed scans shipped therefore had the schedule switched on
 # with nothing to scan with. This is the missing half.
+# Everything a release needs to be true about the host, expressed so that
+# running it twice changes nothing the second time. `noxctl update` invokes the
+# copy shipped inside the new bundle, so each version owns its own migrations,
+# and an operator can run it by hand to repair a host that drifted.
+cmd_converge(){
+  require_root; load_install_config
+  local schedule
+  section 'Host prerequisites'
+  chmod 755 "$APP_DIR/deploy/security-scan.sh"
+  # Non-fatal: a transient apt failure must not roll back a healthy application
+  # update. `noxctl doctor` reports whatever is still missing.
+  if ensure_prerequisites; then ok "Packages present; engines for this host: $(scanner_expected_engines)"
+  else warn 'Some prerequisites are still missing; run `noxctl doctor` and `noxctl scan-setup`.'; fi
+
+  section 'State'
+  install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/security-scans"
+  if [[ ! -f $STATE_DIR/security-scan-policy.json ]]; then printf '%s\n' '{"schema":1,"enabled":true,"frequency":"weekly"}' > "$STATE_DIR/security-scan-policy.json"; fi
+  chown root:"$SENTINEL_USER" "$STATE_DIR/security-scan-policy.json"; chmod 640 "$STATE_DIR/security-scan-policy.json"
+  ok 'Scan state directory and policy present'
+
+  section 'Configuration migrations'
+  # An env written by an older installer pins superseded defaults forever and
+  # wins over src/config.js, so shipping a better default is not enough on its
+  # own. Only exact superseded values are rewritten; a deliberate choice stays.
+  if grep -qx 'RP_NAME=VPS Sentinel' "$SENTINEL_CONFIG"; then sed -i 's/^RP_NAME=VPS Sentinel$/RP_NAME=Grouvi Nox/' "$SENTINEL_CONFIG"; info 'RP_NAME migrated'; fi
+  if grep -qx 'SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel' "$SENTINEL_CONFIG"; then sed -i 's#^SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel$#SENTINEL_RELEASE_REPO=grouvi25/grouvi-nox#' "$SENTINEL_CONFIG"; info 'release repository migrated'; fi
+  if grep -qx 'UPDATE_CHECK_INTERVAL_MS=1800000' "$SENTINEL_CONFIG"; then sed -i 's/^UPDATE_CHECK_INTERVAL_MS=1800000$/UPDATE_CHECK_INTERVAL_MS=600000/' "$SENTINEL_CONFIG"; info 'update check interval 30m -> 10m'; fi
+  grep -q '^UPDATE_FRESHNESS_MS=' "$SENTINEL_CONFIG" || { printf 'UPDATE_FRESHNESS_MS=60000\n' >> "$SENTINEL_CONFIG"; info 'UPDATE_FRESHNESS_MS added'; }
+  chmod 600 "$SENTINEL_CONFIG"; ok 'Configuration converged'
+
+  section 'Units'
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then
+    install -m 644 "$APP_DIR/deploy/forge/bridge.service" /etc/systemd/system/sentinel-ai-bridge.service
+    install -m 644 "$APP_DIR/deploy/forge/context.service" /etc/systemd/system/sentinel-ai-context.service
+    install -m 644 "$APP_DIR/deploy/forge/context.timer" /etc/systemd/system/sentinel-ai-context.timer
+    install -m 755 "$APP_DIR/deploy/forge/sentinel-hermes" /usr/local/bin/sentinel-hermes
+    info 'Nox Forge units installed'
+  fi
+  getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
+  systemctl daemon-reload
+  schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
+  if [[ $schedule == enabled ]]; then systemctl enable --now vps-sentinel-security.timer >/dev/null 2>&1 || true; ok 'Security scan timer armed'
+  else systemctl disable --now vps-sentinel-security.timer >/dev/null 2>&1 || true; info 'Scan policy is manual; timer disabled'; fi
+}
+
 cmd_scan_setup(){
   require_root; load_install_config
   local expected schedule
@@ -276,32 +322,19 @@ cmd_update(){
     die "Update rolled back. Diagnostics: $app_backup"
   fi
   chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"; chmod 755 "$APP_DIR"; find "$APP_DIR" -type d -exec chmod 755 {} +
-  install -m 755 "$APP_DIR/bin/noxctl" /usr/local/sbin/noxctl
-  install -m 755 "$APP_DIR/bin/sentinelctl" /usr/local/sbin/sentinelctl
-  chmod 755 "$APP_DIR/deploy/security-scan.sh"
-  # Converge host prerequisites, never just application files. Managed scanning
-  # shipped its unit and timer to every updated host and its engines to none of
-  # them; anything a future release adds to the package list lands here instead.
-  # Non-fatal on purpose: a transient apt failure must not roll back a healthy
-  # application update, `noxctl doctor` reports what is still missing.
-  update_progress installing 'Проверяю системные зависимости'
-  ensure_prerequisites || warn 'Some prerequisites are still missing; run `noxctl doctor` and `noxctl scan-setup`.'
-  install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/security-scans"
-  if [[ ! -f $STATE_DIR/security-scan-policy.json ]]; then printf '%s\n' '{"schema":1,"enabled":true,"frequency":"weekly"}' > "$STATE_DIR/security-scan-policy.json"; fi
-  chown root:"$SENTINEL_USER" "$STATE_DIR/security-scan-policy.json"; chmod 640 "$STATE_DIR/security-scan-policy.json"
-  if grep -qx 'RP_NAME=VPS Sentinel' "$SENTINEL_CONFIG"; then sed -i 's/^RP_NAME=VPS Sentinel$/RP_NAME=Grouvi Nox/' "$SENTINEL_CONFIG"; fi
-  if grep -qx 'SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel' "$SENTINEL_CONFIG"; then sed -i 's#^SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel$#SENTINEL_RELEASE_REPO=grouvi25/grouvi-nox#' "$SENTINEL_CONFIG"; fi
-  # An env written by an older installer pins the old defaults forever and wins
-  # over src/config.js, so shipping a better default is not enough on its own.
-  # Only the exact superseded value is rewritten; a deliberate choice survives.
-  if grep -qx 'UPDATE_CHECK_INTERVAL_MS=1800000' "$SENTINEL_CONFIG"; then sed -i 's/^UPDATE_CHECK_INTERVAL_MS=1800000$/UPDATE_CHECK_INTERVAL_MS=600000/' "$SENTINEL_CONFIG"; fi
-  grep -q '^UPDATE_FRESHNESS_MS=' "$SENTINEL_CONFIG" || printf 'UPDATE_FRESHNESS_MS=60000\n' >> "$SENTINEL_CONFIG"
-  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then install -m 644 deploy/forge/bridge.service /etc/systemd/system/sentinel-ai-bridge.service;install -m 644 deploy/forge/context.service /etc/systemd/system/sentinel-ai-context.service;install -m 644 deploy/forge/context.timer /etc/systemd/system/sentinel-ai-context.timer;install -m 755 deploy/forge/sentinel-hermes /usr/local/bin/sentinel-hermes;fi
-  getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
+  # Rename, never overwrite in place: bash reads a script lazily, and this one
+  # is the script currently running. Truncating it mid-update can feed the live
+  # interpreter garbage. A rename leaves the running inode untouched.
+  install -m 755 "$APP_DIR/bin/noxctl" /usr/local/sbin/noxctl.incoming && mv -f /usr/local/sbin/noxctl.incoming /usr/local/sbin/noxctl
+  install -m 755 "$APP_DIR/bin/sentinelctl" /usr/local/sbin/sentinelctl.incoming && mv -f /usr/local/sbin/sentinelctl.incoming /usr/local/sbin/sentinelctl
+  # Convergence belongs to the version being installed, not to the one running
+  # the update. Calling the freshly unpacked binary is what lets a release carry
+  # its own migrations: without this, anything a new version needs to fix on the
+  # host would only take effect one update later.
+  update_progress installing 'Применяю системные зависимости и миграции'
+  "$APP_DIR/bin/noxctl" converge || warn 'Convergence incomplete; run `noxctl doctor` and `noxctl converge`.'
   update_progress restarting 'Перезапускаю службы Grouvi Nox'
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
-  scan_schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
-  if [[ $scan_schedule == enabled ]]; then systemctl enable --now vps-sentinel-security.timer; else systemctl disable --now vps-sentinel-security.timer >/dev/null 2>&1 || true; fi
   update_progress healthcheck 'Проверяю новую версию и подключение'
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
     update_progress rollback 'Health-check не пройден, возвращаю прошлую версию'
@@ -367,7 +400,7 @@ cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_
 command=${1:-}; shift || true
 case "$command" in
   status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
-  backup) cmd_backup "$@";; scan-setup) cmd_scan_setup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  backup) cmd_backup "$@";; converge) cmd_converge "$@";; scan-setup) cmd_scan_setup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
   update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
   logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
 esac
