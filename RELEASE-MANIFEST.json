@@ -10,7 +10,8 @@
     "managed-security-scans",
     "update-error-visibility",
     "on-demand-update-checks",
-    "scanner-engine-visibility"
+    "scanner-engine-visibility",
+    "converged-host-prerequisites"
   ],
   "supported": {
     "os": [

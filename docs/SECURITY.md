@@ -60,13 +60,11 @@ ClamAV and rkhunter run as `vps-sentinel-security.service`, a oneshot unit drive
 
 The dashboard can start, stop and reschedule a scan through the same Unix-socket broker as the other integrations; it cannot install packages or run arbitrary commands.
 
-**The engines are not part of an update.** `install.sh` apt-installs `clamav`, `clamav-freshclam` and `rkhunter`, and `noxctl update` deliberately does not re-run the installer — it swaps application files and units only. A host installed before managed scans shipped therefore has the timer armed with nothing to scan with. Install the engines once with:
+The package list lives once, in `deploy/lib/common.sh`. `install.sh` and `noxctl update` both converge on it, so a release that adds a system dependency reaches hosts installed before it existed. Managed scanning originally shipped its unit, timer and policy to every updated host and its engines to none of them; that class of gap is what the shared list closes. `noxctl scan-setup` installs the engines on demand, and `noxctl doctor` reports anything still missing.
 
-```
-noxctl scan-setup
-```
+**ClamAV is not installed everywhere.** It loads its entire signature set into memory, so below 2400M of RAM or 3000M of free disk it is OOM-killed on every run. On such a host the installer skips it and rkhunter runs alone. That is a configuration, not a fault: the scan does not report `unavailable` for an engine the host was never expected to carry, and the dashboard says the engine was skipped rather than pointing at an install command that would not help. Installing ClamAV by hand on such a host makes it expected again.
 
-A scan reports `unavailable`, not `clean`, whenever an engine is missing or was killed by the kernel, and the report names what did not run. Treat `clean` as meaningful only when both engines were present. `noxctl doctor` checks for all three binaries.
+A scan reports `unavailable`, never `clean`, when an *expected* engine is missing or was killed by the kernel, and the report names what did not run. Treat `clean` as meaningful only against the engine set the report says was expected.
 
 ## Incident response
 

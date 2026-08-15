@@ -87,6 +87,84 @@ confirm(){
 
 sha256_file(){ sha256sum "$1" | awk '{print $1}'; }
 
+# --- host prerequisites ---------------------------------------------------
+#
+# One list, two callers. install.sh used to hardcode its apt line while
+# `noxctl update` swapped application files only, so a release that introduced
+# a system dependency reached new installs and silently skipped every existing
+# one. Managed scanning shipped that way: hosts got the unit, the timer and the
+# policy with no engine to run. Updates now converge on this list too.
+
+SENTINEL_BASE_PACKAGES=(ca-certificates curl gnupg git nginx certbot python3-certbot-nginx acl rsync sqlite3 build-essential python3 python3-venv python3-pip)
+SENTINEL_RKHUNTER_PACKAGES=(rkhunter)
+SENTINEL_CLAMAV_PACKAGES=(clamav clamav-freshclam)
+
+# ClamAV loads its entire signature set into memory. Below roughly 2.4G of RAM
+# clamscan is OOM-killed on every run, and the database alone wants ~1G of disk.
+# A small VPS is better served by rkhunter alone than by a scanner that cannot
+# finish. Keep these in step with deploy/security-scan.sh.
+SENTINEL_CLAMAV_MIN_TOTAL_MB=2400
+SENTINEL_CLAMAV_MIN_DISK_MB=3000
+
+host_total_memory_mb(){ awk '/^MemTotal:/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || printf '0'; }
+host_free_disk_mb(){ df -Pm "${1:-$SENTINEL_STATE_DIR}" 2>/dev/null | awk 'NR==2{printf "%d", $4}' || printf '0'; }
+
+host_supports_clamav(){
+  local mem disk
+  mem=$(host_total_memory_mb); disk=$(host_free_disk_mb /var/lib)
+  (( ${mem:-0} >= SENTINEL_CLAMAV_MIN_TOTAL_MB && ${disk:-0} >= SENTINEL_CLAMAV_MIN_DISK_MB ))
+}
+
+# Engines this host is expected to run: rkhunter always, ClamAV when it is
+# already present or the host can actually carry it.
+scanner_expected_engines(){
+  local engines='rkhunter'
+  if command -v clamscan >/dev/null 2>&1 || host_supports_clamav; then engines="clamav $engines"; fi
+  printf '%s' "$engines"
+}
+
+scanners_present(){
+  command -v rkhunter >/dev/null || return 1
+  if [[ $(scanner_expected_engines) == *clamav* ]]; then
+    command -v clamscan >/dev/null || return 1
+    command -v freshclam >/dev/null || return 1
+  fi
+  return 0
+}
+
+package_installed(){ dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q 'ok installed'; }
+
+base_packages_present(){
+  local pkg
+  for pkg in "${SENTINEL_BASE_PACKAGES[@]}"; do package_installed "$pkg" || return 1; done
+  return 0
+}
+
+# Idempotent and quiet: when nothing is missing it does not even touch apt, so
+# calling it on every update costs nothing on a converged host.
+ensure_packages(){
+  local pkg missing=()
+  for pkg in "$@"; do package_installed "$pkg" || missing+=("$pkg"); done
+  (( ${#missing[@]} )) || return 0
+  info "Installing missing packages: ${missing[*]}"
+  DEBIAN_FRONTEND=noninteractive apt-get update -qq || return 1
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${missing[@]}" >/dev/null || return 1
+}
+
+ensure_scanner_packages(){
+  ensure_packages "${SENTINEL_RKHUNTER_PACKAGES[@]}" || return 1
+  if [[ $(scanner_expected_engines) == *clamav* ]]; then
+    ensure_packages "${SENTINEL_CLAMAV_PACKAGES[@]}" || return 1
+  else
+    warn "ClamAV skipped: needs ${SENTINEL_CLAMAV_MIN_TOTAL_MB}M RAM and ${SENTINEL_CLAMAV_MIN_DISK_MB}M free disk, host has $(host_total_memory_mb)M and $(host_free_disk_mb /var/lib)M. rkhunter will run alone."
+  fi
+}
+
+ensure_prerequisites(){
+  ensure_packages "${SENTINEL_BASE_PACKAGES[@]}" || return 1
+  ensure_scanner_packages || return 1
+}
+
 json_escape(){
   python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))'
 }

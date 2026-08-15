@@ -11,7 +11,7 @@ test('a scan that could not run every engine never reports clean',()=>{
   const order=['result=warnings','result=unavailable','result=threats'].map(marker=>script.indexOf(marker));
   assert.ok(order.every(index=>index>=0),'every verdict must be reachable');
   assert.deepEqual([...order].sort((a,b)=>a-b),order,'threats must outrank unavailable, and unavailable must outrank warnings');
-  assert.match(script,/\$clam_ok == true && \$rkh_ok == true \]\] \|\| result=unavailable/);
+  assert.match(script,/\[\[ \$engines_complete == true \]\] \|\| result=unavailable/);
   assert.match(script,/-ge 128/,'an engine killed by the kernel returned no verdict and must not count as one');
   assert.match(script,/missingEngines/,'the report has to name what did not run');
   assert.match(script,/set -Eeuo pipefail/);
@@ -22,7 +22,7 @@ test('a scan that could not run every engine never reports clean',()=>{
 test('operators are given a way to install the missing engines',()=>{
   const lifecycle=read('bin/noxctl'),ui=read('public/js/settings-pane.js'),broker=read('bin/integration-config-broker.js');
   assert.match(lifecycle,/scan-setup\) cmd_scan_setup/,'the command must be dispatchable');
-  assert.match(lifecycle,/apt-get install -y -qq clamav clamav-freshclam rkhunter/,'updates never re-run install.sh, so the engines need their own entry point');
+  assert.match(lifecycle,/ensure_scanner_packages \|\| die/,'updates never re-run install.sh, so the engines need their own entry point');
   assert.match(ui,/noxctl scan-setup/,'a disabled scan button must say how to enable it');
   assert.match(broker,/export function scannerEngines/);
   assert.doesNotMatch(broker,/installed:fs\.existsSync\('\/usr\/bin\/clamscan'\)/,'engine detection must not be pinned to a single directory');
