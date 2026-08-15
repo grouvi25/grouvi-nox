@@ -79,6 +79,9 @@ cmd_doctor(){
   CHECK_NAME='nginx configuration'; check nginx -t
   CHECK_NAME='systemd web sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_SERVICE}.service"
   CHECK_NAME='systemd agent sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
+  CHECK_NAME='security scanners installed'; check bash -c 'command -v clamscan >/dev/null && command -v freshclam >/dev/null && command -v rkhunter >/dev/null'
+  CHECK_NAME='security scan sandbox'; check systemd-analyze verify /etc/systemd/system/vps-sentinel-security.service
+  CHECK_NAME='security scan timer installed'; check systemctl cat vps-sentinel-security.timer
   section 'Runtime'
   CHECK_NAME='local health endpoint'; check wait_http "http://127.0.0.1:${PORT}/healthz" 1 0
   CHECK_NAME='public HTTPS endpoint'; check curl -fsS --max-time 10 "https://${DOMAIN}/login" -o /dev/null
@@ -224,7 +227,9 @@ cmd_update(){
   cd "$APP_DIR"
   if ! npm ci --omit=dev --no-audit --no-fund \
     || ! install -m 644 deploy/vps-sentinel.service "/etc/systemd/system/${SENTINEL_SERVICE}.service" \
-    || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"; then
+    || ! install -m 644 deploy/vps-sentinel-agent.service "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service" \
+    || ! install -m 644 deploy/vps-sentinel-security.service /etc/systemd/system/vps-sentinel-security.service \
+    || ! install -m 644 deploy/vps-sentinel-security.timer /etc/systemd/system/vps-sentinel-security.timer; then
     update_progress rollback 'Установка не завершилась, возвращаю прошлую версию'
     warn 'Update staging failed; restoring previous application.'
     rm -rf "${APP_DIR:?}"/*; tar -C "$APP_DIR" -xzf "$app_backup"; npm ci --omit=dev --no-audit --no-fund
@@ -234,12 +239,18 @@ cmd_update(){
   chown -R root:root "$APP_DIR"; chmod -R go-w "$APP_DIR"; chmod 755 "$APP_DIR"; find "$APP_DIR" -type d -exec chmod 755 {} +
   install -m 755 "$APP_DIR/bin/noxctl" /usr/local/sbin/noxctl
   install -m 755 "$APP_DIR/bin/sentinelctl" /usr/local/sbin/sentinelctl
+  chmod 755 "$APP_DIR/deploy/security-scan.sh"
+  install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/security-scans"
+  if [[ ! -f $STATE_DIR/security-scan-policy.json ]]; then printf '%s\n' '{"schema":1,"enabled":true,"frequency":"weekly"}' > "$STATE_DIR/security-scan-policy.json"; fi
+  chown root:"$SENTINEL_USER" "$STATE_DIR/security-scan-policy.json"; chmod 640 "$STATE_DIR/security-scan-policy.json"
   if grep -qx 'RP_NAME=VPS Sentinel' "$SENTINEL_CONFIG"; then sed -i 's/^RP_NAME=VPS Sentinel$/RP_NAME=Grouvi Nox/' "$SENTINEL_CONFIG"; fi
   if grep -qx 'SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel' "$SENTINEL_CONFIG"; then sed -i 's#^SENTINEL_RELEASE_REPO=grouvi25/vps-sentinel$#SENTINEL_RELEASE_REPO=grouvi25/grouvi-nox#' "$SENTINEL_CONFIG"; fi
   if [[ ${INSTALL_FORGE:-0} == 1 ]]; then install -m 644 deploy/forge/bridge.service /etc/systemd/system/sentinel-ai-bridge.service;install -m 644 deploy/forge/context.service /etc/systemd/system/sentinel-ai-context.service;install -m 644 deploy/forge/context.timer /etc/systemd/system/sentinel-ai-context.timer;install -m 755 deploy/forge/sentinel-hermes /usr/local/bin/sentinel-hermes;fi
   getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
   update_progress restarting 'Перезапускаю службы Grouvi Nox'
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  scan_schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
+  if [[ $scan_schedule == enabled ]]; then systemctl enable --now vps-sentinel-security.timer; else systemctl disable --now vps-sentinel-security.timer >/dev/null 2>&1 || true; fi
   update_progress healthcheck 'Проверяю новую версию и подключение'
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
     update_progress rollback 'Health-check не пройден, возвращаю прошлую версию'
@@ -287,7 +298,7 @@ cmd_uninstall(){
   systemctl disable --now sentinel-ai-bridge.service sentinel-ai-context.timer >/dev/null 2>&1 || true
   rm -f /etc/systemd/system/sentinel-ai-bridge.service /etc/systemd/system/sentinel-ai-context.service /etc/systemd/system/sentinel-ai-context.timer /usr/local/bin/sentinel-hermes
   rm -rf "${APP_DIR:?}"; rm -f /usr/local/sbin/noxctl /usr/local/sbin/sentinelctl
-  if ((purge)); then rm -rf "${STATE_DIR:?}" /var/lib/sentinel-ai /opt/sentinel-ai; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" /etc/sentinel-ai.env; userdel sentinel-ai 2>/dev/null || true; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
+  if ((purge)); then rm -rf "${STATE_DIR:?}" /var/lib/sentinel-ai /opt/sentinel-ai; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" /etc/sentinel-ai.env; apt-get remove --purge -y clamav clamav-base clamav-freshclam rkhunter >/dev/null 2>&1 || true; apt-get autoremove --purge -y >/dev/null 2>&1 || true; rm -rf /var/lib/clamav /var/lib/rkhunter /var/log/clamav /var/log/rkhunter.log* /etc/clamav; userdel sentinel-ai 2>/dev/null || true; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
   systemctl daemon-reload
   if ((purge)); then ok 'Uninstalled; application data purged.'; else ok "Uninstalled; data kept in $STATE_DIR."; fi
 }

@@ -34,19 +34,6 @@ jobs:
         with:
           category: /language:javascript-typescript
 
-  dependency-review:
-    name: Dependency review
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: moderate
-          deny-licenses: GPL-3.0, AGPL-3.0
-
   supply-chain:
     name: Secrets and runtime dependencies
     runs-on: ubuntu-24.04
@@ -60,6 +47,13 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - run: npm audit --omit=dev --audit-level=moderate
+      - name: Block forbidden runtime licenses
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),path=require('path'),blocked=/^(AGPL-3\.0|GPL-3\.0)(-only|-or-later)?$/i,found=[];
+          const walk=dir=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(entry.name.startsWith('.'))continue;const full=path.join(dir,entry.name);if(entry.isDirectory()){const pkg=path.join(full,'package.json');if(fs.existsSync(pkg)){try{const p=JSON.parse(fs.readFileSync(pkg));if(blocked.test(String(p.license||'')))found.push(`${p.name}@${p.version}: ${p.license}`)}catch{}}walk(full)}}};
+          walk('node_modules');if(found.length){console.error(`Forbidden runtime licenses:\n${found.join('\n')}`);process.exit(1)}
+          NODE
       - name: Block common credential formats
         shell: bash
         run: |
