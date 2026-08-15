@@ -343,7 +343,7 @@ function renderRemoteScope(snapshot){
 async function selectFleetNode(nodeId){
   clearInterval(fleetRefreshTimer);fleetRefreshTimer=null;activeFleetNode=nodeId;filesystem.setEnabled(nodeId==='local');content.scrollTo({top:0,behavior:'smooth'});
   if(nodeId==='local'){latest=localLatest;if(latest){render(latest,{forceFull:true});renderCharts(latest)}setConn('live',ws?.readyState===WebSocket.OPEN?'live':'live · polling');await Promise.allSettled([loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h'),loadIncidents('all'),loadFilesystem('/'),discoveryController.load(),loadDeployments(),updates.load()]);return}
-  $('updateOpen').hidden=true;setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);renderRemoteScope(latest);fleetRefreshTimer=setInterval(async()=>{await refreshFleetNode(nodeId);renderRemoteScope(latest);fleet.load()},10000)
+  setConn('','загрузка узла…');await Promise.all([refreshFleetNode(nodeId),loadHistory(document.querySelector('#historyRange .seg.active')?.dataset.range||'24h')]);renderRemoteScope(latest);fleetRefreshTimer=setInterval(async()=>{await refreshFleetNode(nodeId);renderRemoteScope(latest);fleet.load()},10000)
 }
 
 async function loadHistory(range = '24h') {
