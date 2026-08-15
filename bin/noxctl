@@ -19,6 +19,7 @@ Commands:
   enroll [label]           Create a one-time passkey enrollment link
   recovery                 Rotate and print recovery codes
   backup [output.tar.gz]   Backup state, configuration and nginx integration
+  scan-setup               Install ClamAV and rkhunter, refresh signatures, arm the timer
   check-update              Compare installed version with latest GitHub Release
   update-github             Download, checksum and atomically install latest release
   update <bundle> <sha256> Verify a release bundle and perform atomic update
@@ -79,7 +80,7 @@ cmd_doctor(){
   CHECK_NAME='nginx configuration'; check nginx -t
   CHECK_NAME='systemd web sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_SERVICE}.service"
   CHECK_NAME='systemd agent sandbox'; check systemd-analyze verify "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
-  CHECK_NAME='security scanners installed'; check bash -c 'command -v clamscan >/dev/null && command -v freshclam >/dev/null && command -v rkhunter >/dev/null'
+  CHECK_NAME='security scanners installed (fix: noxctl scan-setup)'; check bash -c 'command -v clamscan >/dev/null && command -v freshclam >/dev/null && command -v rkhunter >/dev/null'
   CHECK_NAME='security scan sandbox'; check systemd-analyze verify /etc/systemd/system/vps-sentinel-security.service
   CHECK_NAME='security scan timer installed'; check systemctl cat vps-sentinel-security.timer
   section 'Runtime'
@@ -170,6 +171,42 @@ EOF
   chmod 600 "$output"
   ok "Backup created: $output"
   printf '  SHA256: %s\n' "$(sha256_file "$output")"
+}
+
+# Updates ship the scan unit, the timer and the policy, but never the engines:
+# apt runs only from install.sh, which an update does not re-execute. Every box
+# installed before managed scans shipped therefore had the schedule switched on
+# with nothing to scan with. This is the missing half.
+cmd_scan_setup(){
+  require_root; load_install_config
+  local missing=() binary schedule
+  section 'Security scanners'
+  for binary in clamscan freshclam rkhunter; do command -v "$binary" >/dev/null || missing+=("$binary"); done
+  if ((${#missing[@]} == 0)); then
+    ok 'clamscan, freshclam and rkhunter are already installed'
+  else
+    info "Missing: ${missing[*]}"
+    supported_os || warn 'Unsupported OS; package names may differ.'
+    DEBIAN_FRONTEND=noninteractive apt-get update -qq || die 'apt-get update failed.'
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq clamav clamav-freshclam rkhunter >/dev/null || die 'Scanner installation failed.'
+    for binary in clamscan freshclam rkhunter; do command -v "$binary" >/dev/null || die "Still missing after install: $binary"; done
+    ok 'Installed clamav, clamav-freshclam and rkhunter'
+  fi
+  section 'Signature database'
+  systemctl stop clamav-freshclam.service >/dev/null 2>&1 || true
+  if freshclam --quiet; then ok 'ClamAV signatures are current'; else warn 'freshclam did not finish; the scheduled scan will retry'; fi
+  systemctl start clamav-freshclam.service >/dev/null 2>&1 || true
+  section 'Schedule'
+  install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/security-scans"
+  systemctl daemon-reload
+  schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
+  if [[ $schedule == enabled ]]; then
+    systemctl enable --now vps-sentinel-security.timer
+    ok "Timer enabled, next run $(systemctl show vps-sentinel-security.timer -p NextElapseUSecRealtime --value 2>/dev/null || echo 'per schedule')"
+  else
+    info 'Scan policy is manual; timer left disabled.'
+  fi
+  info 'Verify with `noxctl doctor`, or start a scan from the dashboard.'
 }
 
 cmd_check_update(){
@@ -316,7 +353,7 @@ cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_
 command=${1:-}; shift || true
 case "$command" in
   status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
-  backup) cmd_backup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  backup) cmd_backup "$@";; scan-setup) cmd_scan_setup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
   update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
   logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
 esac

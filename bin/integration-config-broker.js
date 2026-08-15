@@ -16,7 +16,19 @@ function restart(name){return new Promise(resolve=>execFile('systemctl',['try-re
 const scanPolicyFile='/var/lib/vps-sentinel/security-scan-policy.json',scanStatusFile='/var/lib/vps-sentinel/security-scan-status.json',scanReportDir='/var/lib/vps-sentinel/security-scans',scanForceFile='/var/lib/vps-sentinel/security-scan-force';
 function readJson(file,fallback={}){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function scanPolicy(){return{enabled:true,frequency:'weekly',...readJson(scanPolicyFile,{})}}
-function scanSummary(){const status=readJson(scanStatusFile,{status:'never',running:false}),id=String(status.reportId||'');let report=null,log='';if(/^[0-9]{8}T[0-9]{6}Z$/.test(id)){report=readJson(`${scanReportDir}/${id}.json`,null);try{log=fs.readFileSync(`${scanReportDir}/${id}.log`,'utf8').slice(-120000)}catch{}}return{installed:fs.existsSync('/usr/bin/clamscan')&&fs.existsSync('/usr/bin/rkhunter'),policy:scanPolicy(),status,report,log}}
+/**
+ * Which engines are actually on the box.
+ *
+ * The dashboard used to test only /usr/bin, while security-scan.sh resolves
+ * through PATH, so a scanner installed anywhere else was reported as absent
+ * even as it scanned. Reporting each engine separately also lets the operator
+ * see which half of "malware and rootkit scanning" is missing instead of one
+ * flat "not installed".
+ */
+const scannerDirs=['/usr/bin','/usr/local/bin','/bin','/usr/sbin','/usr/local/sbin'];
+const hasBinary=name=>scannerDirs.some(dir=>fs.existsSync(`${dir}/${name}`));
+export function scannerEngines(){return{clamav:hasBinary('clamscan'),rkhunter:hasBinary('rkhunter')}}
+function scanSummary(){const status=readJson(scanStatusFile,{status:'never',running:false}),id=String(status.reportId||'');let report=null,log='';if(/^[0-9]{8}T[0-9]{6}Z$/.test(id)){report=readJson(`${scanReportDir}/${id}.json`,null);try{log=fs.readFileSync(`${scanReportDir}/${id}.log`,'utf8').slice(-120000)}catch{}}const engines=scannerEngines(),missing=Object.entries(engines).filter(([,present])=>!present).map(([name])=>name);return{installed:missing.length===0,engines,missing,policy:scanPolicy(),status,report,log}}
 function systemctl(args){return new Promise((resolve,reject)=>execFile('systemctl',args,{timeout:20000},error=>error?reject(error):resolve()))}
 async function configureScan(body){const frequency=String(body.frequency||'weekly'),enabled=Boolean(body.enabled);if(!['manual','daily','weekly'].includes(frequency))throw new Error('invalid_scan_frequency');safeWrite(scanPolicyFile,JSON.stringify({schema:1,enabled,frequency,updatedAt:Date.now()},null,2),0o640);if(enabled&&frequency!=='manual')await systemctl(['enable','--now','vps-sentinel-security.timer']);else await systemctl(['disable','--now','vps-sentinel-security.timer']);return{ok:true,...scanSummary()}}
 function startScan(){fs.writeFileSync(scanForceFile,String(Date.now()),{mode:0o600});execFile('systemctl',['start','vps-sentinel-security.service'],{timeout:15000},()=>{});return{ok:true,status:{status:'queued',running:true,message:'Security scan queued',updatedAt:Date.now()}}}

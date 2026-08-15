@@ -54,6 +54,20 @@ Runtime secrets live only in `/etc/vps-sentinel.env` (root, mode 0600). Telegram
 ## Remaining host-level trust
 
 
+## Malware and rootkit scanning
+
+ClamAV and rkhunter run as `vps-sentinel-security.service`, a oneshot unit driven by a timer, never by the web process. The unit is nice 19, idle I/O, capped at 25% CPU and 2400M, and runs under `ProtectSystem=strict` with write access only to the state directory and ClamAV's own paths. `flock` keeps concurrent runs out. Reports and logs land in `/var/lib/vps-sentinel/security-scans`, ten runs are retained.
+
+The dashboard can start, stop and reschedule a scan through the same Unix-socket broker as the other integrations; it cannot install packages or run arbitrary commands.
+
+**The engines are not part of an update.** `install.sh` apt-installs `clamav`, `clamav-freshclam` and `rkhunter`, and `noxctl update` deliberately does not re-run the installer — it swaps application files and units only. A host installed before managed scans shipped therefore has the timer armed with nothing to scan with. Install the engines once with:
+
+```
+noxctl scan-setup
+```
+
+A scan reports `unavailable`, not `clean`, whenever an engine is missing or was killed by the kernel, and the report names what did not run. Treat `clean` as meaningful only when both engines were present. `noxctl doctor` checks for all three binaries.
+
 ## Incident response
 
 A compromised host cannot be made trustworthy by reinstalling the dashboard. Rebuild the VPS from a clean image, rotate secrets and restore only verified application code plus database dumps.
