@@ -7,7 +7,8 @@
     "fleet-hub",
     "fleet-node",
     "signed-update-discovery",
-    "managed-security-scans"
+    "managed-security-scans",
+    "update-error-visibility"
   ],
   "supported": {
     "os": [
