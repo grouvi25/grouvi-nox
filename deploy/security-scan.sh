@@ -13,8 +13,23 @@ id=$(date -u +%Y%m%dT%H%M%SZ); log="$REPORTS/$id.log"; report="$REPORTS/$id.json
 trap 'status cancelled "Проверка остановлена" "$id"; exit 143' TERM INT
 printf 'Grouvi Nox security scan\nStarted: %s\n' "$(date -u +%FT%TZ)" >"$log"; chmod 640 "$log"; chown root:vpssentinel "$log"
 missing=''
+# Best effort only. ClamAV's CDN rate-limits and puts a host on a day-long
+# cool-down, and a slightly stale database still scans; the packaged
+# clamav-freshclam service owns routine updates. What matters is whether a
+# database exists at all, which is checked before clamscan is even started.
 fresh=127; if command -v freshclam >/dev/null; then systemctl stop clamav-freshclam.service >/dev/null 2>&1 || true; set +e; freshclam --quiet >>"$log" 2>&1; fresh=$?; set -e; systemctl start clamav-freshclam.service >/dev/null 2>&1 || true; fi
-rkh_ok=false; rkh=127; if command -v rkhunter >/dev/null; then rkh_ok=true; echo '=== rkhunter ===' >>"$log"; set +e; rkhunter --check --skip-keypress --nocolors >>"$log" 2>&1; rkh=$?; set -e; else missing="rkhunter"; echo '=== rkhunter is not installed, skipped ===' >>"$log"; fi
+# An engine counts only when it printed its own summary line. Exit codes lie:
+# rkhunter returned 1 for "cannot write my logfile" and clamscan returned 2 for
+# "no signature database", and both were being filed as ordinary warnings while
+# nothing on the host had actually been examined.
+rkh_ok=false; rkh=127
+if command -v rkhunter >/dev/null; then
+  echo '=== rkhunter ===' >>"$log"
+  # --logfile keeps the run inside the sandbox: /var/log is read-only under
+  # ProtectSystem=strict, and rkhunter aborts when it cannot open its log.
+  set +e; rkhunter --check --skip-keypress --nocolors --logfile "$REPORTS/$id.rkhunter.log" >>"$log" 2>&1; rkh=$?; set -e
+  if grep -q '^Possible rootkits:' "$log"; then rkh_ok=true; else missing="rkhunter (не завершился, код $rkh)"; fi
+else missing="rkhunter"; echo '=== rkhunter is not installed, skipped ===' >>"$log"; fi
 roots=(); for p in /etc /opt /root /home /srv /var/www /usr/local /tmp /var/tmp; do [[ -e $p ]] && roots+=("$p"); done
 # ClamAV needs its whole signature set resident. On a host below the floor it is
 # deliberately absent rather than broken, so its absence must not be reported as
@@ -24,7 +39,14 @@ mem_mb=$(awk '/^MemTotal:/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || p
 disk_mb=$(df -Pm /var/lib 2>/dev/null | awk 'NR==2{printf "%d", $4}' || printf '0')
 clam_expected=true; clam_ok=false; clam=127
 if command -v clamscan >/dev/null; then
-  clam_ok=true; echo '=== ClamAV ===' >>"$log"; set +e; clamscan -r --infected --cross-fs=no --exclude-dir='^/var/lib/(docker|containerd)(/|$)' --exclude-dir='^/var/lib/vps-sentinel/security-scans(/|$)' "${roots[@]}" >>"$log" 2>&1; clam=$?; set -e
+  echo '=== ClamAV ===' >>"$log"
+  if ls /var/lib/clamav/*.c[vl]d >/dev/null 2>&1; then
+    set +e; clamscan -r --infected --cross-fs=no --exclude-dir='^/var/lib/(docker|containerd)(/|$)' --exclude-dir='^/var/lib/vps-sentinel/security-scans(/|$)' "${roots[@]}" >>"$log" 2>&1; clam=$?; set -e
+    if grep -q '^Infected files:' "$log"; then clam_ok=true; else missing="${missing:+$missing, }clamav (не завершился, код $clam)"; fi
+  else
+    clam=2; missing="${missing:+$missing, }clamav (нет базы сигнатур)"
+    echo 'No signature database in /var/lib/clamav; run `noxctl scan-setup` or wait for clamav-freshclam.' >>"$log"
+  fi
 elif (( ${mem_mb:-0} < clam_min_mem_mb || ${disk_mb:-0} < clam_min_disk_mb )); then
   clam_expected=false; printf '=== ClamAV not applicable: host has %sM RAM and %sM free disk, below the %sM/%sM floor ===\n' "$mem_mb" "$disk_mb" "$clam_min_mem_mb" "$clam_min_disk_mb" >>"$log"
 else
@@ -44,7 +66,9 @@ num(){ awk -v key="^$1:" '$0 ~ key {found=$3+0} END{print found+0}' "$log"; }; i
 # Order matters: an engine that never ran cannot vouch for a clean host, and a
 # real detection outranks a noisy exit code.
 result=clean
-[[ $clam -gt 1 || $rkh -gt 1 ]] && result=warnings
+# Only an engine this host was expected to run can raise a warning about it.
+[[ $clam_expected == true && $clam -gt 1 ]] && result=warnings
+[[ $rkh -gt 0 ]] && result=warnings
 [[ $engines_complete == true ]] || result=unavailable
 [[ $infected -gt 0 || $rootkits -gt 0 ]] && result=threats
 finished=$(date +%s000)
