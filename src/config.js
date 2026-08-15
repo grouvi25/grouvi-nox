@@ -13,6 +13,10 @@ export const config = {
   // WebAuthn relying party
   rpID: env.RP_ID || 'vps.grouvi.online',
   rpName: env.RP_NAME || 'Grouvi Nox',
+  // Every host in a fleet reports into the same Telegram chat, so a message
+  // has to name the machine it came from. Falls back through the fleet name,
+  // the node id and finally the domain, which is always set.
+  hostLabel: env.SENTINEL_HOST_LABEL || env.FLEET_NODE_NAME || env.FLEET_NODE_ID || env.RP_ID || 'Grouvi Nox',
   origin: env.ORIGIN || 'https://vps.grouvi.online',
 
   sessionTtlMs: num(env.SESSION_TTL_MIN, 720) * 60_000,
