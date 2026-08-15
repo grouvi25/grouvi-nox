@@ -41,6 +41,14 @@ test('the drawer never presents a metric from an engine that did not run',()=>{
   assert.match(palette,/--amber:#f59e0b/,'every var(--amber) on the dashboard resolved to nothing, so warn states rendered grey');
 });
 
+/* NextElapseUSecRealtime is a formatted date despite its name. */
+test('the next scheduled scan survives both shapes systemd emits',()=>{
+  const broker=read('bin/integration-config-broker.js');
+  assert.match(broker,/Date\.parse\(raw\)/,'reading the property as a number yields NaN on systemd 255 and the drawer showed no next run');
+  assert.match(broker,/\/\^\[0-9\]\+\$\/\.test\(raw\)/,'older systemd does emit raw microseconds');
+  assert.match(broker,/raw==='n\/a'/,'an inactive timer has no next elapse');
+});
+
 test('operators are given a way to install the missing engines',()=>{
   const lifecycle=read('bin/noxctl'),ui=read('public/js/settings-pane.js'),broker=read('bin/integration-config-broker.js');
   assert.match(lifecycle,/scan-setup\) cmd_scan_setup/,'the command must be dispatchable');
