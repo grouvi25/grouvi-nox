@@ -191,15 +191,17 @@ export function defaultRunProbe(argv, timeoutSec) {
     args = [...GIT_LOCKDOWN, ...rest.slice(0, sub + 1), ...(patchy ? ['--no-ext-diff', '--no-textconv'] : []), ...rest.slice(sub + 1)];
   }
   return new Promise(resolve => {
-    execFile(cmd, args, {
+    const child = execFile(cmd, args, {
       cwd: '/',
       timeout: timeoutSec * 1000,
       maxBuffer: 4 * 1024 * 1024,
-      env: { PATH: process.platform === 'linux' ? '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' : process.env.PATH, LANG: 'C.UTF-8', HOME: '/nonexistent', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', PAGER: 'cat', SYSTEMD_PAGER: '' },
+      env: { PATH: process.platform === 'linux' ? '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' : process.env.PATH, LANG: 'C.UTF-8', HOME: cmd === 'pm2' ? '/root' : '/nonexistent', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TERMINAL_PROMPT: '0', PAGER: 'cat', SYSTEMD_PAGER: '' },
       encoding: 'utf8',
     }, (error, stdout, stderr) => {
       resolve({ code: error ? (typeof error.code === 'number' ? error.code : 1) : 0, out: `${stdout || ''}${stderr || ''}` });
     });
+    // s_client and friends wait on stdin; a probe never has any.
+    child.stdin?.end();
   });
 }
 

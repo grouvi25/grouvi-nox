@@ -238,7 +238,7 @@ export function proposalHash(proposal) {
  * -------------------------------------------------------------------- */
 
 const READERS = new Set(['ls', 'cat', 'head', 'tail', 'wc', 'stat', 'file', 'du', 'grep', 'find', 'readlink', 'sha256sum', 'md5sum', 'tree']);
-const PLAIN = new Set(['ss', 'df', 'free', 'uptime', 'ps', 'whoami', 'id', 'hostname', 'uname', 'date', 'lsblk', 'ip', 'dig', 'nslookup', 'lsof', 'mount', 'findmnt']);
+const PLAIN = new Set(['ss', 'df', 'free', 'uptime', 'ps', 'whoami', 'id', 'hostname', 'uname', 'date', 'lsblk', 'ip', 'dig', 'nslookup', 'lsof', 'mount', 'findmnt', 'last', 'w', 'who', 'vmstat', 'nproc', 'lscpu', 'lsb_release']);
 const IP_MUTATION = new Set(['set', 'add', 'del', 'delete', 'flush', 'change', 'replace', 'append', 'prepend', 'exec', 'netns', 'monitor', 'up', 'down', 'save', 'restore', 'tuntap', 'batch', '-b', '-batch', '-force']);
 const SUBCOMMANDS = {
   docker: new Set(['ps', 'logs', 'images', 'stats', 'top', 'port', 'info', 'version', 'diff', 'events']),
@@ -247,7 +247,7 @@ const SUBCOMMANDS = {
   nginx: new Set(['-t', '-T', '-v', '-V']),
 };
 const JOURNAL_WRITE = /^--(?:vacuum|rotate|flush|relinquish|smart-relinquish|sync|setup-keys|update-catalog|new-id128|rotate)/;
-const SENSITIVE_READ = /(?:^|\/)(?:\.env(?:\.[\w.-]+)?|id_(?:rsa|ed25519|ecdsa|dsa)|authorized_keys|\.git-credentials|\.netrc|\.npmrc|\.pypirc|shadow|gshadow|sudoers(?:\.d)?|credentials?|secrets?|[^/]*\.(?:pem|key|p12|pfx|kdbx)|sentinel\.db(?:-wal|-shm)?|state\.json|integration-config\.sock)(?:\/|$)|\/proc\/[^/]+\/(?:environ|mem)|\/etc\/(?:vps-sentinel|sentinel-ai)\.env|\/\.ssh\/|\/\.hermes\/|^\/var\/lib\/(?:postgresql|mysql|mariadb|redis|mongodb|docker\/volumes)\b|^\/etc\/(?:ssl\/private|letsencrypt\/(?:archive|live|accounts)|wireguard|openvpn)\b|\/\.(?:kube|aws|docker|config\/gcloud)\/|^\/var\/backups\b|^\/etc\/(?:shadow|gshadow|sudoers)/i;
+const SENSITIVE_READ = /(?:^|\/)(?:\.env(?:\.[\w.-]+)?|id_(?:rsa|ed25519|ecdsa|dsa)|authorized_keys|\.git-credentials|\.netrc|\.npmrc|\.pypirc|shadow|gshadow|sudoers(?:\.d)?|credentials?|secrets?|privkey\d*\.pem|[^/]*\.(?:key|p12|pfx|kdbx)|(?!(?:cert|chain|fullchain)\d*\.pem$)[^/]*\.pem|sentinel\.db(?:-wal|-shm)?|state\.json|integration-config\.sock)(?:\/|$)|\/proc\/[^/]+\/(?:environ|mem)|\/etc\/(?:vps-sentinel|sentinel-ai)\.env|\/\.ssh\/|\/\.hermes\/|^\/var\/lib\/(?:postgresql|mysql|mariadb|redis|mongodb|docker\/volumes)\b|^\/etc\/(?:ssl\/private|letsencrypt\/accounts|wireguard|openvpn)\b|\/\.(?:kube|aws|docker|config\/gcloud)\/|^\/var\/backups\b|^\/etc\/(?:shadow|gshadow|sudoers)/i;
 
 export const isSensitiveRead = value => SENSITIVE_READ.test(String(value));
 
@@ -315,7 +315,64 @@ export function probeAllowed(argv) {
     if (sub === 'tag' && rest.slice(i + 1).some(a => !a.startsWith('-'))) return { ok: false, reason: 'git_tag_write' };
     return { ok: true };
   }
+
+  if (cmd === 'getent') return ['hosts', 'ahosts', 'ahostsv4', 'ahostsv6'].includes(rest[0]) ? { ok: true } : { ok: false, reason: 'getent_database_not_allowed' };
+  if (cmd === 'crontab') return rest.length === 1 && rest[0] === '-l' ? { ok: true } : { ok: false, reason: 'crontab_only_list' };
+  if (cmd === 'ufw') return rest.length === 1 && rest[0] === 'status' || (rest.length === 2 && rest[0] === 'status' && rest[1] === 'verbose') ? { ok: true } : { ok: false, reason: 'ufw_only_status' };
+  if (cmd === 'iptables' || cmd === 'ip6tables') return rest.length >= 1 && rest.every(a => /^(?:-S|-L|-n|-v|-t|filter|nat|mangle|--line-numbers|[A-Z_]+)$/.test(a)) && (rest.includes('-S') || rest.includes('-L')) ? { ok: true } : { ok: false, reason: 'iptables_only_listing' };
+  if (cmd === 'fail2ban-client') return rest[0] === 'status' && rest.length <= 2 ? { ok: true } : { ok: false, reason: 'fail2ban_only_status' };
+  if (cmd === 'timedatectl') return rest.length === 0 || (rest.length === 1 && rest[0] === 'status') ? { ok: true } : { ok: false, reason: 'timedatectl_only_status' };
+  if (cmd === 'apt') return rest[0] === 'list' ? { ok: true } : { ok: false, reason: 'apt_only_list' };
+  if (cmd === 'dpkg') return ['-l', '-s', '-L', '--list', '--status'].includes(rest[0]) ? { ok: true } : { ok: false, reason: 'dpkg_only_queries' };
+  if (cmd === 'certbot') {
+    if (rest[0] !== 'certificates') return { ok: false, reason: 'certbot_only_certificates' };
+    return rest.slice(1).every((a, i, all) => a === '--cert-name' || a === '-d' || all[i - 1] === '--cert-name' || all[i - 1] === '-d') ? { ok: true } : { ok: false, reason: 'certbot_flag_not_allowed' };
+  }
+  if (cmd === 'openssl') return probeOpenssl(rest);
+  if (cmd === 'curl') return probeCurl(rest);
   return { ok: false, reason: 'command_not_in_probe_allowlist' };
+}
+
+/* Looking at a certificate, or at what a server presents, never writes anything. */
+function probeOpenssl(rest) {
+  const [sub, ...args] = rest;
+  const forbidden = /^-(?:out|keyout|signkey|CA|CAkey|CAcreateserial|set_serial|extfile|key|cert|cert_chain|keylogfile|sess_out|sess_in|proxy|psk|pass|passin|passout|writerand|rand)$/;
+  if (args.some(a => forbidden.test(a))) return { ok: false, reason: 'openssl_flag_not_allowed' };
+  if (sub === 'x509') return args.includes('-noout') && args.includes('-in') ? { ok: true } : { ok: false, reason: 'openssl_x509_needs_noout_and_in' };
+  if (sub === 's_client') {
+    const at = args.indexOf('-connect');
+    return at >= 0 && /^[A-Za-z0-9.-]+:\d{1,5}$/.test(args[at + 1] || '') ? { ok: true } : { ok: false, reason: 'openssl_s_client_needs_connect_host_port' };
+  }
+  return { ok: false, reason: 'openssl_subcommand_not_allowed' };
+}
+
+const CURL_VALUE_FLAGS = new Set(['-m', '--max-time', '--connect-timeout', '-w', '--write-out', '--resolve', '-H', '--header', '--retry']);
+const CURL_ALLOWED = new Set(['-s', '-S', '-sS', '-Ss', '-I', '--head', '-k', '--insecure', '-4', '-6', '-v', '-i', '--include', '-sI', '-sk', '-skI', '-sIk', '-sSI', '-sS']);
+const LOOPBACK = /^(?:127\.\d+\.\d+\.\d+|localhost|\[::1\])$/i;
+const METADATA = /^(?:169\.254\.|metadata\.|fd00:ec2)/i;
+function probeCurl(rest) {
+  let head = false;
+  const urls = [];
+  for (let i = 0; i < rest.length; i += 1) {
+    const a = rest[i];
+    if (CURL_VALUE_FLAGS.has(a)) {
+      if (/^(?:-H|--header)$/.test(a) && /^(?:authorization|cookie|proxy-authorization)\s*:/i.test(rest[i + 1] || '')) return { ok: false, reason: 'curl_credential_header' };
+      i += 1;
+      continue;
+    }
+    if (a.startsWith('-')) {
+      if (!CURL_ALLOWED.has(a)) return { ok: false, reason: 'curl_flag_not_allowed' };
+      if (/^-[A-Za-z]*I[A-Za-z]*$|^--head$/.test(a)) head = true;
+    } else urls.push(a);
+  }
+  if (urls.length !== 1) return { ok: false, reason: 'curl_needs_exactly_one_url' };
+  let url;
+  try { url = new URL(urls[0]); } catch { return { ok: false, reason: 'curl_bad_url' }; }
+  if (!/^https?:$/.test(url.protocol) || url.username || url.password) return { ok: false, reason: 'curl_bad_url' };
+  if (METADATA.test(url.hostname)) return { ok: false, reason: 'curl_metadata_address' };
+  // A GET can have side effects on someone's application; only HEAD may leave the machine.
+  if (!head && !LOOPBACK.test(url.hostname)) return { ok: false, reason: 'curl_get_only_on_loopback' };
+  return { ok: true };
 }
 
 const REDACTIONS = [

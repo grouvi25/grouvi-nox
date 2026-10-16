@@ -3,7 +3,7 @@ import {config} from './config.js';
 
 const socketPath=config.aiBridgeSocket;
 
-export function callAgent(messages, { model = 'glm-5.2', scope = 'vps', timeoutMs = 295_000 } = {}) {
+export function callAgent(messages, { model = 'glm-5.2', scope = 'vps', timeoutMs = 900_000 } = {}) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({ messages, model, scope });
     const req = http.request({ socketPath, path: '/chat', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }, timeout: timeoutMs }, (res) => {
