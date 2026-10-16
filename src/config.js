@@ -9,6 +9,10 @@ export const config = {
   stateDir: env.STATE_DIR || '/var/lib/vps-sentinel',
   adminSocket:env.ADMIN_SOCKET||'/run/vps-sentinel/admin.sock',
   aiBridgeSocket:env.SENTINEL_AI_BRIDGE_SOCKET||'/run/sentinel-ai/bridge.sock',
+  changes: {
+    socket: env.CHANGES_SOCKET || path.join(env.STATE_DIR || '/var/lib/vps-sentinel', 'changes.sock'),
+    proposalsDir: env.NOX_PROPOSALS_DIR || '/var/lib/sentinel-ai/proposals',
+  },
 
   // WebAuthn relying party
   rpID: env.RP_ID || 'vps.grouvi.online',
@@ -49,6 +53,8 @@ export const config = {
     maxSnapshotBytes: num(env.FLEET_MAX_SNAPSHOT_BYTES, 512 * 1024),
     ingestPerMinute: num(env.FLEET_INGEST_PER_MINUTE, 30),
     allowedIps: (env.FLEET_ALLOWED_IPS || '').split(',').map(x => x.trim()).filter(Boolean),
+    // Who may send this node signed change requests. Empty means nobody.
+    controlAllowedIps: (env.FLEET_CONTROL_ALLOWED_IPS || '').split(',').map(x => x.trim()).filter(Boolean),
     nodes: (() => {
       try { return JSON.parse(env.FLEET_NODES_JSON || '{}'); } catch { return {}; }
     })(),

@@ -6,6 +6,9 @@ import { currentSession } from './auth.js';
 import authRoutes from './routes/auth.js';
 import { createApiRouter } from './routes/api.js';
 import { fleetApiRouter, fleetIngestRouter } from './fleet.js';
+import { config } from './config.js';
+import { createControlRouter } from './changes/fleet-link.js';
+import { broker } from './changes/client.js';
 
 const __dirname=path.dirname(fileURLToPath(import.meta.url));
 const publicDir=path.join(__dirname,'..','public');
@@ -13,7 +16,7 @@ export function createApp({sessionResolver=currentSession,apiAuth}={}) {
   const app=express();
   app.disable('x-powered-by');app.disable('etag');app.set('trust proxy',1);
   app.use(securityHeaders);app.use(rateLimit({windowMs:60_000,max:600,name:'global'}));
-  app.use('/fleet-ingest',fleetIngestRouter());app.use(express.json({limit:'32kb'}));
+  app.use('/fleet-ingest',fleetIngestRouter());app.use('/fleet-control',createControlRouter({brokerApi:broker,secrets:()=>[config.fleet.secret].filter(x=>x&&x.length>=32),allowedIps:()=>config.fleet.controlAllowedIps}));app.use(express.json({limit:'32kb'}));
   app.get('/healthz',(req,res)=>res.json({ok:true,uptime:process.uptime()}));
   app.use('/auth',authRoutes);app.use('/api/fleet',fleetApiRouter(apiAuth));app.use('/api',createApiRouter(apiAuth?{authMiddleware:apiAuth}:undefined));
   const sendPage=file=>(req,res)=>{res.set('Cache-Control','no-store');res.sendFile(path.join(publicDir,file))};

@@ -21,6 +21,7 @@ Commands:
   backup [output.tar.gz]   Backup state, configuration and nginx integration
   converge                 Re-apply host prerequisites, migrations and units (idempotent)
   scan-setup               Install ClamAV and rkhunter, refresh signatures, arm the timer
+  changes <sub>            Agent-proposed changes: enable|disable|status|journal|export-approvers|import-approvers|allow-hub
   check-update              Compare installed version with latest GitHub Release
   update-github             Download, checksum and atomically install latest release
   update <bundle> <sha256> Verify a release bundle and perform atomic update
@@ -85,6 +86,9 @@ cmd_doctor(){
   CHECK_NAME='host prerequisite packages (fix: noxctl update-github)'; check base_packages_present
   CHECK_NAME='security scan sandbox'; check systemd-analyze verify /etc/systemd/system/vps-sentinel-security.service
   CHECK_NAME='security scan timer installed'; check systemctl cat vps-sentinel-security.timer
+  CHECK_NAME='change broker active'; check service_active vps-sentinel-changes
+  CHECK_NAME='change broker sandbox'; check systemd-analyze verify /etc/systemd/system/vps-sentinel-changes.service
+  CHECK_NAME='change journal chain intact'; check bash -c "node --input-type=module -e \"import {createJournal} from '$APP_DIR/src/changes/journal.js';process.exit(createJournal('$STATE_DIR/changes/journal.jsonl').verify().ok?0:1)\""
   section 'Runtime'
   CHECK_NAME='local health endpoint'; check wait_http "http://127.0.0.1:${PORT}/healthz" 1 0
   CHECK_NAME='public HTTPS endpoint'; check curl -fsS --max-time 10 "https://${DOMAIN}/login" -o /dev/null
@@ -218,6 +222,21 @@ cmd_converge(){
     info 'Nox Forge units installed'
   fi
   getent group docker >/dev/null && gpasswd -d "$SENTINEL_USER" docker >/dev/null 2>&1 || true
+  section 'Change broker'
+  install -m 644 "$APP_DIR/deploy/vps-sentinel-changes.service" /etc/systemd/system/vps-sentinel-changes.service
+  install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/changes"
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then
+    install -d -m 750 -o sentinel-ai -g "$SENTINEL_USER" /var/lib/sentinel-ai/proposals
+    for helper in nox-propose nox-probe; do
+      printf '#!/usr/bin/env bash\nexec /usr/bin/node %s/bin/%s.js "$@"\n' "$APP_DIR" "$helper" > "/usr/local/bin/$helper"
+      chmod 755 "/usr/local/bin/$helper"
+    done
+    info 'Agent helpers nox-propose and nox-probe installed'
+  fi
+  systemctl daemon-reload
+  systemctl enable vps-sentinel-changes.service >/dev/null 2>&1 || true
+  systemctl restart vps-sentinel-changes.service >/dev/null 2>&1 && ok 'Change broker running' || warn 'Change broker did not start; see: journalctl -u vps-sentinel-changes'
+  [[ -e "$STATE_DIR/changes/ENABLED" ]] && info 'Agent-proposed changes: ENABLED' || info 'Agent-proposed changes: disabled (noxctl changes enable)'
   systemctl daemon-reload
   schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
   if [[ $schedule == enabled ]]; then systemctl enable --now vps-sentinel-security.timer >/dev/null 2>&1 || true; ok 'Security scan timer armed'
@@ -378,7 +397,8 @@ cmd_uninstall(){
   require_root; load_install_config
   local purge=0; [[ ${1:-} == --purge ]] && purge=1
   confirm "Remove Grouvi Nox from this server?" || die 'Cancelled.'
-  systemctl disable --now "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE" >/dev/null 2>&1 || true
+  systemctl disable --now "$SENTINEL_SERVICE" "$SENTINEL_AGENT_SERVICE" vps-sentinel-changes >/dev/null 2>&1 || true
+  rm -f /etc/systemd/system/vps-sentinel-changes.service /usr/local/bin/nox-propose /usr/local/bin/nox-probe
   rm -f "/etc/systemd/system/${SENTINEL_SERVICE}.service" "/etc/systemd/system/${SENTINEL_AGENT_SERVICE}.service"
   rm -f /etc/nginx/sites-enabled/vps-sentinel /etc/nginx/sites-available/vps-sentinel
   rm -f /etc/nginx/conf.d/vps-sentinel-cloudflare-geo.conf /etc/nginx/conf.d/vps-sentinel-http.conf
@@ -390,6 +410,45 @@ cmd_uninstall(){
   if ((purge)); then rm -rf "${STATE_DIR:?}" /var/lib/sentinel-ai /opt/sentinel-ai; rm -f "$SENTINEL_CONFIG" "$SENTINEL_INSTALL_CONFIG" /etc/sentinel-ai.env; apt-get remove --purge -y clamav clamav-base clamav-freshclam rkhunter >/dev/null 2>&1 || true; apt-get autoremove --purge -y >/dev/null 2>&1 || true; rm -rf /var/lib/clamav /var/lib/rkhunter /var/log/clamav /var/log/rkhunter.log* /etc/clamav; userdel sentinel-ai 2>/dev/null || true; userdel "$SENTINEL_USER" 2>/dev/null || true; fi
   systemctl daemon-reload
   if ((purge)); then ok 'Uninstalled; application data purged.'; else ok "Uninstalled; data kept in $STATE_DIR."; fi
+}
+
+cmd_changes(){
+  require_root; load_install_config
+  local sub=${1:-status} dir="$STATE_DIR/changes"
+  shift || true
+  case $sub in
+    enable)
+      node -e "const fs=require('fs');let n=0;try{n=(JSON.parse(fs.readFileSync('$STATE_DIR/state.json','utf8')).credentials||[]).length}catch{};process.exit(n||fs.existsSync('$dir/approvers.json')?0:1)" \
+        || die 'Enroll a passkey first (noxctl enroll): every change is approved with one.'
+      systemctl is-active --quiet vps-sentinel-changes || systemctl start vps-sentinel-changes || die 'Change broker did not start; run: noxctl converge'
+      install -m 640 -o root -g "$SENTINEL_USER" /dev/null "$dir/ENABLED"
+      ok 'Agent-proposed changes are ENABLED. Nothing runs without your passkey.' ;;
+    disable) rm -f "$dir/ENABLED"; ok 'Agent-proposed changes are DISABLED.' ;;
+    status)
+      section 'Agent-proposed changes'
+      [[ -e $dir/ENABLED ]] && ok 'enabled' || warn 'disabled'
+      systemctl is-active --quiet vps-sentinel-changes && ok 'broker: active' || warn 'broker: not running'
+      [[ -s $dir/approvers.json ]] && info 'approvals are verified against imported approvers (fleet node)'
+      node --input-type=module -e "import {createJournal} from '$APP_DIR/src/changes/journal.js';const j=createJournal('$dir/journal.jsonl'),v=j.verify();console.log('  journal: '+(v.ok?v.entries+' entries, chain intact':'CHAIN BROKEN at entry '+v.brokenAt+' ('+v.reason+')'));for(const r of j.read().slice(-5))console.log('  '+new Date(r.ts).toISOString()+'  '+r.event+'  '+(r.title||r.changeId||r.reason||''))" ;;
+    journal)
+      node --input-type=module -e "import {createJournal} from '$APP_DIR/src/changes/journal.js';const j=createJournal('$dir/journal.jsonl');for(const r of j.read().slice(-Number(process.argv[1]||50)))console.log(JSON.stringify(r))" "${1:-50}" ;;
+    export-approvers)
+      RP_ID=$(grep -m1 '^RP_ID=' "$SENTINEL_CONFIG" | cut -d= -f2-) ORIGIN=$(grep -m1 '^ORIGIN=' "$SENTINEL_CONFIG" | cut -d= -f2-) \n      node -e "const d=JSON.parse(require('fs').readFileSync('$STATE_DIR/state.json','utf8'));console.log(JSON.stringify({schema:1,rpID:process.env.RP_ID,origin:process.env.ORIGIN,credentials:(d.credentials||[]).map(c=>({id:c.id,publicKey:c.publicKey,counter:c.counter||0,transports:c.transports||[],label:c.label}))},null,2))" ;;
+    allow-hub)
+      [[ ${1:-} =~ ^[0-9a-fA-F:.]+$ ]] || die 'Usage: noxctl changes allow-hub <hub-ip>   (the address this node sees the hub connect from)'
+      if grep -q '^FLEET_CONTROL_ALLOWED_IPS=' "$SENTINEL_CONFIG"; then sed -i "s/^FLEET_CONTROL_ALLOWED_IPS=.*/FLEET_CONTROL_ALLOWED_IPS=$1/" "$SENTINEL_CONFIG"; else printf 'FLEET_CONTROL_ALLOWED_IPS=%s\n' "$1" >> "$SENTINEL_CONFIG"; fi
+      chmod 600 "$SENTINEL_CONFIG"; systemctl restart "$SENTINEL_SERVICE"
+      ok "This node now accepts signed change requests from $1." ;;
+    import-approvers)
+      local tmp; tmp=$(mktemp)
+      cat > "$tmp"
+      node -e "const d=JSON.parse(require('fs').readFileSync('$tmp','utf8'));if(d.schema!==1||!/^[a-z0-9.-]+$/i.test(d.rpID)||!/^https:\/\//.test(d.origin)||!Array.isArray(d.credentials)||!d.credentials.length||d.credentials.some(c=>!c.id||!c.publicKey))process.exit(1)" \
+        || { rm -f "$tmp"; die 'Invalid approvers file (expected output of: noxctl changes export-approvers).'; }
+      install -m 640 -o root -g "$SENTINEL_USER" "$tmp" "$dir/approvers.json"; rm -f "$tmp"
+      systemctl restart vps-sentinel-changes
+      ok 'Approvers imported. This host now accepts approvals signed by those passkeys.' ;;
+    *) die 'Usage: noxctl changes enable|disable|status|journal [n]|export-approvers|import-approvers|allow-hub <ip>' ;;
+  esac
 }
 
 cmd_logs(){
@@ -405,7 +464,7 @@ cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_
 command=${1:-}; shift || true
 case "$command" in
   status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
-  backup) cmd_backup "$@";; converge) cmd_converge "$@";; scan-setup) cmd_scan_setup "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  backup) cmd_backup "$@";; converge) cmd_converge "$@";; scan-setup) cmd_scan_setup "$@";; changes) cmd_changes "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
   update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
   logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
 esac

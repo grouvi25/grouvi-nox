@@ -12,7 +12,8 @@
     "on-demand-update-checks",
     "scanner-engine-visibility",
     "converged-host-prerequisites",
-    "self-applying-migrations"
+    "self-applying-migrations",
+    "agent-proposed-changes"
   ],
   "supported": {
     "os": [
