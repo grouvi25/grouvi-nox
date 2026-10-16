@@ -244,7 +244,12 @@ cmd_converge(){
   fi
   systemctl daemon-reload
   systemctl enable vps-sentinel-changes.service >/dev/null 2>&1 || true
-  systemctl restart vps-sentinel-changes.service >/dev/null 2>&1 && ok 'Change broker running' || warn 'Change broker did not start; see: journalctl -u vps-sentinel-changes'
+  # A restart mid-change would leave it half applied. If one is running, leave the old broker up.
+  if curl -fsS --max-time 3 --unix-socket "$STATE_DIR/changes.sock" http://broker/health 2>/dev/null | grep -q '"busy":"'; then
+    warn 'A change is being applied; the change broker was not restarted. Run: systemctl restart vps-sentinel-changes'
+  else
+    systemctl restart vps-sentinel-changes.service >/dev/null 2>&1 && ok 'Change broker running' || warn 'Change broker did not start; see: journalctl -u vps-sentinel-changes'
+  fi
   [[ -e "$STATE_DIR/changes/ENABLED" ]] && info 'Agent-proposed changes: ENABLED' || info 'Agent-proposed changes: disabled (noxctl changes enable)'
   systemctl daemon-reload
   schedule=$(node -e "let p={};try{p=require('$STATE_DIR/security-scan-policy.json')}catch{};process.stdout.write(p.enabled!==false&&p.frequency!=='manual'?'enabled':'disabled')")
@@ -368,6 +373,9 @@ cmd_update(){
   "$APP_DIR/bin/noxctl" converge || warn 'Convergence incomplete; run `noxctl doctor` and `noxctl converge`.'
   update_progress restarting 'Перезапускаю службы Grouvi Nox'
   systemctl daemon-reload; systemctl restart "$SENTINEL_AGENT_SERVICE" "$SENTINEL_SERVICE"
+  # The Forge bridge executes a file from this bundle. Without a restart it keeps running the
+  # previous release's code until someone restarts it by hand, whatever the version says.
+  if [[ ${INSTALL_FORGE:-0} == 1 ]]; then systemctl restart sentinel-ai-context.service sentinel-ai-bridge.service || warn 'Nox Forge bridge did not restart; run: systemctl restart sentinel-ai-bridge'; fi
   update_progress healthcheck 'Проверяю новую версию и подключение'
   if ! wait_http "http://127.0.0.1:${PORT}/healthz" 30 2; then
     update_progress rollback 'Health-check не пройден, возвращаю прошлую версию'
