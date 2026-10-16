@@ -117,7 +117,7 @@ function chooseForge(type, value) {
 }
 async function loadForgeProjects() {
   try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects;if(Array.isArray(data.models)&&data.models.length)forgeModels=data.models.map(id=>({id,name:id,detail:'Настроено установщиком'})); } catch { /* keep VPS context */ }
-  if(!forgeProjects.some(x=>x.id===forgeScope))forgeScope='vps';if(!forgeModels.some(x=>x.id===forgeModel))forgeModel=forgeModels[0].id;renderForgeMenus();
+  if(!forgeProjects.some(x=>x.id===forgeScope))forgeScope='vps';if(!forgeModels.some(x=>x.id===forgeModel))forgeModel=forgeModels[0]?.id||"";renderForgeMenus();
 }
 
 
