@@ -249,6 +249,11 @@ test('file changes are validated before they are kept', async () => {
   assert.equal(fs.readFileSync(target, 'utf8'), 'listen 8080;\n');
   assert.equal((await executor.rollback(applied.changeId, {})).rollbackOk, true);
   assert.equal(fs.readFileSync(target, 'utf8'), 'listen 80;\n');
+
+  const fresh = posix(path.join(dir, 'new.conf'));
+  const created = { ...proposalBase({ id: 'prop-0005-test' }), kind: 'file', file: { path: fresh, content: 'x\n' } };
+  assert.equal((await executor.apply(created, approve(created))).status, 'applied');
+  if (process.platform !== 'win32') assert.equal(fs.statSync(fresh).mode & 0o777, 0o644, 'a new file is readable by the programs that will use it');
 });
 
 test('commands report failures and honour a declared undo', async () => {
@@ -479,4 +484,41 @@ test('a change left running by a dead broker is reported as interrupted, not run
   assert.equal(executor.get('20261017T100000Z-deadbeef').status, 'interrupted');
   assert.equal(executor.get('20261017T100000Z-deadbeef').canRollback, false);
   assert.deepEqual(journal.read().map(r => r.event), ['apply_interrupted']);
+});
+
+/* ------------------------------ proposals --------------------------- */
+
+import { createProposalStore } from '../../src/changes/proposals.js';
+
+test('the broker receives proposals itself: it picks the id, validates, caps and refuses when off', async () => {
+  const key = authenticator();
+  const h = harness();
+  const store = createProposalStore({ dir: path.join(h.dir, 'proposals') });
+  const gate = createApprovalGate({ loadCredentials: () => [key.credential], rpID: RP, origin: ORIGIN });
+  let on = true;
+  const broker = createBroker({ enabled: () => on, gate, executor: h.executor, journal: h.journal, sensitiveRead: isSensitiveRead, proposals: store });
+  const server = http.createServer(broker.probe);
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const send = (body, route = '/propose') => fetch(`http://127.0.0.1:${server.address().port}${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(async r => ({ status: r.status, body: await r.json() }));
+  try {
+    const good = await send({ proposal: { kind: 'command', title: 'Restart api', why: 'hung', id: 'p-00000000000000-aaaaaa', command: { script: 'docker restart api' } } });
+    assert.equal(good.status, 200);
+    assert.match(good.body.id, /^p-[0-9]{14}-[0-9a-f]{6}$/);
+    assert.notEqual(good.body.id, 'p-00000000000000-aaaaaa', 'the agent cannot choose or overwrite an id');
+    assert.equal(good.body.tier, 'routine');
+    const saved = JSON.parse(fs.readFileSync(path.join(store.dir, `${good.body.id}.json`), 'utf8'));
+    assert.equal(saved.command.script, 'docker restart api');
+
+    const evil = await send({ proposal: { kind: 'patch', title: 'x', patch: { projectPath: '/srv/app', diff: 'diff --git a/../../etc/passwd b/../../etc/passwd\n--- a/../../etc/passwd\n+++ b/../../etc/passwd\n@@ -1 +1 @@\n-a\n+b\n' } } });
+    assert.equal(evil.status, 400);
+    assert.equal(store.count(), 1, 'a rejected proposal leaves nothing behind');
+
+    for (let i = 0; i < 39; i += 1) await send({ proposal: { kind: 'command', title: `t${i}`, command: { script: 'true' } } });
+    assert.equal((await send({ proposal: { kind: 'command', title: 'one too many', command: { script: 'true' } } })).status, 429);
+
+    on = false;
+    assert.equal((await send({ proposal: { kind: 'command', title: 'x', command: { script: 'true' } } })).status, 503);
+    assert.ok(h.journal.read().some(r => r.event === 'proposal_received'));
+    assert.equal(h.journal.verify().ok, true);
+  } finally { server.close(); }
 });

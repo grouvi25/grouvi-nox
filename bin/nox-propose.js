@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
+import http from 'node:http';
 import { execFileSync } from 'node:child_process';
-import { normalizeProposal, classifyProposal } from '../src/changes/policy.js';
 
 /**
  * How the agent asks for a change. It never applies anything itself.
@@ -18,9 +17,7 @@ import { normalizeProposal, classifyProposal } from '../src/changes/policy.js';
  */
 
 const AI_STATE = process.env.SENTINEL_AI_STATE_DIR || '/var/lib/sentinel-ai';
-const OUT_DIR = process.env.NOX_PROPOSALS_DIR || path.join(AI_STATE, 'proposals');
-const MAX_PENDING = 40;
-const MAX_AGE_MS = 24 * 3600_000;
+const SOCKET = process.env.CHANGES_PROBE_SOCKET || path.join(AI_STATE, 'probe.sock');
 
 function parse(argv) {
   const [kind, ...rest] = argv;
@@ -81,23 +78,30 @@ function build(kind, opts) {
   throw new Error('usage: nox-propose patch|file|command --title T --why W …');
 }
 
-function prune() {
-  const entries = fs.readdirSync(OUT_DIR).filter(n => n.endsWith('.json')).map(n => ({ n, t: fs.statSync(path.join(OUT_DIR, n)).mtimeMs })).sort((a, b) => a.t - b.t);
-  for (const { n, t } of entries) if (Date.now() - t > MAX_AGE_MS) fs.rmSync(path.join(OUT_DIR, n), { force: true });
-  const left = fs.readdirSync(OUT_DIR).filter(n => n.endsWith('.json'));
-  if (left.length >= MAX_PENDING) throw new Error(`too many pending proposals (${left.length}); wait for the operator to review them`);
+function submit(proposal) {
+  const payload = JSON.stringify({ proposal });
+  return new Promise((resolve, reject) => {
+    const req = http.request({ socketPath: SOCKET, path: '/propose', method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }, timeout: 30_000 }, res => {
+      let raw = '';
+      res.on('data', c => { raw += c; });
+      res.on('end', () => {
+        let data = {};
+        try { data = JSON.parse(raw); } catch { /* handled below */ }
+        if (res.statusCode !== 200) return reject(new Error(String(data.error || `broker answered ${res.statusCode}`).replace(/[\u0000-\u001F\u007F]+/g, ' ').slice(0, 200)));
+        return resolve(data);
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', error => reject(new Error(error.code === 'ENOENT' || error.code === 'ECONNREFUSED' ? 'broker not running' : error.message)));
+    req.end(payload);
+  });
 }
 
 try {
   const { kind, opts } = parse(process.argv.slice(2));
   if (!opts.title) throw new Error('--title is required');
-  fs.mkdirSync(OUT_DIR, { recursive: true, mode: 0o750 });
-  prune();
-  const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
-  const proposal = normalizeProposal({ ...build(kind, opts), id: `p-${stamp}-${crypto.randomBytes(3).toString('hex')}` });
-  const verdict = classifyProposal(proposal);
-  fs.writeFileSync(path.join(OUT_DIR, `${proposal.id}.json`), JSON.stringify(proposal, null, 2), { mode: 0o640 });
-  console.log(`Proposal ${proposal.id} is waiting for the operator's approval in the dashboard (${verdict.tier}${verdict.reasons.length ? `: ${verdict.reasons.join(', ')}` : ''}).`);
+  const saved = await submit(build(kind, opts));
+  console.log(`Proposal ${saved.id} is waiting for the operator's approval in the dashboard (${saved.tier}${saved.reasons?.length ? `: ${saved.reasons.join(', ')}` : ''}).`);
   console.log('You cannot apply it yourself. Tell the operator what it does and why, then stop.');
 } catch (error) {
   console.error(`nox-propose: ${error.message}`);

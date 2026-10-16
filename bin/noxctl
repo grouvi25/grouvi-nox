@@ -226,7 +226,9 @@ cmd_converge(){
   install -m 644 "$APP_DIR/deploy/vps-sentinel-changes.service" /etc/systemd/system/vps-sentinel-changes.service
   install -d -m 750 -o root -g "$SENTINEL_USER" "$STATE_DIR/changes"
   if [[ ${INSTALL_FORGE:-0} == 1 ]]; then
-    install -d -m 750 -o sentinel-ai -g "$SENTINEL_USER" /var/lib/sentinel-ai/proposals
+    # Proposals are received by the broker now; drop the shared directory older releases created.
+    rm -rf /var/lib/sentinel-ai/proposals
+    setfacl -x u:"$SENTINEL_USER" /var/lib/sentinel-ai >/dev/null 2>&1 || true
     for helper in nox-propose nox-probe; do
       printf '#!/usr/bin/env bash\nexec /usr/bin/node %s/bin/%s.js "$@"\n' "$APP_DIR" "$helper" > "/usr/local/bin/$helper"
       chmod 755 "/usr/local/bin/$helper"

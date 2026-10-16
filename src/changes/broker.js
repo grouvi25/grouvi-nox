@@ -59,7 +59,7 @@ export function probeArgsSafe(argv, sensitive) {
   return true;
 }
 
-export function createBroker({ enabled, gate, executor, journal, notify = () => {}, sensitiveRead, hostLabel = 'host', runProbe = defaultRunProbe, relayProbe = null, now = Date.now }) {
+export function createBroker({ enabled, gate, executor, journal, notify = () => {}, sensitiveRead, hostLabel = 'host', runProbe = defaultRunProbe, relayProbe = null, proposals = null, now = Date.now }) {
   const failures = [];
 
   const recordFailure = reason => {
@@ -156,9 +156,16 @@ export function createBroker({ enabled, gate, executor, journal, notify = () => 
   async function probe(req, res) {
     try {
       if (req.method === 'GET' && req.url === '/health') return json(res, 200, { ok: true, enabled: enabled() });
-      if (req.method !== 'POST' || req.url !== '/probe') return json(res, 404, { error: 'not_found' });
+      if (req.method !== 'POST' || !['/probe', '/propose'].includes(req.url)) return json(res, 404, { error: 'not_found' });
       if (!enabled()) return json(res, 503, { error: 'changes_disabled' });
       const body = await readBody(req);
+      if (req.url === '/propose') {
+        if (!proposals) return json(res, 501, { error: 'proposals_not_configured' });
+        let saved;
+        try { saved = proposals.save(body.proposal); } catch (error) { return json(res, error.status || 400, { error: error.message || 'bad_proposal' }); }
+        journal.append({ event: 'proposal_received', proposalId: saved.id, tier: saved.tier });
+        return json(res, 200, saved);
+      }
       const answer = await probeRequest(body, { allowRelay: true });
       return json(res, answer.status, answer.payload);
     } catch (error) {

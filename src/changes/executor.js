@@ -245,6 +245,7 @@ export function createExecutor({ changesDir, journal, notify = () => {}, sleep =
     const before = existed ? sha256(fs.readFileSync(target)) : null;
     const temp = path.join(path.dirname(target), `.nox-${record.changeId.slice(-8)}.tmp`);
     fs.writeFileSync(temp, p.file.content, { mode });
+    fs.chmodSync(temp, mode);
     chownTo(temp, owner);
     fs.renameSync(temp, target);
     record.rollbackData = { target, existed, before, after: sha256(Buffer.from(p.file.content)) };
