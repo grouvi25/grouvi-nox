@@ -137,3 +137,19 @@ Nodes keep their own journal and send their own Telegram messages.
 | `src/routes/api/changes.js`, `public/js/changes.js` | dashboard side |
 | `bin/nox-propose.js`, `bin/nox-probe.js` | the agent's tools |
 | `/var/lib/vps-sentinel/changes/` | journal, per-change snapshots, `proposals/`, `ENABLED`, `approvers.json` |
+
+## Choosing the model
+
+Nox Forge uses an ordered list of models from your gateway. Do not guess names:
+let the gateway say which ones work.
+
+```bash
+noxctl ai-models                 # test every chat model with real tool calls, report only
+noxctl ai-models --apply         # write the working ones, best first, and restart the bridge
+noxctl ai-models --models a,b    # test only these
+noxctl ai-models --prefer-free   # let free models lead (they are the ones that vanish for a minute)
+```
+
+The order lives in `SENTINEL_AI_MODELS` in `/etc/sentinel-ai.env`; if one model
+fails the bridge tries the next, and a provider error printed as an answer is
+treated as a failure. When every model fails, the message names each one.
