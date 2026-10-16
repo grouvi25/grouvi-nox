@@ -435,7 +435,8 @@ cmd_changes(){
     journal)
       node --input-type=module -e "import {createJournal} from '$APP_DIR/src/changes/journal.js';const j=createJournal('$dir/journal.jsonl');for(const r of j.read().slice(-Number(process.argv[1]||50)))console.log(JSON.stringify(r))" "${1:-50}" ;;
     export-approvers)
-      RP_ID=$(grep -m1 '^RP_ID=' "$SENTINEL_CONFIG" | cut -d= -f2-) ORIGIN=$(grep -m1 '^ORIGIN=' "$SENTINEL_CONFIG" | cut -d= -f2-) \n      node -e "const d=JSON.parse(require('fs').readFileSync('$STATE_DIR/state.json','utf8'));console.log(JSON.stringify({schema:1,rpID:process.env.RP_ID,origin:process.env.ORIGIN,credentials:(d.credentials||[]).map(c=>({id:c.id,publicKey:c.publicKey,counter:c.counter||0,transports:c.transports||[],label:c.label}))},null,2))" ;;
+      RP_ID=$(grep -m1 '^RP_ID=' "$SENTINEL_CONFIG" | cut -d= -f2-) ORIGIN=$(grep -m1 '^ORIGIN=' "$SENTINEL_CONFIG" | cut -d= -f2-) \
+      node -e "const d=JSON.parse(require('fs').readFileSync('$STATE_DIR/state.json','utf8'));console.log(JSON.stringify({schema:1,rpID:process.env.RP_ID,origin:process.env.ORIGIN,credentials:(d.credentials||[]).map(c=>({id:c.id,publicKey:c.publicKey,counter:c.counter||0,transports:c.transports||[],label:c.label}))},null,2))" ;;
     allow-hub)
       [[ ${1:-} =~ ^[0-9a-fA-F:.]+$ ]] || die 'Usage: noxctl changes allow-hub <hub-ip>   (the address this node sees the hub connect from)'
       if grep -q '^FLEET_CONTROL_ALLOWED_IPS=' "$SENTINEL_CONFIG"; then sed -i "s/^FLEET_CONTROL_ALLOWED_IPS=.*/FLEET_CONTROL_ALLOWED_IPS=$1/" "$SENTINEL_CONFIG"; else printf 'FLEET_CONTROL_ALLOWED_IPS=%s\n' "$1" >> "$SENTINEL_CONFIG"; fi
