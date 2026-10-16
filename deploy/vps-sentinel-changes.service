@@ -15,7 +15,9 @@ ExecStart=/usr/bin/node /opt/vps-sentinel/bin/change-broker.js
 Restart=on-failure
 RestartSec=3
 SyslogIdentifier=vps-sentinel-changes
-UMask=0027
+# Approved changes create files for other programs to use: they get the ordinary
+# 022 umask. Everything the broker itself keeps sets its own restrictive modes.
+UMask=0022
 
 # Root by design: restarting containers and editing configs needs it. The
 # broker is inert until `noxctl changes enable`, answers only to an owner-only

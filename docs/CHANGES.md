@@ -15,8 +15,10 @@ noxctl changes enable
 ## How a change travels
 
 ```
-Hermes (user sentinel-ai) ── nox-propose ──► /var/lib/sentinel-ai/proposals/*.json
-        │ nox-probe (read only) ──► probe socket ─► broker (root)
+Hermes (user sentinel-ai) ── nox-propose / nox-probe ──► agent socket ──► broker (root)
+        │                                                  │ validates, assigns the id
+        │                                                  ▼
+        │                          /var/lib/vps-sentinel/changes/proposals/*.json (root-written)
         ▼
 Dashboard ── lists proposals, shows the exact diff/command ──► you tap your passkey
         │  challenge = sha256(purpose, proposal hash, one-time nonce)
@@ -27,7 +29,7 @@ change broker (root, vps-sentinel-changes) ── verifies the signature ITSELF 
 journal (hash chain) + Telegram copy
 ```
 
-* **Proposals** are produced by `nox-propose`. For a `patch` the diff is generated
+* **Proposals** are produced by `nox-propose` and handed to the broker, which validates them and stores them where only root can write. The agent never writes into anything the dashboard trusts. For a `patch` the diff is generated
   from the agent's own checkout by git, so what you review is what git says
   changed. Kinds: `patch` (project files), `file` (replace one file, with an
   optional validate command such as `nginx -t`), `command` (anything, including
@@ -134,4 +136,4 @@ Nodes keep their own journal and send their own Telegram messages.
 | `src/changes/fleet-link.js` | signed hub → node channel |
 | `src/routes/api/changes.js`, `public/js/changes.js` | dashboard side |
 | `bin/nox-propose.js`, `bin/nox-probe.js` | the agent's tools |
-| `/var/lib/vps-sentinel/changes/` | journal, per-change snapshots, `ENABLED`, `approvers.json` |
+| `/var/lib/vps-sentinel/changes/` | journal, per-change snapshots, `proposals/`, `ENABLED`, `approvers.json` |

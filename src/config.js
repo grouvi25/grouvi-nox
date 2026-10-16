@@ -11,7 +11,7 @@ export const config = {
   aiBridgeSocket:env.SENTINEL_AI_BRIDGE_SOCKET||'/run/sentinel-ai/bridge.sock',
   changes: {
     socket: env.CHANGES_SOCKET || path.join(env.STATE_DIR || '/var/lib/vps-sentinel', 'changes.sock'),
-    proposalsDir: env.NOX_PROPOSALS_DIR || '/var/lib/sentinel-ai/proposals',
+    proposalsDir: env.NOX_PROPOSALS_DIR || path.join(env.STATE_DIR || '/var/lib/vps-sentinel', 'changes', 'proposals'),
   },
 
   // WebAuthn relying party

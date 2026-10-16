@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { config } from '../src/config.js';
 import { createJournal } from '../src/changes/journal.js';
 import { createExecutor } from '../src/changes/executor.js';
+import { createProposalStore } from '../src/changes/proposals.js';
 import { createApprovalGate } from '../src/changes/approval.js';
 import Database from 'better-sqlite3';
 import { createBroker, sensitiveReadMatcher } from '../src/changes/broker.js';
@@ -83,7 +84,8 @@ const relayProbe = (node, { argv, timeoutSec }) => fleetClient.call(node, 'POST'
 const journal = createJournal(path.join(changesDir, 'journal.jsonl'));
 const executor = createExecutor({ changesDir, journal, notify });
 const gate = createApprovalGate({ loadCredentials, rpID: () => approvers()?.rpID || config.rpID, origin: () => approvers()?.origin || config.origin });
-const broker = createBroker({ enabled, gate, executor, journal, notify, sensitiveRead: sensitiveReadMatcher, hostLabel: config.hostLabel, relayProbe });
+const proposals = createProposalStore({ dir: path.join(changesDir, 'proposals'), chownGid: gidOf(webUser) });
+const broker = createBroker({ enabled, gate, executor, journal, notify, sensitiveRead: sensitiveReadMatcher, hostLabel: config.hostLabel, relayProbe, proposals });
 
 function listen(handler, socketPath, owner, group) {
   fs.mkdirSync(path.dirname(socketPath), { recursive: true });
