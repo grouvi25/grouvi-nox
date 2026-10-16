@@ -9,7 +9,7 @@ import { integrationStatus } from '../../integration-client.js';
 const router=express.Router();
 
 function forgeProjects(){const graph=buildProjectGraph(resolvedDiscovery());return[{id:'vps',name:'Весь VPS',detail:'Система и обнаруженные сервисы',path:null},...graph.projects.filter(project=>project.path&&project.components.length).map(project=>({id:project.id,name:project.name,detail:`${project.health.runtimeCount} runtime · ${project.components.length} components`,path:project.path}))]}
-router.get('/agent/projects',async(req,res)=>{let models=['Qwen3.6-35B-A3B','DeepSeek-V4-Pro'];try{models=(await integrationStatus()).ai?.models||models}catch{}res.set('Cache-Control','no-store');res.json({projects:forgeProjects(),models,discoveryManaged:true})});
+router.get('/agent/projects',async(req,res)=>{let models=[];try{models=(await integrationStatus()).ai?.models||models}catch{}res.set('Cache-Control','no-store');res.json({projects:forgeProjects(),models,discoveryManaged:true})});
 
 const agentJobs = new Map();
 setInterval(() => {
@@ -20,7 +20,7 @@ setInterval(() => {
 router.post('/agent/chat', requireSameOrigin, agentLimit, async (req, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
   if (!messages.length) return res.status(400).json({ error: 'bad_messages' });
-  let configuredModels=['Qwen3.6-35B-A3B','DeepSeek-V4-Pro'];try{configuredModels=(await integrationStatus()).ai?.models||configuredModels}catch{}
+  let configuredModels=[];try{configuredModels=(await integrationStatus()).ai?.models||configuredModels}catch{}
   const allowedModels = new Set(configuredModels);
   const allowedScopes=new Set(forgeProjects().map(project=>project.id));
   const model = allowedModels.has(String(req.body?.model)) ? String(req.body.model) : configuredModels[0];
@@ -31,7 +31,7 @@ router.post('/agent/chat', requireSameOrigin, agentLimit, async (req, res) => {
   callAgent(messages, { model, scope }).then((answer) => {
     Object.assign(job, { status: 'done', answer, completedAt: Date.now() });
   }).catch((e) => {
-    Object.assign(job, { status: 'error', error: e.status === 409 ? 'agent_busy' : e.message === 'agent_timeout' ? 'agent_timeout' : 'agent_failed', completedAt: Date.now() });
+    Object.assign(job, { status: 'error', error: e.status === 409 ? 'agent_busy' : e.message === 'agent_timeout' ? 'agent_timeout' : /^all_models_failed/.test(e.message) ? e.message.replace(/[\u0000-\u001F\u007F]+/g, ' ').slice(0, 500) : 'agent_failed', completedAt: Date.now() });
   });
   res.set('Cache-Control', 'no-store');
   return res.status(202).json({ jobId: id, status: 'running', model, scope });

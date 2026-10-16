@@ -21,6 +21,7 @@ Commands:
   backup [output.tar.gz]   Backup state, configuration and nginx integration
   converge                 Re-apply host prerequisites, migrations and units (idempotent)
   scan-setup               Install ClamAV and rkhunter, refresh signatures, arm the timer
+  ai-models [--apply]      Test the gateway's models with real tool calls and pick the working ones
   changes <sub>            Agent-proposed changes: enable|disable|status|journal|export-approvers|import-approvers|allow-hub
   check-update              Compare installed version with latest GitHub Release
   update-github             Download, checksum and atomically install latest release
@@ -454,6 +455,11 @@ cmd_changes(){
   esac
 }
 
+cmd_ai_models(){
+  require_root; load_install_config
+  node "$APP_DIR/bin/ai-models.js" "$@"
+}
+
 cmd_logs(){
   case ${1:-web} in
     web) journalctl -u "$SENTINEL_SERVICE" -f -n 100 ;;
@@ -467,7 +473,7 @@ cmd_version(){ node -p "require('$APP_DIR/package.json').version"; git -C "$APP_
 command=${1:-}; shift || true
 case "$command" in
   status) cmd_status "$@";; doctor) cmd_doctor "$@";; enroll) cmd_enroll "$@";; recovery) cmd_recovery "$@";;
-  backup) cmd_backup "$@";; converge) cmd_converge "$@";; scan-setup) cmd_scan_setup "$@";; changes) cmd_changes "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
+  backup) cmd_backup "$@";; converge) cmd_converge "$@";; scan-setup) cmd_scan_setup "$@";; changes) cmd_changes "$@";; ai-models) cmd_ai_models "$@";; check-update) cmd_check_update "$@";; update-github) cmd_update_github "$@";;
   update) cmd_update "$@";; restore) cmd_restore "$@";; uninstall) cmd_uninstall "$@";;
   logs) cmd_logs "$@";; version) cmd_version;; help|-h|--help|'') usage;; *) usage; die "Unknown command: $command";;
 esac

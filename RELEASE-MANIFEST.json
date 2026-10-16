@@ -13,7 +13,8 @@
     "scanner-engine-visibility",
     "converged-host-prerequisites",
     "self-applying-migrations",
-    "agent-proposed-changes"
+    "agent-proposed-changes",
+    "ai-model-selection"
   ],
   "supported": {
     "os": [

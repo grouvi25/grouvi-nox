@@ -9,14 +9,11 @@ const FORGE_CHATS_KEY='sentinelForgeChats:v1';
 let forgeChatId=crypto.randomUUID?.()||String(Date.now());
 let forgeChatStarted=Date.now();
 let forgeBusy = false;
-let forgeModel = localStorage.getItem('forgeModel') || 'Qwen3.6-35B-A3B';
+let forgeModel = localStorage.getItem('forgeModel') || '';
 
 let forgeScope = localStorage.getItem('forgeScope') || 'vps';
 let forgeProjects = [{ id:'vps', name:'Весь VPS', detail:'Система и все сервисы' }];
-let forgeModels = [
-  { id:'DeepSeek-V4-Pro', name:'DeepSeek V4 Pro', detail:'Проверен с полным набором инструментов' },
-  { id:'Qwen3.6-35B-A3B', name:'Qwen 3.6', detail:'Проверен с полным набором инструментов' },
-];
+let forgeModels = [];
 
 function readForgeChats(){try{const value=JSON.parse(localStorage.getItem(FORGE_CHATS_KEY)||'[]');return Array.isArray(value)?value.slice(0,20):[]}catch{return []}}
 function forgeChatTitle(messages){const first=messages.find(x=>x.role==='user')?.content||'Новый чат';return first.replace(/\s+/g,' ').trim().slice(0,54)}
@@ -108,7 +105,7 @@ function renderForgeMenus() {
   $('forgeScopeMenu').innerHTML = menuMarkup(forgeProjects, forgeScope, 'scope');
   $('forgeModelMenu').innerHTML = menuMarkup(forgeModels, forgeModel, 'model');
   $('forgeScopeLabel').textContent = forgeProjects.find(x=>x.id===forgeScope)?.name || 'Весь VPS';
-  $('forgeModelLabel').textContent = forgeModels.find(x=>x.id===forgeModel)?.name || 'GLM 5.2';
+  $('forgeModelLabel').textContent = forgeModels.find(x=>x.id===forgeModel)?.name || 'Модель';
 }
 function toggleForgeMenu(name) {
   const menu=$(name==='scope'?'forgeScopeMenu':'forgeModelMenu'); const trigger=$(name==='scope'?'forgeScopeTrigger':'forgeModelTrigger'); const opening=!menu.classList.contains('open');
