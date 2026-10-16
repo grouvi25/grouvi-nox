@@ -6,6 +6,7 @@ const PANE_LIMITS = {
   detail: { min: 400, max: 720, fallback: 540 },
   settings: { min: 560, max: 920, fallback: 780 },
   update: { min: 400, max: 680, fallback: 520 },
+  changes: { min: 440, max: 860, fallback: 620 },
 };
 function paneWidth(kind) {
   const limits=PANE_LIMITS[kind], saved=Number(localStorage.getItem(`sentinelPaneWidth:${kind}`));
@@ -30,7 +31,7 @@ export function initPaneResizers(){
 }
 
 export function setWorkspacePane(activeId = null) {
-  for (const id of ['forgePane', 'notifyPane', 'settingsPane', 'updatePane', 'detailPane']) {
+  for (const id of ['forgePane', 'notifyPane', 'settingsPane', 'updatePane', 'detailPane', 'changesPane']) {
     const pane = $(id); const open = id === activeId;
     pane.classList.toggle('open', open);
     pane.setAttribute('aria-hidden', String(!open));

@@ -1,0 +1,36 @@
+[Unit]
+Description=Grouvi Nox change broker (applies operator-approved changes as root)
+Documentation=https://github.com/grouvi25/grouvi-nox
+After=network.target vps-sentinel-agent.service
+Before=vps-sentinel.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/vps-sentinel
+EnvironmentFile=-/etc/vps-sentinel.env
+Environment=HOME=/root
+ExecStart=/usr/bin/node /opt/vps-sentinel/bin/change-broker.js
+Restart=on-failure
+RestartSec=3
+SyslogIdentifier=vps-sentinel-changes
+UMask=0027
+
+# Root by design: restarting containers and editing configs needs it. The
+# broker is inert until `noxctl changes enable`, answers only to an owner-only
+# socket, and runs nothing without the operator's passkey signature.
+# The filesystem is deliberately left writable: approved changes edit
+# arbitrary project and config paths.
+NoNewPrivileges=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryMax=768M
+TasksMax=1024
+
+[Install]
+WantedBy=multi-user.target

@@ -48,6 +48,10 @@
         <svg viewBox="0 0 24 24"><path d="M5 6.5A2.5 2.5 0 017.5 4h9A2.5 2.5 0 0119 6.5v7a2.5 2.5 0 01-2.5 2.5H11l-4 3v-3.2A2.5 2.5 0 015 13.5z"/><path d="M9 9h6M9 12h4"/></svg>
         <span>Nox Forge</span><span class="n-badge forge-ai-badge">AI</span>
       </button>
+      <button class="nav-item changes-open" id="changesOpen" type="button">
+        <svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.500-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Изменения</span><span class="n-badge" id="nbChanges" hidden>0</span>
+      </button>
       <div class="nav-separator"></div>
       <a class="nav-item" href="#s-overview">
         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -364,6 +368,19 @@
     <main class="settings-drawer-main"><div class="settings-drawer-content" id="settingsDrawerContent"><div class="detail-skeleton"></div></div><footer><span id="settingsDrawerFeedback" role="status"></span><button class="drawer-button" id="settingsRefresh" type="button">Обновить</button></footer></main>
   </aside>
 
+  <aside class="detail-pane changes-pane" id="changesPane" data-pane-kind="changes" aria-hidden="true" aria-label="Изменения на сервере">
+    <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>
+    <div class="detail-head">
+      <button class="btn-icon" id="changesClose" aria-label="Закрыть"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div><div class="detail-kicker">Nox Forge</div><h2>Изменения</h2></div>
+      <i class="pill idle" id="changesPanePill">-</i>
+    </div>
+    <div class="chg-tabs" role="tablist">
+      <button type="button" id="changesTabPending" class="active" role="tab" aria-selected="true">Предложения</button>
+      <button type="button" id="changesTabHistory" role="tab" aria-selected="false">История</button>
+    </div>
+    <div class="detail-body chg-list" id="changesList" aria-live="polite"></div>
+  </aside>
   <aside class="detail-pane update-pane" id="updatePane" data-pane-kind="update" aria-hidden="true"><div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину обновления" tabindex="0"></div><div class="detail-head"><button class="btn-icon" id="updateClose" aria-label="Закрыть обновление"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><div><div class="detail-kicker">Grouvi Nox</div><h2>Обновление</h2></div><i class="pill info" id="updatePaneVersion">проверка</i></div><div class="detail-body update-body"><section class="detail-section"><h3>Новая версия</h3><div class="update-version-row"><span id="updateCurrentVersion">-</span><svg viewBox="0 0 24 24"><path d="M5 12h14M15 8l4 4-4 4"/></svg><strong id="updateLatestVersion">-</strong></div><p class="detail-subtle" id="updatePublishedAt"></p></section><section class="detail-section"><h3>Что изменилось</h3><div class="update-changelog" id="updateChangelog">Загрузка changelog...</div></section><section class="detail-section update-safety"><h3>Безопасная установка</h3><div class="drawer-settings-rows"><div><span><b>SHA-256</b><small>Архив сверяется с release manifest</small></span><i class="pill ok">включено</i></div><div><span><b>Rollback</b><small>При провале health-check вернётся прошлая версия</small></span><i class="pill ok">автоматически</i></div><div><span><b>Очистка</b><small>Временная сборка удаляется, хранятся 3 rollback-копии</small></span><i class="pill ok">автоматически</i></div></div></section><div class="update-progress" id="updateProgress" role="status" aria-live="polite" hidden><span id="updateProgressText">Подготовка...</span><small id="updateProgressMeta"></small><i><b id="updateProgressBar"></b></i></div></div><footer class="update-footer"><button class="drawer-button" id="updateCancel" type="button">Отмена</button><button class="drawer-button primary" id="updateInstall" type="button">Обновить</button></footer></aside>
   <aside class="detail-pane" id="detailPane" data-pane-kind="detail" aria-hidden="true">
     <div class="pane-resizer" data-pane-resizer role="separator" aria-orientation="vertical" aria-label="Изменить ширину панели" tabindex="0"></div>

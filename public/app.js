@@ -9,6 +9,7 @@ import {createDiscoveryController} from './js/discovery.js';
 import {createSettingsController} from './js/settings-pane.js';
 import {createFleetController} from './js/fleet.js';
 import {createUpdateController} from './js/updates.js';
+import {createChangesController} from './js/changes.js';
 
 /* ----------------------------- icons ----------------------------- */
 const ICON_CRIT = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
@@ -323,6 +324,7 @@ const forge=createForgeController({api,formatWhen,setWorkspacePane});
 const discoveryController=createDiscoveryController({api,openProject:openProjectDetail,openTarget:openServiceDetail});
 const settings=createSettingsController({api,setWorkspacePane});
 updates=createUpdateController({api,setWorkspacePane});
+const changes=createChangesController({api,setWorkspacePane});
 
 async function refreshFleetNode(nodeId=activeFleetNode){
   if(nodeId==='local'||nodeId!==activeFleetNode)return;
@@ -698,7 +700,7 @@ $('deployMore').addEventListener('click',()=>{if(activeFleetNode==='local'){depl
 $('deployments').addEventListener('click',e=>{if(activeFleetNode!=='local')return;const row=e.target.closest('[data-deploy-sha]');if(row)openCommitDetail(row.dataset.deployDir,row.dataset.deploySha)});
 $('detailBody').addEventListener('click',e=>{const copy=e.target.closest('[data-copy-sha]');if(copy)navigator.clipboard.writeText(copy.dataset.copySha).then(()=>{copy.textContent='Copied';setTimeout(()=>copy.textContent='Copy SHA',1200)})});
 $('detailBody').addEventListener('click',e=>{const service=e.target.closest('[data-service-type]');if(service)openServiceDetail(service.dataset.serviceType,service.dataset.serviceName)});
-window.addEventListener('keydown',e=>{if(e.key==='Escape'){setNavigation(false);settings.close();closeDetail();forge.closeForge();closeNotifications()}});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'){setNavigation(false);settings.close();closeDetail();forge.closeForge();closeNotifications();changes.close()}});
 $('fsEntries').addEventListener('click',event=>{if(activeFleetNode==='local')filesystem.onEntriesClick(event)});
 $('fsEntries').addEventListener('keydown',event=>{if(activeFleetNode==='local')filesystem.onEntriesKeydown(event)});
 $('fsBreadcrumb').addEventListener('click',event=>{if(activeFleetNode==='local')filesystem.onBreadcrumbClick(event)});
@@ -730,7 +732,7 @@ $('forgeScopeTrigger').addEventListener('click',()=>forge.toggleForgeMenu('scope
 $('forgeModelTrigger').addEventListener('click',()=>forge.toggleForgeMenu('model'));
 document.querySelectorAll('.forge-menu').forEach(menu=>menu.addEventListener('click',e=>{const choice=e.target.closest('[data-forge-choice]');if(choice)forge.chooseForge(choice.dataset.forgeType,choice.dataset.forgeChoice)}));
 document.addEventListener('click',e=>{if(!e.target.closest('.forge-menu-wrap'))forge.closeForgeMenus()});
-forge.renderForgeMenus();forge.renderForgeHistory();fleet.bind();initPaneResizers();forge.loadForgeProjects();
+forge.renderForgeMenus();forge.renderForgeHistory();fleet.bind();initPaneResizers();forge.loadForgeProjects();changes.bind();
 
 setInterval(()=>{if(activeFleetNode==='local')loadIncidents()},30_000);
 setInterval(()=>{if(activeFleetNode==='local')loadDeployments()},5*60_000);

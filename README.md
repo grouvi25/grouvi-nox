@@ -122,3 +122,7 @@ The first-login wizard builds a persistent inventory of Git projects, Docker/Com
 ## Zero-to-running installer
 
 The verified release installer now provisions the full stack by default: nginx/TLS, passkey bootstrap, Discovery Engine, host collectors, isolated Hermes runtime, Nox Forge bridge, sanitized VPS context, project workspaces and lifecycle tooling. Supply the domain and email; optionally pass Telegram and AI credentials, or enter them later in authenticated Settings. Use `--without-forge` only to opt out. See `docs/INSTALL.md`.
+
+## Agent-proposed changes
+
+Nox Forge can propose changes to the server (project patches, config files, container restarts). It can never apply them: you review the exact diff or command in the dashboard and approve with a passkey, and a root broker applies it with a snapshot, health check, rollback and a tamper-evident journal. Off by default; enable with `noxctl changes enable`. Works across fleet nodes. See [docs/CHANGES.md](docs/CHANGES.md) for the flow and the threat model.
