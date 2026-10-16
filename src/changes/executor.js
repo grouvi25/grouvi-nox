@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, execFile } from 'node:child_process';
 import { classifyProposal, normalizeProposal, proposalHash } from './policy.js';
+import { readRegularFile } from './fsutil.js';
 
 /**
  * Applies an already-approved proposal and can undo it.
@@ -176,9 +177,10 @@ export function createExecutor({ changesDir, journal, notify = () => {}, sleep =
     const known = [];
     for (const file of p.patch.files) {
       const abs = path.join(root, file);
-      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      const content = readRegularFile(abs);
+      if (content) {
         fs.mkdirSync(path.dirname(path.join(backup, file)), { recursive: true });
-        fs.copyFileSync(abs, path.join(backup, file));
+        fs.writeFileSync(path.join(backup, file), content, { mode: 0o600 });
         known.push(file);
       }
     }
@@ -190,7 +192,9 @@ export function createExecutor({ changesDir, journal, notify = () => {}, sleep =
     const after = {};
     for (const file of p.patch.files) {
       const abs = path.join(root, file);
-      if (fs.existsSync(abs) && fs.statSync(abs).isFile()) { chownTo(abs, owner); after[file] = sha256(fs.readFileSync(abs)); } else after[file] = null;
+      const content = readRegularFile(abs);
+      if (content) chownTo(abs, owner);
+      after[file] = content ? sha256(content) : null;
     }
     record.rollbackData = { root, backedUp: known, after };
     return { ok: true, cwd: root };
@@ -202,8 +206,8 @@ export function createExecutor({ changesDir, journal, notify = () => {}, sleep =
     const proposal = JSON.parse(diff);
     const drifted = Object.entries(after).filter(([file, hash]) => {
       const abs = path.join(root, file);
-      const current = fs.existsSync(abs) && fs.statSync(abs).isFile() ? sha256(fs.readFileSync(abs)) : null;
-      return current !== hash;
+      const content = readRegularFile(abs);
+      return (content ? sha256(content) : null) !== hash;
     }).map(([file]) => file);
     if (drifted.length && !force) return { ok: false, reason: 'files_changed_since_apply', files: drifted };
     const reverse = await runGit(['apply', '-R', '--whitespace=nowarn', '-'], { cwd: root, input: proposal.patch.diff });
@@ -268,7 +272,8 @@ export function createExecutor({ changesDir, journal, notify = () => {}, sleep =
 
   async function fileRevert(record, { force }, log) {
     const { target, after } = record.rollbackData;
-    const current = fs.existsSync(target) ? sha256(fs.readFileSync(target)) : null;
+    const content = readRegularFile(target);
+    const current = content ? sha256(content) : null;
     if (current !== after && !force) return { ok: false, reason: 'files_changed_since_apply', files: [target] };
     fileRestore(record);
     log('restore file', { code: 0, out: target, ms: 0 });

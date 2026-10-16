@@ -11,6 +11,8 @@ import http from 'node:http';
  */
 
 const SOCKET = process.env.CHANGES_PROBE_SOCKET || '/var/lib/sentinel-ai/probe.sock';
+/* Server answers are printed to a terminal; strip anything that could forge log lines. */
+const plain = value => String(value ?? '').replace(/[\u0000-\u001F\u007F]+/g, ' ').slice(0, 200);
 const args = process.argv.slice(2);
 const split = args.indexOf('--');
 const flags = split < 0 ? [] : args.slice(0, split);
@@ -30,7 +32,7 @@ const req = http.request({ socketPath: SOCKET, path: '/probe', method: 'POST', h
     let data = {};
     try { data = JSON.parse(raw); } catch { /* handled below */ }
     if (res.statusCode !== 200) {
-      console.error(`nox-probe refused: ${data.error || res.statusCode}${data.reason ? ` (${data.reason})` : ''}`);
+      console.error(`nox-probe refused: ${plain(data.error || res.statusCode)}${data.reason ? ` (${plain(data.reason)})` : ''}`);
       process.exit(res.statusCode === 403 ? 3 : 1);
     }
     process.stdout.write(data.out || '');
@@ -39,5 +41,5 @@ const req = http.request({ socketPath: SOCKET, path: '/probe', method: 'POST', h
   });
 });
 req.on('timeout', () => req.destroy(new Error('timeout')));
-req.on('error', error => { console.error(`nox-probe: ${error.code === 'ENOENT' || error.code === 'ECONNREFUSED' ? 'broker not running or changes disabled' : error.message}`); process.exit(1); });
+req.on('error', error => { console.error(`nox-probe: ${error.code === 'ENOENT' || error.code === 'ECONNREFUSED' ? 'broker not running or changes disabled' : plain(error.message)}`); process.exit(1); });
 req.end(payload);

@@ -8,6 +8,7 @@ import { requireSameOrigin, rateLimit, clientIp } from '../../security.js';
 import { listCredentials, audit } from '../../auth.js';
 import { normalizeProposal, proposalHash, classifyProposal, classifyPath } from '../../changes/policy.js';
 import { broker } from '../../changes/client.js';
+import { readRegularFile } from '../../changes/fsutil.js';
 import { createControlClient } from '../../changes/fleet-link.js';
 import { listFleetNodes } from '../../database.js';
 import { resolvedDiscovery } from '../../discovery/store.js';
@@ -92,22 +93,24 @@ function diffStats(diff) {
 }
 
 function currentContent(target) {
-  try {
-    if (classifyPath(target).length) return { readable: false, sensitive: true };
-    const stat = fs.statSync(target);
-    if (!stat.isFile() || stat.size > 200_000) return { readable: false };
-    return { readable: true, content: fs.readFileSync(target, 'utf8') };
-  } catch { return { readable: false, missing: true }; }
+  if (classifyPath(target).length) return { readable: false, sensitive: true };
+  let real;
+  try { real = fs.realpathSync(target); } catch { return { readable: false, missing: true }; }
+  const content = readRegularFile(real, { maxBytes: 200_000, encoding: 'utf8' });
+  return content === null ? { readable: false } : { readable: true, content };
+}
+
+function proposalFiles() {
+  try { return fs.readdirSync(config.changes.proposalsDir).filter(n => PROPOSAL_FILE.test(n)); } catch { return []; }
 }
 
 function loadProposal(id) {
   if (!PROPOSAL_ID.test(id)) return null;
+  // The agent owns this directory: no links out of it, and no files sized to hurt a parser.
+  const text = readRegularFile(path.join(config.changes.proposalsDir, `${id}.json`), { maxBytes: 2_000_000, encoding: 'utf8' });
+  if (text === null) return null;
   try {
-    const file = path.join(config.changes.proposalsDir, `${id}.json`);
-    // The agent owns this directory: no links out of it, and no files sized to hurt a parser.
-    const stat = fs.lstatSync(file);
-    if (!stat.isFile() || stat.size > 2_000_000) return null;
-    const proposal = normalizeProposal(JSON.parse(fs.readFileSync(file, 'utf8')));
+    const proposal = normalizeProposal(JSON.parse(text));
     return proposal.id === id ? proposal : null;
   } catch { return null; }
 }
@@ -199,8 +202,7 @@ router.get('/changes/status', detailLimit, async (req, res) => {
 
 router.get('/changes/proposals', detailLimit, async (req, res) => {
   res.set('Cache-Control', 'no-store');
-  let names = [];
-  try { names = fs.readdirSync(config.changes.proposalsDir).filter(n => PROPOSAL_FILE.test(n)); } catch { /* none yet */ }
+  const names = proposalFiles();
   const rejections = readRejections();
   const index = await changeIndex();
   const known = knownProjectPaths();
