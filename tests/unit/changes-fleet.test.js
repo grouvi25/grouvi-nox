@@ -77,3 +77,16 @@ test('forged, stale, replayed and re-routed requests are rejected', async () => 
     assert.equal((await raw(url, 'POST', route, body, {})).status, 401, 'unsigned');
   });
 });
+
+test('noxctl changes subcommands are parseable bash with real line continuations', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { spawnSync } = await import('node:child_process');
+  const source = readFileSync('bin/noxctl', 'utf8');
+  const literal = String.fromCharCode(92) + 'n' + ' '.repeat(6) + 'node -e';
+  assert.ok(!source.includes(literal), 'a literal backslash-n is not a line continuation');
+  const start = source.indexOf('export-approvers)\n');
+  const next = source.indexOf('node -e', start);
+  assert.ok(source.slice(start, next).includes(String.fromCharCode(92) + '\n'), 'export-approvers continues onto its node command');
+  const check = spawnSync('bash', ['-n', 'bin/noxctl'], { encoding: 'utf8' });
+  assert.equal(check.status, 0, check.stderr);
+});
