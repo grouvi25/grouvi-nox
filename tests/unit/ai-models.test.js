@@ -44,4 +44,7 @@ test('the bridge tries every configured model and says what each one answered', 
   assert.match(bridge, /looksLikeApiFailure\(text\)/, 'a printed provider error is not accepted as an answer');
   assert.match(bridge, /all_models_failed/, 'the failure names every model that was tried, not only the last');
   assert.doesNotMatch(bridge, /DeepSeek-V4-Pro|Qwen3\.6/, 'no model name is baked into the bridge');
+  assert.match(bridge, /SENTINEL_AI_ATTEMPT_TIMEOUT_SEC/, 'the per-attempt limit is configurable');
+  assert.match(bridge, /e\.message==='agent_timeout'\)throw e/, 'a long task is not restarted on another model');
+  assert.doesNotMatch(bridge, /'-k','8','90'/, 'ninety seconds is too short for a multi-step investigation');
 });

@@ -67,7 +67,7 @@ async function sendForge(text) {
       body: JSON.stringify({ messages: forgeMessages.slice(-14), model, scope }),
     });
     let data = started;
-    const deadline = Date.now() + 170_000;
+    const deadline = Date.now() + 290_000;
     while (data.status === 'running' && Date.now() < deadline) {
       await new Promise(resolve => setTimeout(resolve, 1500));
       data = await api(`/api/agent/chat/${encodeURIComponent(started.jobId)}`);
