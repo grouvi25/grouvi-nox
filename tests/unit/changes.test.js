@@ -522,3 +522,28 @@ test('the broker receives proposals itself: it picks the id, validates, caps and
     assert.equal(h.journal.verify().ok, true);
   } finally { server.close(); }
 });
+
+/* ------------------------- diagnostics the agent needs ------------------------- */
+
+test('certificate, DNS and health diagnostics are readable, anything that changes state is not', () => {
+  const ok = [
+    ['certbot', 'certificates'], ['certbot', 'certificates', '--cert-name', 'example.com'],
+    ['openssl', 'x509', '-noout', '-enddate', '-in', '/etc/letsencrypt/live/example.com/cert.pem'],
+    ['openssl', 's_client', '-connect', 'example.com:443', '-servername', 'example.com'],
+    ['curl', '-sI', 'https://example.com'], ['curl', '-sI', '--max-time', '8', 'https://example.com/health'], ['curl', '-s', 'http://127.0.0.1:8080/health'],
+    ['getent', 'hosts', 'example.com'], ['ufw', 'status'], ['fail2ban-client', 'status', 'sshd'], ['crontab', '-l'],
+    ['iptables', '-S'], ['iptables', '-t', 'nat', '-L', '-n'], ['apt', 'list', '--upgradable'], ['dpkg', '-l'],
+    ['cat', '/etc/letsencrypt/live/example.com/fullchain.pem'],
+  ];
+  for (const argv of ok) assert.equal(probeAllowed(argv).ok, true, argv.join(' '));
+  const bad = [
+    ['certbot', 'renew'], ['certbot', 'certonly', '-d', 'x'], ['certbot', 'certificates', '--deploy-hook', 'x'],
+    ['openssl', 'req', '-new'], ['openssl', 'x509', '-noout', '-in', 'a', '-out', 'b'], ['openssl', 'x509', '-noout', '-in', '/etc/ssl/private/x.key'],
+    ['openssl', 's_client', '-connect', 'x:443', '-key', 'k'], ['openssl', 's_client', '-connect', 'no-port'],
+    ['curl', 'http://example.com'], ['curl', '-sI', 'http://169.254.169.254/latest/meta-data'], ['curl', '-sI', '-o', '/tmp/x', 'https://example.com'],
+    ['curl', '-X', 'POST', 'http://127.0.0.1/x'], ['curl', '-sI', '-H', 'Authorization: Bearer abc', 'https://example.com'], ['curl', '-K', '/etc/x', 'https://example.com'], ['curl', '-sI', 'file:///etc/passwd'], ['curl', '-sI', 'https://user:pw@example.com'], ['curl', '-sI', 'https://a.example', 'https://b.example'],
+    ['crontab', '-r'], ['ufw', 'disable'], ['ufw', 'allow', '22'], ['iptables', '-F'], ['iptables', '-A', 'INPUT', '-j', 'DROP'], ['apt', 'install', 'x'], ['dpkg', '-i', 'x.deb'], ['getent', 'passwd'],
+    ['cat', '/etc/letsencrypt/live/example.com/privkey.pem'], ['cat', '/etc/letsencrypt/archive/example.com/privkey3.pem'], ['cat', '/etc/letsencrypt/accounts/acme/regr.json'], ['cat', '/etc/ssl/private/server.key'], ['cat', '/etc/ssl/certs/other.pem'],
+  ];
+  for (const argv of bad) assert.equal(probeAllowed(argv).ok, false, argv.join(' '));
+});

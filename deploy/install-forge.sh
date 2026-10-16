@@ -44,6 +44,8 @@ terminal:
 compression:
   enabled: true
   proactive_prune_tokens: 48000
+agent:
+  max_turns: 40
 providers:
   sentinel:
     name: $AI_PROVIDER_LABEL
