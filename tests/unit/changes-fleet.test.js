@@ -90,3 +90,11 @@ test('noxctl changes subcommands are parseable bash with real line continuations
   const check = spawnSync('bash', ['-n', 'bin/noxctl'], { encoding: 'utf8' });
   assert.equal(check.status, 0, check.stderr);
 });
+
+test('an update restarts the Forge bridge and never the change broker mid-change', async () => {
+  const { readFileSync } = await import('node:fs');
+  const source = readFileSync('bin/noxctl', 'utf8');
+  const afterRestart = source.slice(source.indexOf("update_progress restarting"), source.indexOf("update_progress healthcheck"));
+  assert.match(afterRestart, /sentinel-ai-bridge/, 'the bridge runs code from the new bundle, so the success path must restart it');
+  assert.match(source, /A change is being applied; the change broker was not restarted/, 'converge must not restart the broker while it applies a change');
+});

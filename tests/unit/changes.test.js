@@ -489,6 +489,7 @@ test('a change left running by a dead broker is reported as interrupted, not run
 /* ------------------------------ proposals --------------------------- */
 
 import { createProposalStore } from '../../src/changes/proposals.js';
+import { shapeProbeOutput } from '../../src/changes/broker.js';
 
 test('the broker receives proposals itself: it picks the id, validates, caps and refuses when off', async () => {
   const key = authenticator();
@@ -546,4 +547,38 @@ test('certificate, DNS and health diagnostics are readable, anything that change
     ['cat', '/etc/letsencrypt/live/example.com/privkey.pem'], ['cat', '/etc/letsencrypt/archive/example.com/privkey3.pem'], ['cat', '/etc/letsencrypt/accounts/acme/regr.json'], ['cat', '/etc/ssl/private/server.key'], ['cat', '/etc/ssl/certs/other.pem'],
   ];
   for (const argv of bad) assert.equal(probeAllowed(argv).ok, false, argv.join(' '));
+});
+
+test('a long probe output keeps its start and end and says how to ask for less', () => {
+  const big = Array.from({ length: 5000 }, (_, i) => `line ${i}`).join('\n');
+  const shaped = shapeProbeOutput(big);
+  assert.equal(shaped.truncated, true);
+  assert.ok(shaped.out.length < 21_000);
+  assert.match(shaped.out, /^line 0\n/, 'the beginning survives');
+  assert.match(shaped.out, /line 4999$/, 'and so does the end');
+  assert.match(shaped.out, /omitted\. Do not widen the read: ask for less, e\.g\. tail -n 100/);
+  assert.deepEqual(shapeProbeOutput('short'), { out: 'short', truncated: false });
+});
+
+test('the same read repeated in a loop is refused with a way out, other reads are unaffected', async () => {
+  let clock = 1_000_000;
+  const key = authenticator();
+  const h = harness();
+  const gate = createApprovalGate({ loadCredentials: () => [key.credential], rpID: RP, origin: ORIGIN });
+  let runs = 0;
+  const broker = createBroker({ enabled: () => true, gate, executor: h.executor, journal: h.journal, sensitiveRead: isSensitiveRead, runProbe: async () => { runs += 1; return { code: 0, out: 'x' }; }, now: () => clock });
+  const server = http.createServer(broker.probe);
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const probe = argv => fetch(`http://127.0.0.1:${server.address().port}/probe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ argv }) }).then(async r => ({ status: r.status, body: await r.json() }));
+  try {
+    for (let i = 0; i < 8; i += 1) assert.equal((await probe(['cat', '/var/log/letsencrypt/letsencrypt.log'])).status, 200);
+    const refused = await probe(['cat', '/var/log/letsencrypt/letsencrypt.log']);
+    assert.equal(refused.status, 429);
+    assert.equal(refused.body.error, 'probe_repeated');
+    assert.match(refused.body.reason, /tail -n 100/);
+    assert.equal(runs, 8, 'the ninth was never run');
+    assert.equal((await probe(['cat', '/var/log/other.log'])).status, 200, 'a different read is fine');
+    clock += 6 * 60_000;
+    assert.equal((await probe(['cat', '/var/log/letsencrypt/letsencrypt.log'])).status, 200, 'the count expires');
+  } finally { server.close(); }
 });
