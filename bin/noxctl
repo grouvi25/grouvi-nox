@@ -237,9 +237,9 @@ cmd_converge(){
     info 'Agent helpers nox-propose and nox-probe installed'
     # An open-ended request can send the agent on an endless walk; cap its steps. Only when never set.
     if [[ -f /var/lib/sentinel-ai/.hermes/config.yaml ]] && ! grep -q '^agent:' /var/lib/sentinel-ai/.hermes/config.yaml; then
-      printf '\nagent:\n  max_turns: 40\n' >> /var/lib/sentinel-ai/.hermes/config.yaml
+      printf '\nagent:\n  max_turns: 25\n' >> /var/lib/sentinel-ai/.hermes/config.yaml
       chown sentinel-ai:sentinel-ai /var/lib/sentinel-ai/.hermes/config.yaml
-      info 'Agent step limit set (40)'
+      info 'Agent step limit set (25)'
     fi
   fi
   systemctl daemon-reload

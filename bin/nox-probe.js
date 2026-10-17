@@ -33,7 +33,7 @@ const req = http.request({ socketPath: SOCKET, path: '/probe', method: 'POST', h
     try { data = JSON.parse(raw); } catch { /* handled below */ }
     if (res.statusCode !== 200) {
       console.error(`nox-probe refused: ${plain(data.error || res.statusCode)}${data.reason ? ` (${plain(data.reason)})` : ''}`);
-      process.exit(res.statusCode === 403 ? 3 : 1);
+      process.exit(res.statusCode === 403 ? 3 : res.statusCode === 429 ? 4 : 1);
     }
     process.stdout.write(data.out || '');
     if (data.truncated) console.error('[output truncated]');

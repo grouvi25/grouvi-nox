@@ -19,7 +19,19 @@ import { normalizeProposal, proposalHash, classifyProposal, probeAllowed, redact
 const MAX_BODY = 1_500_000;
 const FAILURE_WINDOW_MS = 10 * 60_000;
 const FAILURE_LIMIT = 6;
-const PROBE_OUTPUT_CAP = 60_000;
+const PROBE_OUTPUT_CAP = 20_000;
+const PROBE_HEAD = 4_000;
+const REPEAT_WINDOW_MS = 5 * 60_000;
+const REPEAT_LIMIT = 8;
+
+/** A long output is cut in the middle, with the way to ask for less spelled out. */
+export function shapeProbeOutput(text, cap = PROBE_OUTPUT_CAP, head = PROBE_HEAD) {
+  const out = String(text ?? '');
+  if (out.length <= cap) return { out, truncated: false };
+  const omitted = out.length - cap;
+  const note = `\n[... ${omitted} characters omitted. Do not widen the read: ask for less, e.g. tail -n 100, grep -m 5 -A 5 PATTERN, journalctl -n 100 --since "1 hour ago" ...]\n`;
+  return { out: out.slice(0, head) + note + out.slice(-(cap - head)), truncated: true };
+}
 
 function json(res, status, payload) {
   const body = JSON.stringify(payload);
@@ -61,6 +73,17 @@ export function probeArgsSafe(argv, sensitive) {
 
 export function createBroker({ enabled, gate, executor, journal, notify = () => {}, sensitiveRead, hostLabel = 'host', runProbe = defaultRunProbe, relayProbe = null, proposals = null, now = Date.now }) {
   const failures = [];
+  const recent = new Map();
+
+  /* The same read again and again is a loop, not an investigation. Say so instead of feeding it. */
+  function repeatedTooOften(argv) {
+    const key = argv.join('\u0000');
+    const stamps = (recent.get(key) || []).filter(t => now() - t < REPEAT_WINDOW_MS);
+    stamps.push(now());
+    recent.set(key, stamps);
+    if (recent.size > 500) for (const [k, v] of recent) if (!v.some(t => now() - t < REPEAT_WINDOW_MS)) recent.delete(k);
+    return stamps.length > REPEAT_LIMIT;
+  }
 
   const recordFailure = reason => {
     failures.push(now());
@@ -78,14 +101,17 @@ export function createBroker({ enabled, gate, executor, journal, notify = () => 
     const verdict = probeAllowed(argv);
     if (!verdict.ok) return { status: 403, payload: { error: 'probe_not_allowed', reason: verdict.reason } };
     if (!probeArgsSafe(argv, sensitiveRead)) return { status: 403, payload: { error: 'probe_not_allowed', reason: 'sensitive_path_via_link' } };
+    if (repeatedTooOften(argv)) return { status: 429, payload: { error: 'probe_repeated', reason: `This exact command already ran ${REPEAT_LIMIT} times in the last few minutes. Stop re-reading it: work from the output you have, or narrow the read (tail -n 100, grep -m 5 -A 5 PATTERN).` } };
     const timeoutSec = Math.min(30, Math.max(2, Number(body.timeoutSec) || 20));
     if (allowRelay && body.node && body.node !== 'local') {
       if (!relayProbe) return { status: 501, payload: { error: 'node_relay_not_ready' } };
       const remote = await relayProbe(String(body.node), { argv, timeoutSec });
-      return { status: 200, payload: { code: remote.code, out: redact(String(remote.out || '')).slice(-PROBE_OUTPUT_CAP), truncated: Boolean(remote.truncated) } };
+      const shaped = shapeProbeOutput(redact(String(remote.out || '')));
+      return { status: 200, payload: { code: remote.code, out: shaped.out, truncated: shaped.truncated || Boolean(remote.truncated) } };
     }
     const result = await runProbe(argv, timeoutSec);
-    return { status: 200, payload: { code: result.code, out: redact(result.out).slice(-PROBE_OUTPUT_CAP), truncated: result.out.length > PROBE_OUTPUT_CAP } };
+    const shaped = shapeProbeOutput(redact(result.out));
+    return { status: 200, payload: { code: result.code, out: shaped.out, truncated: shaped.truncated } };
   }
 
   async function control(req, res) {
