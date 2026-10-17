@@ -23,6 +23,8 @@ const PROBE_OUTPUT_CAP = 20_000;
 const PROBE_HEAD = 4_000;
 const REPEAT_WINDOW_MS = 5 * 60_000;
 const REPEAT_LIMIT = 8;
+const BUDGET_WINDOW_MS = 6 * 60_000;
+const BUDGET_LIMIT = 30;
 
 /** A long output is cut in the middle, with the way to ask for less spelled out. */
 export function shapeProbeOutput(text, cap = PROBE_OUTPUT_CAP, head = PROBE_HEAD) {
@@ -74,6 +76,14 @@ export function probeArgsSafe(argv, sensitive) {
 export function createBroker({ enabled, gate, executor, journal, notify = () => {}, sensitiveRead, hostLabel = 'host', runProbe = defaultRunProbe, relayProbe = null, proposals = null, now = Date.now }) {
   const failures = [];
   const recent = new Map();
+  const spent = [];
+
+  /* The agent runtime does not enforce its own step cap in one-shot mode, and a model that cannot solve
+     something keeps trying variants. A budget of probes per few minutes is the limit that does not depend on it. */
+  function budgetExhausted() {
+    while (spent.length && now() - spent[0] > BUDGET_WINDOW_MS) spent.shift();
+    return spent.length >= BUDGET_LIMIT;
+  }
 
   /* The same read again and again is a loop, not an investigation. Say so instead of feeding it. */
   function repeatedTooOften(argv) {
@@ -101,14 +111,17 @@ export function createBroker({ enabled, gate, executor, journal, notify = () => 
     const verdict = probeAllowed(argv);
     if (!verdict.ok) return { status: 403, payload: { error: 'probe_not_allowed', reason: verdict.reason } };
     if (!probeArgsSafe(argv, sensitiveRead)) return { status: 403, payload: { error: 'probe_not_allowed', reason: 'sensitive_path_via_link' } };
+    if (budgetExhausted()) return { status: 429, payload: { error: 'probe_budget', reason: `You have used all ${BUDGET_LIMIT} probes for this investigation. Stop investigating: answer now with what you found, say plainly what remains unknown and what you would check next.` } };
     if (repeatedTooOften(argv)) return { status: 429, payload: { error: 'probe_repeated', reason: `This exact command already ran ${REPEAT_LIMIT} times in the last few minutes. Stop re-reading it: work from the output you have, or narrow the read (tail -n 100, grep -m 5 -A 5 PATTERN).` } };
     const timeoutSec = Math.min(30, Math.max(2, Number(body.timeoutSec) || 20));
     if (allowRelay && body.node && body.node !== 'local') {
       if (!relayProbe) return { status: 501, payload: { error: 'node_relay_not_ready' } };
+      spent.push(now());
       const remote = await relayProbe(String(body.node), { argv, timeoutSec });
       const shaped = shapeProbeOutput(redact(String(remote.out || '')));
       return { status: 200, payload: { code: remote.code, out: shaped.out, truncated: shaped.truncated || Boolean(remote.truncated) } };
     }
+    spent.push(now());
     const result = await runProbe(argv, timeoutSec);
     const shaped = shapeProbeOutput(redact(result.out));
     return { status: 200, payload: { code: result.code, out: shaped.out, truncated: shaped.truncated } };

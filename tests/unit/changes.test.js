@@ -582,3 +582,26 @@ test('the same read repeated in a loop is refused with a way out, other reads ar
     assert.equal((await probe(['cat', '/var/log/letsencrypt/letsencrypt.log'])).status, 200, 'the count expires');
   } finally { server.close(); }
 });
+
+test('an investigation has a probe budget; when it is spent the agent is told to answer, and it refills', async () => {
+  let clock = 5_000_000;
+  const key = authenticator();
+  const h = harness();
+  const gate = createApprovalGate({ loadCredentials: () => [key.credential], rpID: RP, origin: ORIGIN });
+  let runs = 0;
+  const broker = createBroker({ enabled: () => true, gate, executor: h.executor, journal: h.journal, sensitiveRead: isSensitiveRead, runProbe: async () => { runs += 1; return { code: 0, out: 'x' }; }, now: () => clock });
+  const server = http.createServer(broker.probe);
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  const probe = argv => fetch(`http://127.0.0.1:${server.address().port}/probe`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ argv }) }).then(async r => ({ status: r.status, body: await r.json() }));
+  try {
+    for (let i = 0; i < 30; i += 1) assert.equal((await probe(['cat', `/var/log/file-${i}.log`])).status, 200, `probe ${i}`);
+    const over = await probe(['cat', '/var/log/file-31.log']);
+    assert.equal(over.status, 429);
+    assert.equal(over.body.error, 'probe_budget');
+    assert.match(over.body.reason, /answer now with what you found/);
+    assert.equal(runs, 30, 'nothing past the budget ran');
+    assert.equal((await probe(['docker', 'rm', 'x'])).status, 403, 'a refused command still says why');
+    clock += 7 * 60_000;
+    assert.equal((await probe(['cat', '/var/log/file-31.log'])).status, 200, 'the budget refills');
+  } finally { server.close(); }
+});
