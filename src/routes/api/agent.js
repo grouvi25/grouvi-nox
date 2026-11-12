@@ -2,14 +2,16 @@ import crypto from 'node:crypto';
 import express from 'express';
 import { requireSameOrigin } from '../../security.js';
 import { detailLimit,agentLimit } from './limits.js';
-import { callAgent } from '../../agent-client.js';
+import { callAgent, listAgentModels } from '../../agent-client.js';
 import { resolvedDiscovery } from '../../discovery/store.js';
 import { buildProjectGraph } from '../../discovery/graph.js';
 import { integrationStatus } from '../../integration-client.js';
 const router=express.Router();
 
 function forgeProjects(){const graph=buildProjectGraph(resolvedDiscovery());return[{id:'vps',name:'Весь VPS',detail:'Система и обнаруженные сервисы',path:null},...graph.projects.filter(project=>project.path&&project.components.length).map(project=>({id:project.id,name:project.name,detail:`${project.health.runtimeCount} runtime · ${project.components.length} components`,path:project.path}))]}
-router.get('/agent/projects',async(req,res)=>{let models=[];try{models=(await integrationStatus()).ai?.models||models}catch{}res.set('Cache-Control','no-store');res.json({projects:forgeProjects(),models,discoveryManaged:true})});
+// Models come from the bridge, which asks the gateway; the installer's list is only the fallback when it is unreachable.
+async function forgeModels(){let configured=[];try{configured=(await integrationStatus()).ai?.models||configured}catch{}try{const listed=await listAgentModels();return{models:listed.models.length?listed.models:configured,defaultModel:listed.configured[0]||configured[0]||null,source:listed.models.length&&!listed.error?'gateway':'config'}}catch{return{models:configured,defaultModel:configured[0]||null,source:'config'}}}
+router.get('/agent/projects',async(req,res)=>{const m=await forgeModels();res.set('Cache-Control','no-store');res.json({projects:forgeProjects(),models:m.models,defaultModel:m.defaultModel,modelSource:m.source,discoveryManaged:true})});
 
 const agentJobs = new Map();
 setInterval(() => {
@@ -20,10 +22,10 @@ setInterval(() => {
 router.post('/agent/chat', requireSameOrigin, agentLimit, async (req, res) => {
   const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
   if (!messages.length) return res.status(400).json({ error: 'bad_messages' });
-  let configuredModels=[];try{configuredModels=(await integrationStatus()).ai?.models||configuredModels}catch{}
-  const allowedModels = new Set(configuredModels);
+  const offered=await forgeModels();
+  const allowedModels = new Set(offered.models);
   const allowedScopes=new Set(forgeProjects().map(project=>project.id));
-  const model = allowedModels.has(String(req.body?.model)) ? String(req.body.model) : configuredModels[0];
+  const model = allowedModels.has(String(req.body?.model)) ? String(req.body.model) : offered.defaultModel;
   const scope = allowedScopes.has(String(req.body?.scope)) ? String(req.body.scope) : 'vps';
   const id = crypto.randomUUID();
   const job = { id, status: 'running', createdAt: Date.now(), model, scope };

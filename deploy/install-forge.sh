@@ -25,7 +25,21 @@ fi
 git -C /opt/sentinel-ai/source fetch --force --depth 1 origin "refs/tags/$HERMES_REF:refs/tags/$HERMES_REF"
 git -C /opt/sentinel-ai/source checkout --force --detach "$HERMES_REF"
 actual=$(git -C /opt/sentinel-ai/source rev-parse HEAD);[[ $actual == "$HERMES_COMMIT" ]]||{ echo "Hermes pin mismatch: $actual" >&2;exit 1; }
-python3 -m venv /opt/sentinel-ai/venv
+# Hermes needs Python 3.11–3.13. Ubuntu 26.04 has only 3.14, so a standalone 3.13 is fetched with uv into /opt/python.
+python_ok(){ "$1" -c 'import sys; sys.exit(0 if (3,11)<=sys.version_info[:2]<(3,14) else 1)' 2>/dev/null; }
+pick_python(){
+  local candidate
+  for candidate in python3.13 python3.12 python3.11 python3 /opt/python/cpython-3.13*/bin/python3.13; do
+    command -v "$candidate" >/dev/null 2>&1 && python_ok "$candidate" && { command -v "$candidate"; return 0; }
+  done
+  python3 -m venv /opt/uv-tool >/dev/null && /opt/uv-tool/bin/pip install --quiet uv >/dev/null || return 1
+  UV_PYTHON_INSTALL_DIR=/opt/python /opt/uv-tool/bin/uv python install 3.13 >/dev/null || return 1
+  chmod -R go+rX /opt/python
+  UV_PYTHON_INSTALL_DIR=/opt/python /opt/uv-tool/bin/uv python find 3.13
+}
+HERMES_PYTHON=$(pick_python) || { echo 'No Python 3.11-3.13 for Hermes.' >&2; exit 1; }
+[[ -x /opt/sentinel-ai/venv/bin/python ]] && ! python_ok /opt/sentinel-ai/venv/bin/python && rm -rf /opt/sentinel-ai/venv
+[[ -x /opt/sentinel-ai/venv/bin/python ]] || "$HERMES_PYTHON" -m venv /opt/sentinel-ai/venv
 /opt/sentinel-ai/venv/bin/python -m pip install --quiet --upgrade pip setuptools wheel
 /opt/sentinel-ai/venv/bin/python -m pip install --quiet -e /opt/sentinel-ai/source
 install -m 755 "$SCRIPT_DIR/forge/sentinel-hermes" /usr/local/bin/sentinel-hermes

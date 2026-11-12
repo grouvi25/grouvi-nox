@@ -48,3 +48,14 @@ test('the bridge tries every configured model and says what each one answered', 
   assert.match(bridge, /e\.message==='agent_timeout'\)throw e/, 'a long task is not restarted on another model');
   assert.doesNotMatch(bridge, /'-k','8','90'/, 'ninety seconds is too short for a multi-step investigation');
 });
+
+test('the gateway list becomes a picker: chat models only, configured first, a new default leads', async () => {
+  const { liveChatModels, orderModels, withDefaultModel } = await import('../../src/ai-models.js');
+  const payload = { data: [{ id: 'glm-5.3-flash' }, { id: 'qwen-image' }, { id: 'deepseek-v4.1-flash' }, { id: 'glm-5.3-flash' }, { id: 'bad name' }, { id: 'nemotron-3.5-super-vl' }] };
+  assert.deepEqual(liveChatModels(payload), ['deepseek-v4.1-flash', 'glm-5.3-flash'], 'images, vision-only, duplicates and bad ids are dropped');
+  assert.deepEqual(liveChatModels(null), []);
+  assert.deepEqual(liveChatModels(['kimi-k3']), ['kimi-k3'], 'a bare list of ids is accepted');
+  assert.deepEqual(orderModels(['a-model', 'b-model', 'c-model'], ['c-model', 'x-model']), ['c-model', 'x-model', 'a-model', 'b-model']);
+  assert.deepEqual(withDefaultModel(['glm-5.3-flash', 'deepseek-v4.1-flash'], 'deepseek-v4.1-flash'), ['deepseek-v4.1-flash', 'glm-5.3-flash']);
+  assert.deepEqual(withDefaultModel(['a-model'], 'new-model'), ['new-model', 'a-model']);
+});

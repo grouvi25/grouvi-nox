@@ -4,7 +4,7 @@ A production-grade, passkey-only monitoring dashboard for Linux VPS hosts. It co
 
 ## Install on a clean VPS
 
-Supported: Ubuntu 22.04/24.04 and Debian 12 on x86_64 or aarch64.
+Supported: Ubuntu 22.04/24.04/26.04 and Debian 12 on x86_64 or aarch64.
 
 1. Download the release archive and `SHA256SUMS` from GitHub Releases.
 2. Verify before extraction:

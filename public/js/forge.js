@@ -14,6 +14,7 @@ let forgeModel = localStorage.getItem('forgeModel') || '';
 let forgeScope = localStorage.getItem('forgeScope') || 'vps';
 let forgeProjects = [{ id:'vps', name:'Весь VPS', detail:'Система и все сервисы' }];
 let forgeModels = [];
+let forgeDefaultModel = '';
 
 function readForgeChats(){try{const value=JSON.parse(localStorage.getItem(FORGE_CHATS_KEY)||'[]');return Array.isArray(value)?value.slice(0,20):[]}catch{return []}}
 function forgeChatTitle(messages){const first=messages.find(x=>x.role==='user')?.content||'Новый чат';return first.replace(/\s+/g,' ').trim().slice(0,54)}
@@ -116,8 +117,8 @@ function chooseForge(type, value) {
   renderForgeMenus(); closeForgeMenus(); $('forgeInput').focus();
 }
 async function loadForgeProjects() {
-  try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects;if(Array.isArray(data.models)&&data.models.length)forgeModels=data.models.map(id=>({id,name:id,detail:'Настроено установщиком'})); } catch { /* keep VPS context */ }
-  if(!forgeProjects.some(x=>x.id===forgeScope))forgeScope='vps';if(!forgeModels.some(x=>x.id===forgeModel))forgeModel=forgeModels[0]?.id||"";renderForgeMenus();
+  try { const data=await api('/api/agent/projects'); if(Array.isArray(data.projects)&&data.projects.length) forgeProjects=data.projects;if(Array.isArray(data.models)&&data.models.length)forgeModels=data.models.map(id=>({id,name:id,detail:id===data.defaultModel?'по умолчанию':''}));forgeDefaultModel=data.defaultModel||''; } catch { /* keep VPS context */ }
+  if(!forgeProjects.some(x=>x.id===forgeScope))forgeScope='vps';if(!forgeModels.some(x=>x.id===forgeModel))forgeModel=forgeModels.some(x=>x.id===forgeDefaultModel)?forgeDefaultModel:forgeModels[0]?.id||"";renderForgeMenus();
 }
 
 

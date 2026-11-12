@@ -60,3 +60,31 @@ export function rankModels(results, { preferFree = false, minSuccess = 1 } = {})
 }
 
 export const looksFree = id => /(?:^|[-_.])free(?:$|[-_.])/i.test(String(id));
+
+export const MAX_LIVE_MODELS = 200;
+
+/**
+ * The chat models a gateway offers right now, from its OpenAI-style /models
+ * answer. The operator picks from this list instead of typing model ids.
+ */
+export function liveChatModels(payload) {
+  const rows = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+  const seen = new Set();
+  for (const row of rows) {
+    const id = String(typeof row === 'string' ? row : row?.id || '').trim();
+    if (isChatCandidate(id)) seen.add(id);
+  }
+  return [...seen].sort((a, b) => a.localeCompare(b)).slice(0, MAX_LIVE_MODELS);
+}
+
+/** The configured models first, in their order, then everything else the gateway offers. */
+export function orderModels(live, configured) {
+  const out = [];
+  for (const id of [...configured, ...live]) if (!out.includes(id)) out.push(id);
+  return out;
+}
+
+/** The new configuration when the operator makes a model the default: it leads, the rest keep their order. */
+export function withDefaultModel(configured, model) {
+  return [model, ...configured.filter(id => id !== model)].slice(0, MAX_MODELS);
+}

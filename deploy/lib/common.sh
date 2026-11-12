@@ -39,7 +39,7 @@ read_os(){
 supported_os(){
   read_os
   case "$OS_ID:$OS_VERSION" in
-    ubuntu:22.04|ubuntu:24.04|debian:12) return 0 ;;
+    ubuntu:22.04|ubuntu:24.04|ubuntu:26.04|debian:12) return 0 ;;
     *) return 1 ;;
   esac
 }
