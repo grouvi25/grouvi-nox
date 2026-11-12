@@ -242,6 +242,9 @@
 .forge-model-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:0 0 auto}
 .forge-menu{display:none;position:absolute;left:0;bottom:36px;z-index:80;width:248px;padding:4px;border:1px solid var(--border2);border-radius:7px;background:var(--bg2);box-shadow:0 14px 34px rgba(0,0,0,.28)}
 .forge-menu.open{display:block;animation:forgeMenuIn 150ms cubic-bezier(.16,1,.3,1) both}
+/* a gateway offers dozens of models: the menu scrolls instead of growing past the screen */
+.forge-menu{max-height:min(320px,calc(100vh - 180px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.forge-menu-item.compact,.forge-compose-actions .forge-menu-item.compact{min-height:32px;align-items:center}
 @keyframes forgeMenuIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .forge-menu-item{width:100%;min-height:44px;padding:7px 8px;border:0;border-radius:5px;background:transparent;color:var(--text2);display:grid;grid-template-columns:16px minmax(0,1fr);gap:7px;text-align:left;cursor:pointer;font-family:var(--sans)}
 .forge-menu-item:hover{background:var(--panel2);color:var(--text)}
