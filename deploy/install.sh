@@ -9,6 +9,8 @@ SOURCE_DIR=$(cd "$SCRIPT_DIR/.." && pwd)
 # shellcheck source=lib/common.sh
 . "$SCRIPT_DIR/lib/common.sh"
 
+# Files the services read must stay world-readable: a root shell with umask 077 left node_modules unreadable to the web user.
+umask 022
 DOMAIN=${DOMAIN:-}
 LE_EMAIL=${LE_EMAIL:-}
 PROXY_MODE=${PROXY_MODE:-public}
@@ -133,7 +135,7 @@ fi
 [[ -f $SOURCE_DIR/package.json && -f $SOURCE_DIR/RELEASE-MANIFEST.json ]] || die 'Run installer from an extracted Grouvi Nox release.'
 
 section 'Preflight'
-supported_os || die "Unsupported OS: ${OS_ID:-unknown} ${OS_VERSION:-unknown}. Supported: Ubuntu 22.04/24.04, Debian 12."
+supported_os || die "Unsupported OS: ${OS_ID:-unknown} ${OS_VERSION:-unknown}. Supported: Ubuntu 22.04/24.04/26.04, Debian 12."
 arch=$(uname -m); [[ $arch == x86_64 || $arch == aarch64 ]] || die "Unsupported architecture: $arch"
 ok "$PRETTY_NAME, $arch"
 [[ $(systemd-detect-virt --container 2>/dev/null || true) == none || -z $(systemd-detect-virt --container 2>/dev/null || true) ]] || die 'Install on a VPS host, not inside a container.'
@@ -178,6 +180,9 @@ if ((node_major < 20)); then
   apt-get update -qq; apt-get install -y -qq nodejs >/dev/null
 fi
 node_major=$(node -p 'process.versions.node.split(".")[0]'); ((node_major >= 20)) || die 'Node.js 20 installation failed.'
+# Ubuntu 26.04 ships its own newer nodejs, which wins over the NodeSource repository and comes without npm.
+command -v npm >/dev/null || apt-get install -y -qq npm >/dev/null
+command -v npm >/dev/null || die 'npm is missing.'
 ok "Node.js $(node -v), nginx $(nginx -v 2>&1 | cut -d/ -f2)"
 
 section 'Backup existing installation'

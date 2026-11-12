@@ -21,3 +21,22 @@ export function callAgent(messages, { model = 'glm-5.2', scope = 'vps', timeoutM
     req.end(body);
   });
 }
+/** The models the bridge can use: the configured ones first, then what the gateway offers. */
+export function listAgentModels({ timeoutMs = 12_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ socketPath, path: '/models', method: 'GET', timeout: timeoutMs }, (res) => {
+      let raw = '';
+      res.on('data', (c) => { raw = (raw + c).slice(-60000); });
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(raw);
+          if (res.statusCode !== 200) return reject(new Error(`agent_http_${res.statusCode}`));
+          return resolve({ models: Array.isArray(data.models) ? data.models : [], configured: Array.isArray(data.configured) ? data.configured : [], error: data.error || null });
+        } catch { return reject(new Error('agent_models_unreadable')); }
+      });
+    });
+    req.on('timeout', () => req.destroy(new Error('agent_timeout')));
+    req.on('error', reject);
+    req.end();
+  });
+}
