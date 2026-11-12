@@ -96,7 +96,7 @@ function openForge() { setWorkspacePane('forgePane'); sidebar.classList.remove('
 function closeForge() { setWorkspacePane(); }
 function autoSizeForgeInput() { const el=$('forgeInput'); el.style.height='auto'; el.style.height=`${Math.min(el.scrollHeight,180)}px`; }
 function menuMarkup(items, selected, type) {
-  return items.map(item => `<button type="button" class="forge-menu-item ${item.id===selected?'selected':''}" role="option" aria-selected="${item.id===selected}" data-forge-choice="${esc(item.id)}" data-forge-type="${type}"><span class="forge-choice-mark">${item.id===selected?'✓':''}</span><span><b>${esc(item.name)}</b><small>${esc(item.detail || '')}</small></span></button>`).join('');
+  return items.map(item => `<button type="button" class="forge-menu-item ${item.id===selected?'selected':''} ${item.detail?'':'compact'}" role="option" aria-selected="${item.id===selected}" data-forge-choice="${esc(item.id)}" data-forge-type="${type}"><span class="forge-choice-mark">${item.id===selected?'✓':''}</span><span><b>${esc(item.name)}</b>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></button>`).join('');
 }
 function closeForgeMenus() {
   document.querySelectorAll('.forge-menu.open').forEach(x => x.classList.remove('open'));
@@ -110,7 +110,7 @@ function renderForgeMenus() {
 }
 function toggleForgeMenu(name) {
   const menu=$(name==='scope'?'forgeScopeMenu':'forgeModelMenu'); const trigger=$(name==='scope'?'forgeScopeTrigger':'forgeModelTrigger'); const opening=!menu.classList.contains('open');
-  closeForgeMenus(); if(opening){menu.classList.add('open');trigger.setAttribute('aria-expanded','true');}
+  closeForgeMenus(); if(opening){menu.classList.add('open');trigger.setAttribute('aria-expanded','true');menu.querySelector('.selected')?.scrollIntoView({block:'nearest'});}
 }
 function chooseForge(type, value) {
   if(type==='scope'){forgeScope=value;localStorage.setItem('forgeScope',value);} else {forgeModel=value;localStorage.setItem('forgeModel',value);}
